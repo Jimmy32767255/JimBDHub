@@ -25,7 +25,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 用于避免移动端全面屏导致的屏幕边缘控件难以点击
 
-- [ ] “设置”选项卡
+- [x] “设置”选项卡
 
 数据库导入/导出和多语言就在这里选择了，还可以加上检查更新和关于信息
 

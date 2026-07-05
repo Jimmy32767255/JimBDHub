@@ -6,7 +6,8 @@ import { initRecords } from './records.js';
 const views = {
   overview: document.getElementById('overview-view'),
   meds: document.getElementById('meds-view'),
-  records: document.getElementById('records-view')
+  records: document.getElementById('records-view'),
+  settings: document.getElementById('settings-view')
 };
 const pageTitle = document.getElementById('page-title');
 const chartSvg = document.getElementById('mood-chart');
@@ -23,7 +24,7 @@ function setActiveView(name) {
   document.querySelectorAll('.nav-link[data-view]').forEach(link => {
     link.classList.toggle('active', link.dataset.view === name);
   });
-  const titles = { overview: '概览', meds: '药品库', records: '记录' };
+  const titles = { overview: '概览', meds: '药品库', records: '记录', settings: '设置' };
   pageTitle.textContent = titles[name];
   sidebar.classList.remove('open');
   if (name === 'overview') {
