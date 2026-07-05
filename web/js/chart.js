@@ -1,6 +1,24 @@
 import { formatDateTime } from './store.js';
 
 const PADDING = { top: 30, right: 40, bottom: 40, left: 44 };
+const PX_PER_HOUR = 12;
+const HOUR_MS = 60 * 60 * 1000;
+const PAD_HOURS = 6;
+
+function formatAxisTime(ts, spanHours) {
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  const hour = `${pad(d.getHours())}:00`;
+  if (spanHours <= 24) return hour;
+  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hour}`;
+}
+
+function getTimeStepHours(spanHours) {
+  if (spanHours <= 24) return 6;
+  if (spanHours <= 72) return 12;
+  if (spanHours <= 168) return 24;
+  return 24 * Math.ceil(spanHours / 168);
+}
 
 function createSVGElement(tag, attrs = {}) {
   const el = document.createElementNS('http://www.w3.org/2000/svg', tag);
@@ -33,20 +51,31 @@ export function renderChart(records, container, tooltip) {
     return;
   }
 
-  const rect = container.getBoundingClientRect();
-  const width = rect.width;
+  const wrap = container.parentElement;
+  const rect = wrap.getBoundingClientRect();
   const height = rect.height;
+  const minTime = records[0].timestamp;
+  const maxTime = records[records.length - 1].timestamp;
+  const padMs = PAD_HOURS * HOUR_MS;
+  const displayMinTime = minTime - padMs;
+  const displayMaxTime = maxTime + padMs;
+  const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
+  const displaySpanHours = displaySpan / HOUR_MS;
+
+  const absoluteChartW = displaySpanHours * PX_PER_HOUR;
+  const minChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
+  const chartW = Math.max(absoluteChartW, minChartW);
+  const chartH = height - PADDING.top - PADDING.bottom;
+  const width = PADDING.left + chartW + PADDING.right;
+
+  container.setAttribute('width', width);
+  container.setAttribute('height', height);
   container.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  container.removeAttribute('preserveAspectRatio');
 
   const defs = createSVGElement('defs');
 
-  const chartW = width - PADDING.left - PADDING.right;
-  const chartH = height - PADDING.top - PADDING.bottom;
-  const minTime = records[0].timestamp;
-  const maxTime = records[records.length - 1].timestamp;
-  const timeSpan = Math.max(1, maxTime - minTime);
-
-  const xFor = t => PADDING.left + ((t - minTime) / timeSpan) * chartW;
+  const xFor = t => PADDING.left + ((t - displayMinTime) / HOUR_MS) * PX_PER_HOUR;
   const yFor = v => PADDING.top + ((10 - v) / 20) * chartH;
   const yTop = yFor(10);
   const yBottom = yFor(-10);
@@ -87,6 +116,27 @@ export function renderChart(records, container, tooltip) {
   }
   container.appendChild(gridGroup);
 
+  const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
+  const timeStepHours = getTimeStepHours(displaySpanHours);
+  const startHour = Math.ceil(displayMinTime / HOUR_MS / timeStepHours) * timeStepHours;
+  const endHour = Math.floor(displayMaxTime / HOUR_MS / timeStepHours) * timeStepHours;
+  for (let h = startHour; h <= endHour; h += timeStepHours) {
+    const t = h * HOUR_MS;
+    const x = xFor(t);
+    const gridLine = createSVGElement('line', {
+      x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
+      stroke: 'rgba(51,65,85,0.5)', 'stroke-width': 1, 'stroke-dasharray': '3 3'
+    });
+    timeAxisGroup.appendChild(gridLine);
+    const label = createSVGElement('text', {
+      x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
+      fill: '#94a3b8', 'font-size': '10'
+    });
+    label.textContent = formatAxisTime(t, displaySpanHours);
+    timeAxisGroup.appendChild(label);
+  }
+  container.appendChild(timeAxisGroup);
+
   records.forEach(r => {
     if (!r.medication) return;
     const x = xFor(r.timestamp);
@@ -120,28 +170,19 @@ export function renderChart(records, container, tooltip) {
     return d;
   }
 
-  function makeAreaD(items, getValue, baselineY, filterFn) {
+  function makeAreaUnderCurveD(items, getValue, baselineY) {
     if (items.length === 0) return '';
-    const accepted = items.filter(r => filterFn(getValue(r)));
-    if (accepted.length === 0) return '';
-    let d = '';
-    let last = null;
-    for (let i = 0; i < items.length; i++) {
-      const r = items[i];
-      if (!filterFn(getValue(r))) continue;
-      const x = xFor(r.timestamp), y = yFor(getValue(r));
-      if (d === '') {
-        d += `M ${x} ${baselineY} L ${x} ${y}`;
-      } else {
-        const prev = last;
-        const x1 = xFor(prev.timestamp), y1 = yFor(getValue(prev));
-        const cp1x = x1 + (x - x1) * 0.35, cp2x = x - (x - x1) * 0.35;
-        d += ` C ${cp1x} ${y1}, ${cp2x} ${y}, ${x} ${y}`;
-      }
-      last = r;
+    let d = `M ${xFor(items[0].timestamp)} ${baselineY}`;
+    d += ` L ${xFor(items[0].timestamp)} ${yFor(getValue(items[0]))}`;
+    for (let i = 1; i < items.length; i++) {
+      const prev = items[i - 1], curr = items[i];
+      const x1 = xFor(prev.timestamp), y1 = yFor(getValue(prev));
+      const x2 = xFor(curr.timestamp), y2 = yFor(getValue(curr));
+      const cp1x = x1 + (x2 - x1) * 0.35;
+      const cp2x = x2 - (x2 - x1) * 0.35;
+      d += ` C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
     }
-    if (d === '') return '';
-    d += ` L ${xFor(last.timestamp)} ${baselineY} Z`;
+    d += ` L ${xFor(items[items.length - 1].timestamp)} ${baselineY} Z`;
     return d;
   }
 
@@ -198,13 +239,9 @@ export function renderChart(records, container, tooltip) {
     }));
 
     const zeroY = yFor(0);
-    const positiveAreaD = makeAreaD(records, r => r.value, zeroY, v => v >= 0);
-    const negativeAreaD = makeAreaD(records, r => r.value, zeroY, v => v < 0);
-    if (positiveAreaD) {
-      container.appendChild(createSVGElement('path', { d: positiveAreaD, fill: 'url(#grad-pos)', stroke: 'none', opacity: '0.25' }));
-    }
-    if (negativeAreaD) {
-      container.appendChild(createSVGElement('path', { d: negativeAreaD, fill: 'url(#grad-neg)', stroke: 'none', opacity: '0.25' }));
+    const areaD = makeAreaUnderCurveD(records, r => r.value, zeroY);
+    if (areaD) {
+      container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-main)', stroke: 'none', opacity: '0.12' }));
     }
   }
 
@@ -269,11 +306,14 @@ export function renderChart(records, container, tooltip) {
     tooltip.classList.add('visible');
 
     const tRect = tooltip.getBoundingClientRect();
-    const wrapRect = container.parentElement.getBoundingClientRect();
-    let left = x + 16;
+    const wrapRect = wrap.getBoundingClientRect();
+    const visibleX = x - wrap.scrollLeft;
+    let left = visibleX + 16;
     let top = y - 16;
-    if (left + tRect.width > wrapRect.width) left = x - tRect.width - 16;
+    if (left + tRect.width > wrapRect.width) left = visibleX - tRect.width - 16;
+    if (left < 0) left = 0;
     if (top + tRect.height > wrapRect.height) top = wrapRect.height - tRect.height - 8;
+    if (top < PADDING.top) top = PADDING.top;
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${top}px`;
   }
@@ -304,12 +344,12 @@ export function renderChart(records, container, tooltip) {
 
   container.addEventListener('mousemove', e => {
     const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const x = e.clientX - rect.left + wrap.scrollLeft;
     if (x < PADDING.left || x > width - PADDING.right) {
       hideTooltip();
       return;
     }
-    const t = minTime + ((x - PADDING.left) / chartW) * timeSpan;
+    const t = displayMinTime + ((x - PADDING.left) / chartW) * displaySpan;
     let nearest = records[0];
     let minDiff = Infinity;
     records.forEach(r => {
@@ -324,9 +364,9 @@ export function renderChart(records, container, tooltip) {
   container.addEventListener('touchstart', e => {
     const rect = container.getBoundingClientRect();
     const touch = e.touches[0];
-    const x = touch.clientX - rect.left;
+    const x = touch.clientX - rect.left + wrap.scrollLeft;
     if (x < PADDING.left || x > width - PADDING.right) return;
-    const t = minTime + ((x - PADDING.left) / chartW) * timeSpan;
+    const t = displayMinTime + ((x - PADDING.left) / chartW) * displaySpan;
     let nearest = records[0];
     let minDiff = Infinity;
     records.forEach(r => {

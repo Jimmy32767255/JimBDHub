@@ -208,9 +208,12 @@ body {
   position: relative;
   height: 420px;
   padding: 20px;
+  overflow-x: auto;
+  overflow-y: hidden;
 }
 #mood-chart {
-  width: 100%;
+  display: block;
+  min-width: 100%;
   height: 100%;
   overflow: visible;
 }
@@ -557,6 +560,6 @@ body {
   }
   .bottom-nav { display: flex; }
   .card-header { padding: 14px 16px; }
-  .chart-wrap { height: 320px; padding: 12px; }
+  .chart-wrap { height: 320px; padding: 12px; overflow-x: auto; }
   .form-row.two-col, .form-row.three-col { grid-template-columns: 1fr; }
 }
