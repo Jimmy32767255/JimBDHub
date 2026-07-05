@@ -1,0 +1,6 @@
+pywebview>=5.0
+
+# GNU/Linux 用户还需安装以下任一 GUI 后端（二选一即可）：
+#   PyQt6 方案：pip install PyQt6
+#   GTK 方案：  pip install PyGObject（同时需要系统安装 GTK3/WebKit2GTK）
+# Windows 与 macOS 通常无需额外安装 GUI 后端。
