@@ -2,9 +2,6 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.jimmy.bdhub">
 
-    <!-- 用于加载 Google Fonts；若改用本地字体可移除 -->
-    <uses-permission android:name="android.permission.INTERNET" />
-
     <application
         android:allowBackup="true"
         android:icon="@mipmap/ic_launcher"
@@ -12,8 +9,6 @@
         android:roundIcon="@mipmap/ic_launcher_round"
         android:supportsRtl="true"
         android:theme="@style/Theme.AppCompat.NoActionBar"
-        android:usesCleartextTraffic="true">
-        <!-- usesCleartextTraffic 仅用于调试日志回传，生产环境建议移除 -->
 
         <activity
             android:name=".MainActivity"
