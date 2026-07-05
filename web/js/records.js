@@ -62,7 +62,7 @@ function renderRecords() {
     const item = document.createElement('div');
     item.className = 'record-item';
     item.style.animationDelay = `${idx * 50}ms`;
-    const mainClass = r.value >= 0 ? 'positive' : 'negative';
+    const mainClass = r.value === 0 ? 'neutral' : (r.value > 0 ? 'positive' : 'negative');
     const mixedText = r.mixed ? ` / ${r.mixedValue > 0 ? '+' : ''}${r.mixedValue}` : '';
     const medText = r.medication ? ` · 药效 ±${r.medicationStrength}` : '';
     item.innerHTML = `

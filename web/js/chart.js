@@ -27,7 +27,8 @@ function createSVGElement(tag, attrs = {}) {
 }
 
 function colorForValue(v, alpha = 1) {
-  if (v >= 0) {
+  if (v === 0) return `rgba(100, 116, 139, ${alpha})`;
+  if (v > 0) {
     const t = Math.min(1, v / 10);
     return `rgba(239, ${68 + Math.round(100 * (1 - t))}, ${68 + Math.round(130 * (1 - t))}, ${alpha})`;
   }

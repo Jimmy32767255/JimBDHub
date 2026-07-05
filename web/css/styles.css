@@ -474,6 +474,7 @@ body {
 }
 .value-badge.positive { background: rgba(239,68,68,0.15); color: var(--accent-red); }
 .value-badge.negative { background: rgba(59,130,246,0.15); color: var(--accent-blue); }
+.value-badge.neutral { background: rgba(100,116,139,0.15); color: #94a3b8; }
 .record-item time { font-size: 12px; color: var(--text-muted); }
 .record-item .note { font-size: 13px; color: var(--text-muted); margin: 8px 0; }
 .record-item footer { display: flex; gap: 8px; justify-content: flex-end; }
