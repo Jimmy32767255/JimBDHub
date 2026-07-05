@@ -13,6 +13,12 @@ const medUnitInput = document.getElementById('med-unit');
 const medRemainingInput = document.getElementById('med-remaining');
 const medNoteInput = document.getElementById('med-note');
 
+const stockModal = document.getElementById('stock-modal');
+const stockForm = document.getElementById('stock-form');
+const stockMedIdInput = document.getElementById('stock-med-id');
+const stockDeltaInput = document.getElementById('stock-delta');
+const stockNoteInput = document.getElementById('stock-note');
+
 function percent(med) {
   return med.totalPills > 0 ? Math.round((med.remainingPills / med.totalPills) * 100) : 0;
 }
@@ -34,8 +40,7 @@ function renderMeds() {
       <td>${med.note || '-'}</td>
       <td>
         <div class="med-actions">
-          <button class="btn btn-icon" data-action="take" data-id="${med.id}" title="服用一粒">-1</button>
-          <button class="btn btn-icon" data-action="add" data-id="${med.id}" title">+1</button>
+          <button class="btn btn-icon" data-action="adjust" data-id="${med.id}" title="调整库存">+/-</button>
           <button class="btn btn-icon" data-action="edit" data-id="${med.id}">编辑</button>
           <button class="btn btn-danger" data-action="delete" data-id="${med.id}">删除</button>
         </div>
@@ -95,6 +100,17 @@ function closeModal() {
   medModal.setAttribute('aria-hidden', 'true');
 }
 
+function openStockModal(med) {
+  stockForm.reset();
+  stockMedIdInput.value = med.id;
+  stockModal.setAttribute('aria-hidden', 'false');
+  stockDeltaInput.focus();
+}
+
+function closeStockModal() {
+  stockModal.setAttribute('aria-hidden', 'true');
+}
+
 function handleFormSubmit(e) {
   e.preventDefault();
   const box = Number(medBoxInput.value) || 0;
@@ -121,11 +137,28 @@ function handleFormSubmit(e) {
   closeModal();
 }
 
+function handleStockSubmit(e) {
+  e.preventDefault();
+  const id = stockMedIdInput.value;
+  const delta = Number(stockDeltaInput.value) || 0;
+  const note = stockNoteInput.value.trim();
+  if (delta === 0) {
+    alert('数量变化不能为 0');
+    return;
+  }
+  store.changeMedStock(id, delta, note || '库存调整');
+  closeStockModal();
+}
+
 function initMeds() {
   document.getElementById('add-med-btn').addEventListener('click', () => openModal());
   document.getElementById('med-cancel').addEventListener('click', closeModal);
   medModal.querySelector('.modal-backdrop').addEventListener('click', closeModal);
   medForm.addEventListener('submit', handleFormSubmit);
+
+  document.getElementById('stock-cancel').addEventListener('click', closeStockModal);
+  stockModal.querySelector('.modal-backdrop').addEventListener('click', closeStockModal);
+  stockForm.addEventListener('submit', handleStockSubmit);
 
   document.querySelector('#meds-table tbody').addEventListener('click', e => {
     const btn = e.target.closest('button[data-action]');
@@ -135,10 +168,8 @@ function initMeds() {
     const med = store.data.meds.find(m => m.id === id);
     if (!med) return;
 
-    if (action === 'take') {
-      store.changeMedStock(id, -1, '服用一粒');
-    } else if (action === 'add') {
-      store.changeMedStock(id, 1, '手动增加一粒');
+    if (action === 'adjust') {
+      openStockModal(med);
     } else if (action === 'edit') {
       openModal(med);
     } else if (action === 'delete') {

@@ -226,6 +226,30 @@
     </div>
   </div>
 
+  <div class="modal" id="stock-modal" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3>调整库存</h3>
+      <form id="stock-form">
+        <input type="hidden" id="stock-med-id">
+        <div class="form-row two-col">
+          <label class="form-field">
+            <span class="form-label">数量变化（正数增加，负数减少）</span>
+            <input type="number" id="stock-delta" step="1" required>
+          </label>
+          <label class="form-field">
+            <span class="form-label">理由</span>
+            <input type="text" id="stock-note" placeholder="如：今日服用 / 新开一盒" required>
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="stock-cancel">取消</button>
+          <button type="submit" class="btn btn-primary">确认调整</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
