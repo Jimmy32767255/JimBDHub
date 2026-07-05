@@ -14,8 +14,8 @@
   --radius: 16px;
   --radius-sm: 12px;
   --shadow: 0 10px 30px rgba(0,0,0,0.25);
-  --font-display: 'Noto Serif SC', serif;
-  --font-body: 'Noto Sans SC', sans-serif;
+  --font-display: 'Noto Serif SC', 'Source Han Serif SC', 'SimSun', serif;
+  --font-body: 'Noto Sans SC', 'Source Han Sans SC', 'PingFang SC', 'Microsoft YaHei', sans-serif;
 }
 
 * { box-sizing: border-box; }
