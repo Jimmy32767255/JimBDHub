@@ -40,24 +40,6 @@ export function renderChart(records, container, tooltip) {
 
   const defs = createSVGElement('defs');
 
-  const posGradient = createSVGElement('linearGradient', { id: 'grad-pos', x1: '0%', y1: '0%', x2: '0%', y2: '100%' });
-  posGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': '#ef4444' }));
-  posGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': 'rgba(239,68,68,0.05)' }));
-  defs.appendChild(posGradient);
-
-  const negGradient = createSVGElement('linearGradient', { id: 'grad-neg', x1: '0%', y1: '0%', x2: '0%', y2: '100%' });
-  negGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': 'rgba(59,130,246,0.05)' }));
-  negGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': '#3b82f6' }));
-  defs.appendChild(negGradient);
-
-  const mixedGradient = createSVGElement('linearGradient', { id: 'grad-mixed', x1: '0%', y1: '0%', x2: '0%', y2: '100%' });
-  mixedGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': 'rgba(239,68,68,0.45)' }));
-  mixedGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': 'rgba(148,163,184,0.15)' }));
-  mixedGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': 'rgba(59,130,246,0.45)' }));
-  defs.appendChild(mixedGradient);
-
-  container.appendChild(defs);
-
   const chartW = width - PADDING.left - PADDING.right;
   const chartH = height - PADDING.top - PADDING.bottom;
   const minTime = records[0].timestamp;
@@ -66,6 +48,26 @@ export function renderChart(records, container, tooltip) {
 
   const xFor = t => PADDING.left + ((t - minTime) / timeSpan) * chartW;
   const yFor = v => PADDING.top + ((10 - v) / 20) * chartH;
+  const yTop = yFor(10);
+  const yBottom = yFor(-10);
+
+  const posGradient = createSVGElement('linearGradient', { id: 'grad-pos', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+  posGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': '#ef4444' }));
+  posGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': 'rgba(239,68,68,0.05)' }));
+  defs.appendChild(posGradient);
+
+  const negGradient = createSVGElement('linearGradient', { id: 'grad-neg', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+  negGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': 'rgba(59,130,246,0.05)' }));
+  negGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': '#3b82f6' }));
+  defs.appendChild(negGradient);
+
+  const mixedGradient = createSVGElement('linearGradient', { id: 'grad-mixed', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+  mixedGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': 'rgba(239,68,68,0.45)' }));
+  mixedGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': 'rgba(148,163,184,0.15)' }));
+  mixedGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': 'rgba(59,130,246,0.45)' }));
+  defs.appendChild(mixedGradient);
+
+  container.appendChild(defs);
 
   const gridGroup = createSVGElement('g', { class: 'grid' });
   for (let v = -10; v <= 10; v += 2) {
@@ -183,7 +185,7 @@ export function renderChart(records, container, tooltip) {
       fill: 'none', stroke: '#3b82f6', 'stroke-width': 2.5
     }));
   } else {
-    const mainGradient = createSVGElement('linearGradient', { id: 'grad-main', x1: '0%', y1: '0%', x2: '0%', y2: '100%' });
+    const mainGradient = createSVGElement('linearGradient', { id: 'grad-main', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
     mainGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': '#ef4444' }));
     mainGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': '#64748b' }));
     mainGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': '#3b82f6' }));
@@ -336,5 +338,3 @@ export function renderChart(records, container, tooltip) {
   }, { passive: true });
   container.addEventListener('touchend', hideTooltip, { passive: true });
 }
-
-

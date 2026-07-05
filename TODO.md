@@ -31,7 +31,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 - [ ] 个人档案
 
-基本上是双相类型（I型/II型/环性心境障碍/未特定），后面可以加上其它对就诊有用的信息
+基本上是双相类型（I型/II型/环性心境障碍/未特定），以后可以加上其它对就诊有用的信息
 
 - [ ] 月/年度报告？
 
@@ -39,7 +39,10 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 ## 修复：
 
-- [ ] 修复渲染问题（颜色）
+- [x] 修复渲染问题（颜色）
+
+有时候，当情绪为+时，数据点之间的连接线仍然为蓝色
+
 - [ ] 移动端界面无法滑动问题
 
 ## 修改：
