@@ -54,4 +54,4 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 ## 移除：
 
-- [ ] 示例数据
+- [x] 示例数据

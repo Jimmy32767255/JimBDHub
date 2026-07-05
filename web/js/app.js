@@ -13,7 +13,6 @@ const chartSvg = document.getElementById('mood-chart');
 const chartTooltip = document.getElementById('chart-tooltip');
 const sidebar = document.getElementById('sidebar');
 const menuToggle = document.getElementById('menu-toggle');
-const resetBtn = document.getElementById('reset-data-btn');
 
 let currentRange = 'week';
 
@@ -58,12 +57,6 @@ function initNavigation() {
     });
   });
 
-  resetBtn.addEventListener('click', () => {
-    if (confirm('确定重置为示例数据吗？当前数据将被覆盖。')) {
-      store.resetSample();
-      drawChart();
-    }
-  });
 }
 
 function initRouting() {

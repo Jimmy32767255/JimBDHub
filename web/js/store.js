@@ -27,42 +27,6 @@ function nowHourFloor() {
   return d.getTime();
 }
 
-function sampleData() {
-  const base = Date.now() - 1000 * 60 * 60 * 24 * 14;
-  const records = [];
-  for (let i = 0; i < 21; i++) {
-    const t = base + i * 1000 * 60 * 60 * 16;
-    const v = Math.round(Math.sin(i * 0.6) * 7 + (Math.random() - 0.5) * 4);
-    const mixed = i % 5 === 0;
-    records.push({
-      id: generateId(),
-      timestamp: t,
-      value: Math.max(-10, Math.min(10, v)),
-      mixed,
-      mixedValue: mixed ? Math.max(-10, Math.min(10, -v + (Math.random() - 0.5) * 3)) : 0,
-      medication: i % 2 === 0,
-      medicationStrength: i % 2 === 0 ? 4 : 0,
-      note: i % 3 === 0 ? '记录示例备注：睡眠与精力变化' : ''
-    });
-  }
-  records.sort((a, b) => a.timestamp - b.timestamp);
-
-  const meds = [
-    { id: generateId(), name: '碳酸锂', category: '心境稳定剂', boxCount: 2, boardPerBox: 5, pillsPerBoard: 10, unit: '片', totalPills: 100, remainingPills: 72, note: '早晚各一片' },
-    { id: generateId(), name: '喹硫平', category: '非典型抗精神病药', boxCount: 1, boardPerBox: 4, pillsPerBoard: 7, unit: '片', totalPills: 28, remainingPills: 19, note: '睡前服用' },
-    { id: generateId(), name: '丙戊酸钠', category: '心境稳定剂', boxCount: 3, boardPerBox: 3, pillsPerBoard: 20, unit: '片', totalPills: 180, remainingPills: 156, note: '' }
-  ];
-
-  const logs = [
-    { id: generateId(), medicationId: meds[0].id, name: meds[0].name, delta: -2, remainingAfter: 72, timestamp: Date.now() - 1000 * 60 * 60 * 8, note: '当日服用' },
-    { id: generateId(), medicationId: meds[0].id, name: meds[0].name, delta: -2, remainingAfter: 74, timestamp: Date.now() - 1000 * 60 * 60 * 32, note: '当日服用' },
-    { id: generateId(), medicationId: meds[1].id, name: meds[1].name, delta: -1, remainingAfter: 19, timestamp: Date.now() - 1000 * 60 * 60 * 10, note: '睡前服用' },
-    { id: generateId(), medicationId: meds[1].id, name: meds[1].name, delta: 28, remainingAfter: 28, timestamp: Date.now() - 1000 * 60 * 60 * 240, note: '新开一盒' }
-  ];
-
-  return { records, meds, logs };
-}
-
 export const store = {
   data: {
     records: [],
@@ -75,18 +39,6 @@ export const store = {
     this.data.records = load(KEYS.records, []);
     this.data.meds = load(KEYS.meds, []);
     this.data.logs = load(KEYS.logs, []);
-    if (this.data.records.length === 0) {
-      this.resetSample();
-    }
-  },
-
-  resetSample() {
-    const { records, meds, logs } = sampleData();
-    this.data.records = records;
-    this.data.meds = meds;
-    this.data.logs = logs;
-    this.persist();
-    this.notify();
   },
 
   persist() {
