@@ -2,6 +2,7 @@ import { store } from './store.js';
 import { renderChart } from './chart.js';
 import { initMeds } from './meds.js';
 import { initRecords } from './records.js';
+import { initSettings } from './settings.js';
 
 const views = {
   overview: document.getElementById('overview-view'),
@@ -91,6 +92,7 @@ function init() {
   initRouting();
   initMeds();
   initRecords();
+  initSettings();
   initResize();
   drawChart();
   store.subscribe(() => {

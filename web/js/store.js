@@ -136,6 +136,35 @@ export const store = {
     });
     this.persist();
     this.notify();
+  },
+
+  buildBackup() {
+    return {
+      version: 1,
+      exportedAt: new Date().toISOString(),
+      records: this.data.records,
+      meds: this.data.meds,
+      logs: this.data.logs
+    };
+  },
+
+  validateBackup(data) {
+    if (!data || typeof data !== 'object') return false;
+    if (data.version !== 1) return false;
+    if (!Array.isArray(data.records)) return false;
+    if (!Array.isArray(data.meds)) return false;
+    if (!Array.isArray(data.logs)) return false;
+    return true;
+  },
+
+  restoreBackup(data) {
+    if (!this.validateBackup(data)) return false;
+    this.data.records = data.records;
+    this.data.meds = data.meds;
+    this.data.logs = data.logs;
+    this.persist();
+    this.notify();
+    return true;
   }
 };
 

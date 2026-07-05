@@ -475,6 +475,13 @@ body {
 .record-item .note { font-size: 13px; color: var(--text-muted); margin: 8px 0; }
 .record-item footer { display: flex; gap: 8px; justify-content: flex-end; }
 
+.settings-actions {
+  display: flex;
+  gap: 12px;
+  padding: 20px;
+  flex-wrap: wrap;
+}
+
 .bottom-nav {
   display: none;
   position: fixed;

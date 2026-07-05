@@ -163,7 +163,12 @@
       <section class="view" id="settings-view" aria-labelledby="page-title">
         <div class="card">
           <div class="card-header">
-            <h3>设置</h3>
+            <h3>数据备份</h3>
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" id="export-backup-btn">导出备份</button>
+            <button class="btn btn-ghost" id="import-backup-btn">导入备份</button>
+            <input type="file" id="import-backup-input" accept=".json,application/json" hidden>
           </div>
         </div>
       </section>
