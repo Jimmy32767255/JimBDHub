@@ -1,7 +1,8 @@
 const KEYS = {
   records: 'jim_mood_records',
   meds: 'jim_medications',
-  logs: 'jim_med_logs'
+  logs: 'jim_med_logs',
+  sleeps: 'jim_sleep_records'
 };
 
 function generateId() {
@@ -31,7 +32,8 @@ export const store = {
   data: {
     records: [],
     meds: [],
-    logs: []
+    logs: [],
+    sleeps: []
   },
   listeners: [],
 
@@ -39,12 +41,14 @@ export const store = {
     this.data.records = load(KEYS.records, []);
     this.data.meds = load(KEYS.meds, []);
     this.data.logs = load(KEYS.logs, []);
+    this.data.sleeps = load(KEYS.sleeps, []);
   },
 
   persist() {
     save(KEYS.records, this.data.records);
     save(KEYS.meds, this.data.meds);
     save(KEYS.logs, this.data.logs);
+    save(KEYS.sleeps, this.data.sleeps);
   },
 
   subscribe(fn) {
@@ -68,6 +72,16 @@ export const store = {
       .sort((a, b) => a.timestamp - b.timestamp);
   },
 
+  getSleepsInRange(range) {
+    const now = Date.now();
+    let start = 0;
+    if (range === 'week') start = now - 7 * 24 * 60 * 60 * 1000;
+    if (range === 'month') start = now - 30 * 24 * 60 * 60 * 1000;
+    return this.data.sleeps
+      .filter(s => s.startTime >= start)
+      .sort((a, b) => a.startTime - b.startTime);
+  },
+
   addRecord(record) {
     const r = { ...record, id: generateId() };
     this.data.records.push(r);
@@ -88,6 +102,30 @@ export const store = {
 
   deleteRecord(id) {
     this.data.records = this.data.records.filter(r => r.id !== id);
+    this.persist();
+    this.notify();
+  },
+
+  addSleep(sleep) {
+    const s = { ...sleep, id: generateId() };
+    this.data.sleeps.push(s);
+    this.data.sleeps.sort((a, b) => a.startTime - b.startTime);
+    this.persist();
+    this.notify();
+    return s;
+  },
+
+  updateSleep(id, patch) {
+    const idx = this.data.sleeps.findIndex(s => s.id === id);
+    if (idx === -1) return;
+    this.data.sleeps[idx] = { ...this.data.sleeps[idx], ...patch };
+    this.data.sleeps.sort((a, b) => a.startTime - b.startTime);
+    this.persist();
+    this.notify();
+  },
+
+  deleteSleep(id) {
+    this.data.sleeps = this.data.sleeps.filter(s => s.id !== id);
     this.persist();
     this.notify();
   },
@@ -144,7 +182,8 @@ export const store = {
       exportedAt: new Date().toISOString(),
       records: this.data.records,
       meds: this.data.meds,
-      logs: this.data.logs
+      logs: this.data.logs,
+      sleeps: this.data.sleeps
     };
   },
 
@@ -154,6 +193,7 @@ export const store = {
     if (!Array.isArray(data.records)) return false;
     if (!Array.isArray(data.meds)) return false;
     if (!Array.isArray(data.logs)) return false;
+    if ('sleeps' in data && !Array.isArray(data.sleeps)) return false;
     return true;
   },
 
@@ -162,6 +202,7 @@ export const store = {
     this.data.records = data.records;
     this.data.meds = data.meds;
     this.data.logs = data.logs;
+    this.data.sleeps = data.sleeps || [];
     this.persist();
     this.notify();
     return true;

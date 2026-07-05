@@ -102,7 +102,11 @@
         <div class="records-layout">
           <div class="card record-form-card">
             <div class="card-header">
-              <h3 id="record-form-title">新增情绪记录</h3>
+              <h3>记录</h3>
+              <div class="form-tabs">
+                <button type="button" class="form-tab active" data-form="mood">情绪</button>
+                <button type="button" class="form-tab" data-form="sleep">睡眠</button>
+              </div>
             </div>
             <form id="record-form" class="record-form">
               <input type="hidden" id="record-id">
@@ -148,6 +152,43 @@
               <div class="form-actions">
                 <button type="button" class="btn btn-ghost" id="record-cancel">取消</button>
                 <button type="submit" class="btn btn-primary">保存记录</button>
+              </div>
+            </form>
+            <form id="sleep-form" class="record-form" hidden>
+              <input type="hidden" id="sleep-id">
+              <div class="form-row two-col">
+                <label class="form-field">
+                  <span class="form-label">入睡时间</span>
+                  <input type="datetime-local" id="sleep-start" required>
+                </label>
+                <label class="form-field">
+                  <span class="form-label">清醒时间</span>
+                  <input type="datetime-local" id="sleep-end" required>
+                </label>
+              </div>
+              <div class="form-row">
+                <label class="form-field">
+                  <span class="form-label">睡眠质量 <output id="sleep-quality-out">3</output> / 5</span>
+                  <input type="range" id="sleep-quality" min="0" max="5" step="1" value="3">
+                  <span class="range-hint">0 最差，5 最好</span>
+                </label>
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <span class="form-label">中断记录</span>
+                  <div id="sleep-interruptions"></div>
+                  <button type="button" class="btn btn-ghost btn-sm" id="add-interruption-btn">添加中断</button>
+                </div>
+              </div>
+              <div class="form-row">
+                <label class="form-field">
+                  <span class="form-label">备注</span>
+                  <textarea id="sleep-note" rows="2" placeholder="如梦多、环境嘈杂等"></textarea>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-ghost" id="sleep-cancel">取消</button>
+                <button type="submit" class="btn btn-primary">保存睡眠记录</button>
               </div>
             </form>
           </div>

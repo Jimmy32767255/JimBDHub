@@ -399,6 +399,29 @@ body {
   margin-top: 8px;
 }
 
+.form-tabs {
+  display: inline-flex;
+  background: var(--bg);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+}
+.form-tab {
+  background: transparent;
+  border: none;
+  color: var(--text-muted);
+  padding: 6px 14px;
+  border-radius: 8px;
+  font-size: 13px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.form-tab.active, .form-tab:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+
 .btn {
   display: inline-flex;
   align-items: center;
@@ -478,6 +501,63 @@ body {
 .record-item time { font-size: 12px; color: var(--text-muted); }
 .record-item .note { font-size: 13px; color: var(--text-muted); margin: 8px 0; }
 .record-item footer { display: flex; gap: 8px; justify-content: flex-end; }
+
+.quality-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 10px;
+  border-radius: 20px;
+  font-weight: 700;
+  font-size: 13px;
+  background: rgba(139,92,246,0.15);
+  color: #a78bfa;
+}
+
+.sleep-meta {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 12px;
+  color: var(--text-muted);
+  margin: 8px 0;
+}
+
+.sleep-bar-wrap {
+  margin: 10px 0;
+}
+
+.sleep-bar {
+  position: relative;
+  display: flex;
+  width: 220px;
+  height: 14px;
+  border-radius: 7px;
+  overflow: hidden;
+  background: var(--surface-2);
+}
+.sleep-segment {
+  height: 100%;
+}
+.sleep-segment.asleep { background: #8b5cf6; }
+.sleep-segment.awake { background: #64748b; }
+.sleep-interruption-line {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 1px;
+  background: #ef4444;
+  pointer-events: none;
+}
+
+.interruption-row {
+  display: grid;
+  grid-template-columns: 1fr 1fr auto;
+  gap: 12px;
+  align-items: end;
+  margin-bottom: 12px;
+}
+.interruption-row .btn { align-self: end; }
 
 .settings-actions {
   display: flex;
@@ -563,4 +643,6 @@ body {
   .card-header { padding: 14px 16px; }
   .chart-wrap { height: 320px; padding: 12px; overflow-x: auto; }
   .form-row.two-col, .form-row.three-col { grid-template-columns: 1fr; }
+  .interruption-row { grid-template-columns: 1fr; }
+  .sleep-bar { width: 100%; }
 }
