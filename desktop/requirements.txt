@@ -1,6 +1,11 @@
 pywebview>=5.0
+PyQt6
+qtpy
 
-# GNU/Linux 用户还需安装以下任一 GUI 后端（二选一即可）：
-#   PyQt6 方案：pip install PyQt6
-#   GTK 方案：  pip install PyGObject（同时需要系统安装 GTK3/WebKit2GTK）
+# GNU/Linux 用户如果使用系统包管理器，Arch Linux 上可能还需要：
+#   sudo pacman -S python-pyqt6 python-pyqt6-webengine
+#
+# GTK 备选方案（不需要 PyQt6）：
+#   pip install PyGObject
+#   同时需要系统安装 GTK3 / WebKit2GTK（Arch: webkit2gtk）
 # Windows 与 macOS 通常无需额外安装 GUI 后端。

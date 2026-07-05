@@ -8,28 +8,56 @@
     source venv/bin/activate  # Windows: venv\\Scripts\\activate
     pip install -r requirements.txt
     python main.py
+
+说明：
+- 强制使用 PyQt6（避免系统残留的不完整 PyQt5 被 qtpy 选中）。
+- 通过本地 HTTP 服务器加载页面，避免 file:// 协议的 ES Module CORS 限制。
 """
 
 import os
 import sys
+import threading
+from http.server import HTTPServer, SimpleHTTPRequestHandler
+from pathlib import Path
+
+# 强制 qtpy / pywebview 使用 PyQt6，避免系统上残缺的 PyQt5 被优先选中。
+os.environ.setdefault("QT_API", "pyqt6")
+
 import webview
 
 
-def get_index_path() -> str:
-    script_dir = os.path.dirname(os.path.abspath(__file__))
-    index_path = os.path.join(script_dir, "..", "web", "index.html")
-    return os.path.abspath(index_path)
+def get_web_root() -> Path:
+    return Path(__file__).resolve().parent.parent / "web"
+
+
+def start_http_server(root: Path, port: int = 8765) -> HTTPServer:
+    class Handler(SimpleHTTPRequestHandler):
+        def __init__(self, *args, **kwargs):
+            super().__init__(*args, directory=str(root), **kwargs)
+
+        def log_message(self, format, *args):
+            # 静默内置 server 的访问日志
+            pass
+
+    server = HTTPServer(("127.0.0.1", port), Handler)
+    thread = threading.Thread(target=server.serve_forever, daemon=True)
+    thread.start()
+    return server
 
 
 def main() -> None:
-    index_path = get_index_path()
-    if not os.path.exists(index_path):
-        print(f"找不到前端页面: {index_path}", file=sys.stderr)
+    web_root = get_web_root()
+    if not web_root.exists():
+        print(f"找不到前端页面目录: {web_root}", file=sys.stderr)
         sys.exit(1)
+
+    server = start_http_server(web_root)
+    port = server.server_address[1]
+    url = f"http://127.0.0.1:{port}/index.html"
 
     webview.create_window(
         title="JimBDHub",
-        url=f"file://{index_path}",
+        url=url,
         width=1200,
         height=800,
         min_size=(800, 600),
