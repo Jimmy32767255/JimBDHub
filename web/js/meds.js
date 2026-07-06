@@ -20,6 +20,101 @@ const stockMedIdInput = document.getElementById('stock-med-id');
 const stockDeltaInput = document.getElementById('stock-delta');
 const stockNoteInput = document.getElementById('stock-note');
 
+const medDbSearch = document.getElementById('med-db-search');
+const medDbTags = document.getElementById('med-db-tags');
+const medDbResults = document.getElementById('med-db-results');
+
+let medDbData = [];
+let medDbTagsList = [];
+let medDbSelectedTag = '';
+
+async function loadMedDB() {
+  try {
+    const res = await fetch('MedDB.json');
+    if (!res.ok) throw new Error('Failed to load MedDB');
+    const data = await res.json();
+    medDbData = data.medicines || [];
+    medDbTagsList = Array.from(new Set(medDbData.flatMap(m => m.tags || []))).sort();
+    renderTags();
+  } catch (err) {
+    medDbData = [];
+    medDbTagsList = [];
+  }
+}
+
+function renderTags() {
+  medDbTags.innerHTML = '';
+  const allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = `med-db-tag ${!medDbSelectedTag ? 'active' : ''}`;
+  allBtn.textContent = t('meds.form.dbTagAll');
+  allBtn.addEventListener('click', () => {
+    medDbSelectedTag = '';
+    renderTags();
+    renderMedResults(filterMeds(medDbSearch.value.trim(), medDbSelectedTag));
+  });
+  medDbTags.appendChild(allBtn);
+
+  medDbTagsList.forEach(tag => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `med-db-tag ${medDbSelectedTag === tag ? 'active' : ''}`;
+    btn.textContent = tag;
+    btn.addEventListener('click', () => {
+      medDbSelectedTag = medDbSelectedTag === tag ? '' : tag;
+      renderTags();
+      renderMedResults(filterMeds(medDbSearch.value.trim(), medDbSelectedTag));
+    });
+    medDbTags.appendChild(btn);
+  });
+}
+
+function filterMeds(query, tag) {
+  const q = query.toLowerCase();
+  return medDbData.filter(med => {
+    const matchesQuery = !q ||
+      med.name.toLowerCase().includes(q) ||
+      (med.category && med.category.toLowerCase().includes(q)) ||
+      (med.tags || []).some(tag => tag.toLowerCase().includes(q));
+    const matchesTag = !tag || (med.tags || []).includes(tag);
+    return matchesQuery && matchesTag;
+  });
+}
+
+function renderMedResults(results) {
+  medDbResults.innerHTML = '';
+  if (!results.length) {
+    medDbResults.innerHTML = `<div class="med-db-empty">${t('meds.form.dbNoResults')}</div>`;
+    return;
+  }
+  results.forEach(med => {
+    const item = document.createElement('button');
+    item.type = 'button';
+    item.className = 'med-db-result';
+    item.innerHTML = `
+      <span class="med-db-result-name">${med.name}</span>
+      <span class="med-db-result-meta">${med.category || ''} · ${(med.tags || []).slice(0, 3).join(' / ')}</span>
+    `;
+    item.addEventListener('click', () => fillMedForm(med));
+    medDbResults.appendChild(item);
+  });
+}
+
+function fillMedForm(med) {
+  medNameInput.value = med.name;
+  medCategoryInput.value = med.category || '';
+  medBoxInput.value = 1;
+  medBoardInput.value = 1;
+  medPillsInput.value = med.pillsPerBoard || 0;
+  medUnitInput.value = med.unit || '片';
+  medRemainingInput.value = med.pillsPerBoard || 0;
+  medNoteInput.value = med.note || '';
+  medDbSearch.value = '';
+  medDbSelectedTag = '';
+  renderTags();
+  renderMedResults([]);
+}
+
 function percent(med) {
   return med.totalPills > 0 ? Math.round((med.remainingPills / med.totalPills) * 100) : 0;
 }
@@ -78,6 +173,10 @@ function renderLogs() {
 
 function openModal(med = null) {
   medForm.reset();
+  medDbSearch.value = '';
+  medDbSelectedTag = '';
+  renderTags();
+  renderMedResults([]);
   if (med) {
     medModalTitle.textContent = t('meds.modal.editTitle');
     medIdInput.value = med.id;
@@ -157,6 +256,10 @@ function initMeds() {
   medModal.querySelector('.modal-backdrop').addEventListener('click', closeModal);
   medForm.addEventListener('submit', handleFormSubmit);
 
+  medDbSearch.addEventListener('input', () => {
+    renderMedResults(filterMeds(medDbSearch.value.trim(), medDbSelectedTag));
+  });
+
   document.getElementById('stock-cancel').addEventListener('click', closeStockModal);
   stockModal.querySelector('.modal-backdrop').addEventListener('click', closeStockModal);
   stockForm.addEventListener('submit', handleStockSubmit);
@@ -187,9 +290,11 @@ function initMeds() {
   subscribe(() => {
     renderMeds();
     renderLogs();
+    renderTags();
   });
   renderMeds();
   renderLogs();
+  loadMedDB();
 }
 
 export { initMeds };

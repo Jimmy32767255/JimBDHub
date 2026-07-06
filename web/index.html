@@ -252,6 +252,14 @@
       <h3 id="med-modal-title">新增药品</h3>
       <form id="med-form">
         <input type="hidden" id="med-id">
+        <div class="form-row med-db-search-row">
+          <div class="form-field">
+            <span class="form-label" data-i18n="meds.form.dbSearch">快速搜索内置药品库</span>
+            <input type="text" id="med-db-search" data-i18n-placeholder="meds.form.dbSearchPlaceholder" placeholder="输入药品名称...">
+            <div class="med-db-tags" id="med-db-tags"></div>
+            <div class="med-db-results" id="med-db-results"></div>
+          </div>
+        </div>
         <div class="form-row two-col">
           <label class="form-field"><span class="form-label" data-i18n="meds.form.name">名称</span><input type="text" id="med-name" required></label>
           <label class="form-field"><span class="form-label" data-i18n="meds.form.category">分类</span><input type="text" id="med-category" data-i18n-placeholder="meds.form.categoryPlaceholder" placeholder="如：心境稳定剂"></label>

@@ -1,0 +1,261 @@
+{
+  "version": 1,
+  "medicines": [
+    {
+      "name": "碳酸锂",
+      "category": "心境稳定剂",
+      "tags": ["心境稳定剂", "双相障碍"],
+      "unit": "片",
+      "pillsPerBoard": 24,
+      "note": "常用心境稳定剂，需定期监测血锂浓度与甲状腺功能。"
+    },
+    {
+      "name": "丙戊酸钠",
+      "category": "心境稳定剂",
+      "tags": ["心境稳定剂", "双相障碍", "抗癫痫"],
+      "unit": "片",
+      "pillsPerBoard": 24,
+      "note": "心境稳定剂，也可用于癫痫。"
+    },
+    {
+      "name": "丙戊酸镁",
+      "category": "心境稳定剂",
+      "tags": ["心境稳定剂", "双相障碍", "抗癫痫"],
+      "unit": "片",
+      "pillsPerBoard": 24,
+      "note": "与丙戊酸钠作用类似，胃肠道反应可能较轻。"
+    },
+    {
+      "name": "拉莫三嗪",
+      "category": "心境稳定剂",
+      "tags": ["心境稳定剂", "双相障碍", "抗癫痫"],
+      "unit": "片",
+      "pillsPerBoard": 30,
+      "note": "对双相抑郁维持治疗较有效，需缓慢加量以防皮疹。"
+    },
+    {
+      "name": "卡马西平",
+      "category": "心境稳定剂",
+      "tags": ["心境稳定剂", "双相障碍", "抗癫痫"],
+      "unit": "片",
+      "pillsPerBoard": 24,
+      "note": "传统心境稳定剂，需注意药物相互作用。"
+    },
+    {
+      "name": "喹硫平",
+      "category": "抗精神病药",
+      "tags": ["抗精神病药", "心境稳定剂", "双相障碍", "安眠药"],
+      "unit": "片",
+      "pillsPerBoard": 20,
+      "note": "第二代抗精神病药，常作为心境稳定剂增效剂。"
+    },
+    {
+      "name": "奥氮平",
+      "category": "抗精神病药",
+      "tags": ["抗精神病药", "心境稳定剂", "双相障碍"],
+      "unit": "片",
+      "pillsPerBoard": 14,
+      "note": "第二代抗精神病药，镇静与食欲增加较明显。"
+    },
+    {
+      "name": "利培酮",
+      "category": "抗精神病药",
+      "tags": ["抗精神病药", "双相障碍"],
+      "unit": "片",
+      "pillsPerBoard": 20,
+      "note": "第二代抗精神病药，需注意锥体外系反应。"
+    },
+    {
+      "name": "阿立哌唑",
+      "category": "抗精神病药",
+      "tags": ["抗精神病药", "双相障碍"],
+      "unit": "片",
+      "pillsPerBoard": 20,
+      "note": "第二代抗精神病药，激活作用较明显。"
+    },
+    {
+      "name": "鲁拉西酮",
+      "category": "抗精神病药",
+      "tags": ["抗精神病药", "双相障碍"],
+      "unit": "片",
+      "pillsPerBoard": 30,
+      "note": "第二代抗精神病药，需与食物同服。"
+    },
+    {
+      "name": "齐拉西酮",
+      "category": "抗精神病药",
+      "tags": ["抗精神病药", "双相障碍"],
+      "unit": "粒",
+      "pillsPerBoard": 20,
+      "note": "第二代抗精神病药，需与食物同服。"
+    },
+    {
+      "name": "帕利哌酮",
+      "category": "抗精神病药",
+      "tags": ["抗精神病药", "双相障碍"],
+      "unit": "片",
+      "pillsPerBoard": 14,
+      "note": "利培酮活性代谢产物，作用时间较长。"
+    },
+    {
+      "name": "氨磺必利",
+      "category": "抗精神病药",
+      "tags": ["抗精神病药"],
+      "unit": "片",
+      "pillsPerBoard": 20,
+      "note": "第二代抗精神病药，对阴性症状可能有效。"
+    },
+    {
+      "name": "舍曲林",
+      "category": "抗抑郁药",
+      "tags": ["抗抑郁药"],
+      "unit": "片",
+      "pillsPerBoard": 14,
+      "note": "SSRI类抗抑郁药。"
+    },
+    {
+      "name": "氟西汀",
+      "category": "抗抑郁药",
+      "tags": ["抗抑郁药"],
+      "unit": "片",
+      "pillsPerBoard": 14,
+      "note": "SSRI类抗抑郁药，半衰期较长。"
+    },
+    {
+      "name": "艾司西酞普兰",
+      "category": "抗抑郁药",
+      "tags": ["抗抑郁药"],
+      "unit": "片",
+      "pillsPerBoard": 14,
+      "note": "SSRI类抗抑郁药。"
+    },
+    {
+      "name": "文拉法辛",
+      "category": "抗抑郁药",
+      "tags": ["抗抑郁药"],
+      "unit": "粒",
+      "pillsPerBoard": 14,
+      "note": "SNRI类抗抑郁药。"
+    },
+    {
+      "name": "度洛西汀",
+      "category": "抗抑郁药",
+      "tags": ["抗抑郁药"],
+      "unit": "粒",
+      "pillsPerBoard": 14,
+      "note": "SNRI类抗抑郁药。"
+    },
+    {
+      "name": "安非他酮",
+      "category": "抗抑郁药",
+      "tags": ["抗抑郁药"],
+      "unit": "片",
+      "pillsPerBoard": 14,
+      "note": "NDRI类抗抑郁药，可能降低癫痫阈值。"
+    },
+    {
+      "name": "米氮平",
+      "category": "抗抑郁药",
+      "tags": ["抗抑郁药", "安眠药"],
+      "unit": "片",
+      "pillsPerBoard": 10,
+      "note": "NaSSA类抗抑郁药，有助眠与增加食欲作用。"
+    },
+    {
+      "name": "曲唑酮",
+      "category": "抗抑郁药",
+      "tags": ["抗抑郁药", "安眠药"],
+      "unit": "片",
+      "pillsPerBoard": 14,
+      "note": "SARI类抗抑郁药，低剂量常作助眠。"
+    },
+    {
+      "name": "劳拉西泮",
+      "category": "抗焦虑药",
+      "tags": ["抗焦虑药", "镇静催眠"],
+      "unit": "片",
+      "pillsPerBoard": 20,
+      "note": "苯二氮䓬类，用于急性焦虑与失眠。"
+    },
+    {
+      "name": "阿普唑仑",
+      "category": "抗焦虑药",
+      "tags": ["抗焦虑药", "镇静催眠"],
+      "unit": "片",
+      "pillsPerBoard": 20,
+      "note": "苯二氮䓬类，起效较快，易产生耐受。"
+    },
+    {
+      "name": "氯硝西泮",
+      "category": "抗焦虑药",
+      "tags": ["抗焦虑药", "镇静催眠", "抗癫痫"],
+      "unit": "片",
+      "pillsPerBoard": 20,
+      "note": "苯二氮䓬类，作用时间较长。"
+    },
+    {
+      "name": "丁螺环酮",
+      "category": "抗焦虑药",
+      "tags": ["抗焦虑药"],
+      "unit": "片",
+      "pillsPerBoard": 20,
+      "note": "非苯二氮䓬类抗焦虑药，无依赖性。"
+    },
+    {
+      "name": "唑吡坦",
+      "category": "安眠药",
+      "tags": ["安眠药", "镇静催眠"],
+      "unit": "片",
+      "pillsPerBoard": 14,
+      "note": "非苯二氮䓬类安眠药。"
+    },
+    {
+      "name": "右佐匹克隆",
+      "category": "安眠药",
+      "tags": ["安眠药", "镇静催眠"],
+      "unit": "片",
+      "pillsPerBoard": 14,
+      "note": "非苯二氮䓬类安眠药。"
+    },
+    {
+      "name": "佐匹克隆",
+      "category": "安眠药",
+      "tags": ["安眠药", "镇静催眠"],
+      "unit": "片",
+      "pillsPerBoard": 14,
+      "note": "非苯二氮䓬类安眠药，可能有金属味副作用。"
+    },
+    {
+      "name": "哌甲酯",
+      "category": "中枢兴奋剂",
+      "tags": ["ADHD", "中枢兴奋剂"],
+      "unit": "片",
+      "pillsPerBoard": 20,
+      "note": "用于注意缺陷多动障碍，双相患者慎用。"
+    },
+    {
+      "name": "托莫西汀",
+      "category": "ADHD用药",
+      "tags": ["ADHD"],
+      "unit": "粒",
+      "pillsPerBoard": 14,
+      "note": "非兴奋剂类ADHD药物。"
+    },
+    {
+      "name": "普萘洛尔",
+      "category": "β受体阻滞剂",
+      "tags": ["抗焦虑药", "躯体症状"],
+      "unit": "片",
+      "pillsPerBoard": 24,
+      "note": "可缓解焦虑相关的躯体症状如心悸、手抖。"
+    },
+    {
+      "name": "苯海索",
+      "category": "抗胆碱药",
+      "tags": ["抗精神病药增效", "副作用处理"],
+      "unit": "片",
+      "pillsPerBoard": 24,
+      "note": "用于缓解抗精神病药引起的锥体外系反应。"
+    }
+  ]
+}

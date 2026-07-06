@@ -290,6 +290,72 @@ body {
 }
 .med-actions { display: flex; gap: 8px; }
 
+.med-db-search-row { margin-bottom: 14px; }
+.med-db-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-top: 10px;
+}
+.med-db-tag {
+  background: var(--bg);
+  border: 1px solid var(--surface-2);
+  color: var(--text-muted);
+  border-radius: 20px;
+  padding: 5px 12px;
+  font-size: 12px;
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+}
+.med-db-tag:hover {
+  background: var(--surface-2);
+  color: var(--text);
+}
+.med-db-tag.active {
+  background: var(--accent-blue);
+  border-color: var(--accent-blue);
+  color: white;
+}
+.med-db-results {
+  margin-top: 10px;
+  max-height: 200px;
+  overflow-y: auto;
+  display: flex;
+  flex-direction: column;
+  gap: 6px;
+}
+.med-db-result {
+  display: flex;
+  flex-direction: column;
+  align-items: flex-start;
+  text-align: left;
+  gap: 2px;
+  background: var(--bg);
+  border: 1px solid var(--surface-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--text);
+  cursor: pointer;
+  transition: all 0.2s;
+  font-family: inherit;
+  font-size: 14px;
+}
+.med-db-result:hover {
+  background: var(--surface-2);
+  border-color: var(--surface-3);
+}
+.med-db-result-name { font-weight: 600; }
+.med-db-result-meta {
+  font-size: 11px;
+  color: var(--text-muted);
+}
+.med-db-empty {
+  font-size: 13px;
+  color: var(--text-muted);
+  padding: 10px 4px;
+}
+
 .logs-list {
   padding: 16px;
   display: flex;
