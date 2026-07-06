@@ -13,22 +13,22 @@
         <span class="brand-mark">~</span>
         <h1 class="brand-title">JimBDHub</h1>
       </div>
-      <nav class="nav" aria-label="主导航">
+      <nav class="nav" aria-label="主导航" data-i18n-aria="aria.mainNav">
         <a href="#overview" class="nav-link active" data-view="overview">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
-          <span>概览</span>
+          <span data-i18n="nav.overview">概览</span>
         </a>
         <a href="#meds" class="nav-link" data-view="meds">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="M8.5 8.5l7 7"/></svg>
-          <span>药品库</span>
+          <span data-i18n="nav.meds">药品库</span>
         </a>
         <a href="#records" class="nav-link" data-view="records">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          <span>记录</span>
+          <span data-i18n="nav.records">记录</span>
         </a>
         <a href="#settings" class="nav-link" data-view="settings">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span>设置</span>
+          <span data-i18n="nav.settings">设置</span>
         </a>
       </nav>
       <div class="sidebar-footer"></div>
@@ -36,27 +36,27 @@
 
     <main class="main">
       <header class="topbar">
-        <button class="menu-toggle" id="menu-toggle" aria-label="打开菜单">
+        <button class="menu-toggle" id="menu-toggle" aria-label="打开菜单" data-i18n-aria="aria.menuToggle">
           <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
-        <h2 class="page-title" id="page-title">概览</h2>
+        <h2 class="page-title" id="page-title" data-i18n="page.overview">概览</h2>
       </header>
 
       <section class="view view-active" id="overview-view" aria-labelledby="page-title">
         <div class="card chart-card">
           <div class="card-header">
-            <h3>情绪波动</h3>
+            <h3 data-i18n="chart.title">情绪波动</h3>
             <div class="chart-legend">
-              <span class="legend-item"><i class="dot red"></i>躁狂 / 亢奋</span>
-              <span class="legend-item"><i class="dot blue"></i>抑郁 / 低落</span>
-              <span class="legend-item"><i class="dot gray"></i>药效区间</span>
+              <span class="legend-item"><i class="dot red"></i><span data-i18n="chart.legend.manic">躁狂 / 亢奋</span></span>
+              <span class="legend-item"><i class="dot blue"></i><span data-i18n="chart.legend.depressed">抑郁 / 低落</span></span>
+              <span class="legend-item"><i class="dot gray"></i><span data-i18n="chart.legend.medication">药效区间</span></span>
             </div>
           </div>
           <div class="chart-toolbar">
             <div class="range-tabs">
-              <button class="range-tab active" data-range="week">近一周</button>
-              <button class="range-tab" data-range="month">近一月</button>
-              <button class="range-tab" data-range="all">全部</button>
+              <button class="range-tab active" data-range="week" data-i18n="chart.range.week">近一周</button>
+              <button class="range-tab" data-range="month" data-i18n="chart.range.month">近一月</button>
+              <button class="range-tab" data-range="all" data-i18n="chart.range.all">全部</button>
             </div>
           </div>
           <div class="chart-wrap" id="chart-wrap">
@@ -70,19 +70,19 @@
         <div class="meds-layout">
           <div class="card meds-table-card">
             <div class="card-header">
-              <h3>药品库存</h3>
-              <button class="btn btn-primary btn-sm" id="add-med-btn">新增药品</button>
+              <h3 data-i18n="meds.header.title">药品库存</h3>
+              <button class="btn btn-primary btn-sm" id="add-med-btn" data-i18n="meds.header.add">新增药品</button>
             </div>
             <div class="table-wrap">
               <table class="data-table" id="meds-table">
                 <thead>
                   <tr>
-                    <th>名称</th>
-                    <th>分类</th>
-                    <th>剩余</th>
-                    <th>详细数量</th>
-                    <th>备注</th>
-                    <th>操作</th>
+                    <th data-i18n="meds.table.name">名称</th>
+                    <th data-i18n="meds.table.category">分类</th>
+                    <th data-i18n="meds.table.remaining">剩余</th>
+                    <th data-i18n="meds.table.details">详细数量</th>
+                    <th data-i18n="meds.table.note">备注</th>
+                    <th data-i18n="meds.table.action">操作</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -91,7 +91,7 @@
           </div>
           <div class="card logs-card">
             <div class="card-header">
-              <h3>变更日志</h3>
+              <h3 data-i18n="meds.logs.title">变更日志</h3>
             </div>
             <div class="logs-list" id="logs-list"></div>
           </div>
@@ -102,99 +102,99 @@
         <div class="records-layout">
           <div class="card record-form-card">
             <div class="card-header">
-              <h3>记录</h3>
+              <h3 data-i18n="records.sectionTitle">记录</h3>
               <div class="form-tabs">
-                <button type="button" class="form-tab active" data-form="mood">情绪</button>
-                <button type="button" class="form-tab" data-form="sleep">睡眠</button>
+                <button type="button" class="form-tab active" data-form="mood" data-i18n="records.formTabs.mood">情绪</button>
+                <button type="button" class="form-tab" data-form="sleep" data-i18n="records.formTabs.sleep">睡眠</button>
               </div>
             </div>
             <form id="record-form" class="record-form">
               <input type="hidden" id="record-id">
               <div class="form-row">
                 <label class="form-field">
-                  <span class="form-label">时间</span>
+                  <span class="form-label" data-i18n="records.moodForm.time">时间</span>
                   <input type="datetime-local" id="record-time" required>
                 </label>
               </div>
               <div class="form-row two-col">
                 <label class="form-field">
-                  <span class="form-label">情绪值 <output id="value-out">0</output></span>
+                  <span class="form-label"><span data-i18n="records.moodForm.value">情绪值</span> <output id="value-out">0</output></span>
                   <input type="range" id="record-value" min="-10" max="10" step="1" value="0">
-                  <span class="range-hint">负值偏抑郁，正值偏躁狂</span>
+                  <span class="range-hint" data-i18n="records.moodForm.valueHint">负值偏抑郁，正值偏躁狂</span>
                 </label>
                 <label class="form-field checkbox-field">
                   <input type="checkbox" id="record-mixed">
-                  <span>混合期（同时存在相反情绪）</span>
+                  <span data-i18n="records.moodForm.mixed">混合期（同时存在相反情绪）</span>
                 </label>
               </div>
               <div class="form-row" id="mixed-value-row" hidden>
                 <label class="form-field">
-                  <span class="form-label">混合情绪值 <output id="mixed-value-out">0</output></span>
+                  <span class="form-label"><span data-i18n="records.moodForm.mixedValue">混合情绪值</span> <output id="mixed-value-out">0</output></span>
                   <input type="range" id="record-mixed-value" min="-10" max="10" step="1" value="0">
                 </label>
               </div>
               <div class="form-row two-col">
                 <label class="form-field checkbox-field">
                   <input type="checkbox" id="record-medication">
-                  <span>使用药物</span>
+                  <span data-i18n="records.moodForm.medication">使用药物</span>
                 </label>
                 <label class="form-field" id="medication-strength-field" hidden>
-                  <span class="form-label">药效强度 <output id="strength-out">5</output></span>
+                  <span class="form-label"><span data-i18n="records.moodForm.medicationStrength">药效强度</span> <output id="strength-out">5</output></span>
                   <input type="range" id="record-medication-strength" min="0" max="10" step="1" value="5">
                 </label>
               </div>
               <div class="form-row">
                 <label class="form-field">
-                  <span class="form-label">备注</span>
-                  <textarea id="record-note" rows="3" placeholder="记录当下的身体感受、睡眠、事件等"></textarea>
+                  <span class="form-label" data-i18n="records.moodForm.note">备注</span>
+                  <textarea id="record-note" rows="3" data-i18n-placeholder="records.moodForm.notePlaceholder" placeholder="记录当下的身体感受、睡眠、事件等"></textarea>
                 </label>
               </div>
               <div class="form-actions">
-                <button type="button" class="btn btn-ghost" id="record-cancel">取消</button>
-                <button type="submit" class="btn btn-primary">保存记录</button>
+                <button type="button" class="btn btn-ghost" id="record-cancel" data-i18n="common.cancel">取消</button>
+                <button type="submit" class="btn btn-primary" data-i18n="records.moodForm.save">保存记录</button>
               </div>
             </form>
             <form id="sleep-form" class="record-form" hidden>
               <input type="hidden" id="sleep-id">
               <div class="form-row two-col">
                 <label class="form-field">
-                  <span class="form-label">入睡时间</span>
+                  <span class="form-label" data-i18n="records.sleepForm.start">入睡时间</span>
                   <input type="datetime-local" id="sleep-start" required>
                 </label>
                 <label class="form-field">
-                  <span class="form-label">清醒时间</span>
+                  <span class="form-label" data-i18n="records.sleepForm.end">清醒时间</span>
                   <input type="datetime-local" id="sleep-end" required>
                 </label>
               </div>
               <div class="form-row">
                 <label class="form-field">
-                  <span class="form-label">睡眠质量 <output id="sleep-quality-out">3</output> / 5</span>
+                  <span class="form-label"><span data-i18n="records.sleepForm.quality">睡眠质量</span> <output id="sleep-quality-out">3</output> / 5</span>
                   <input type="range" id="sleep-quality" min="0" max="5" step="1" value="3">
-                  <span class="range-hint">0 最差，5 最好</span>
+                  <span class="range-hint" data-i18n="records.sleepForm.qualityHint">0 最差，5 最好</span>
                 </label>
               </div>
               <div class="form-row">
                 <div class="form-field">
-                  <span class="form-label">中断记录</span>
+                  <span class="form-label" data-i18n="records.sleepForm.interruptions">中断记录</span>
                   <div id="sleep-interruptions"></div>
-                  <button type="button" class="btn btn-ghost btn-sm" id="add-interruption-btn">添加中断</button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="add-interruption-btn" data-i18n="records.sleepForm.addInterruption">添加中断</button>
                 </div>
               </div>
               <div class="form-row">
                 <label class="form-field">
-                  <span class="form-label">备注</span>
-                  <textarea id="sleep-note" rows="2" placeholder="如梦多、环境嘈杂等"></textarea>
+                  <span class="form-label" data-i18n="records.sleepForm.note">备注</span>
+                  <textarea id="sleep-note" rows="2" data-i18n-placeholder="records.sleepForm.notePlaceholder" placeholder="如梦多、环境嘈杂等"></textarea>
                 </label>
               </div>
               <div class="form-actions">
-                <button type="button" class="btn btn-ghost" id="sleep-cancel">取消</button>
-                <button type="submit" class="btn btn-primary">保存睡眠记录</button>
+                <button type="button" class="btn btn-ghost" id="sleep-cancel" data-i18n="common.cancel">取消</button>
+                <button type="submit" class="btn btn-primary" data-i18n="records.sleepForm.save">保存睡眠记录</button>
               </div>
             </form>
           </div>
           <div class="card records-list-card">
             <div class="card-header">
-              <h3>历史记录</h3>
+              <h3 data-i18n="records.history.title">历史记录</h3>
             </div>
             <div class="records-list" id="records-list"></div>
           </div>
@@ -204,11 +204,22 @@
       <section class="view" id="settings-view" aria-labelledby="page-title">
         <div class="card">
           <div class="card-header">
-            <h3>数据备份</h3>
+            <h3 data-i18n="settings.language">语言</h3>
           </div>
           <div class="settings-actions">
-            <button class="btn btn-primary" id="export-backup-btn">导出备份</button>
-            <button class="btn btn-ghost" id="import-backup-btn">导入备份</button>
+            <select id="language-select" class="form-field">
+              <option value="zh-CN" data-i18n="settings.lang.zh-CN">中文（简体）</option>
+              <option value="en-US" data-i18n="settings.lang.en-US">English</option>
+            </select>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 data-i18n="settings.backup.title">数据备份</h3>
+          </div>
+          <div class="settings-actions">
+            <button class="btn btn-primary" id="export-backup-btn" data-i18n="settings.backup.export">导出备份</button>
+            <button class="btn btn-ghost" id="import-backup-btn" data-i18n="settings.backup.import">导入备份</button>
             <input type="file" id="import-backup-input" accept=".json,application/json" hidden>
           </div>
         </div>
@@ -217,19 +228,19 @@
       <div class="bottom-nav" id="bottom-nav">
         <a href="#overview" class="nav-link active" data-view="overview">
           <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M3 3v18h18"/><path d="M18.7 8l-5.1 5.2-2.8-2.7L7 14.3"/></svg>
-          <span>概览</span>
+          <span data-i18n="nav.overview">概览</span>
         </a>
         <a href="#meds" class="nav-link" data-view="meds">
           <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M10.5 20.5l10-10a4.95 4.95 0 1 0-7-7l-10 10a4.95 4.95 0 1 0 7 7Z"/><path d="M8.5 8.5l7 7"/></svg>
-          <span>药品库</span>
+          <span data-i18n="nav.meds">药品库</span>
         </a>
         <a href="#records" class="nav-link" data-view="records">
           <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
-          <span>记录</span>
+          <span data-i18n="nav.records">记录</span>
         </a>
         <a href="#settings" class="nav-link" data-view="settings">
           <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
-          <span>设置</span>
+          <span data-i18n="nav.settings">设置</span>
         </a>
       </div>
     </main>
@@ -242,26 +253,26 @@
       <form id="med-form">
         <input type="hidden" id="med-id">
         <div class="form-row two-col">
-          <label class="form-field"><span class="form-label">名称</span><input type="text" id="med-name" required></label>
-          <label class="form-field"><span class="form-label">分类</span><input type="text" id="med-category" placeholder="如：心境稳定剂"></label>
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.name">名称</span><input type="text" id="med-name" required></label>
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.category">分类</span><input type="text" id="med-category" data-i18n-placeholder="meds.form.categoryPlaceholder" placeholder="如：心境稳定剂"></label>
         </div>
         <div class="form-row three-col">
-          <label class="form-field"><span class="form-label">盒数</span><input type="number" id="med-box" min="0" value="0" required></label>
-          <label class="form-field"><span class="form-label">每盒板/瓶数</span><input type="number" id="med-board" min="0" value="0" required></label>
-          <label class="form-field"><span class="form-label">每板/瓶粒数</span><input type="number" id="med-pills" min="0" value="0" required></label>
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.boxCount">盒数</span><input type="number" id="med-box" min="0" value="0" required></label>
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.boardPerBox">每盒板/瓶数</span><input type="number" id="med-board" min="0" value="0" required></label>
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.pillsPerBoard">每板/瓶粒数</span><input type="number" id="med-pills" min="0" value="0" required></label>
         </div>
         <div class="form-row two-col">
-          <label class="form-field"><span class="form-label">单位</span>
-            <select id="med-unit"><option value="粒">粒</option><option value="片">片</option></select>
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.unit">单位</span>
+            <select id="med-unit"><option value="粒" data-i18n="unit.pill">粒</option><option value="片" data-i18n="unit.tablet">片</option></select>
           </label>
-          <label class="form-field"><span class="form-label">当前剩余（总数）</span><input type="number" id="med-remaining" min="0" required></label>
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.remaining">当前剩余（总数）</span><input type="number" id="med-remaining" min="0" required></label>
         </div>
         <div class="form-row">
-          <label class="form-field"><span class="form-label">备注</span><textarea id="med-note" rows="2"></textarea></label>
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.note">备注</span><textarea id="med-note" rows="2"></textarea></label>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-ghost" id="med-cancel">取消</button>
-          <button type="submit" class="btn btn-primary">保存</button>
+          <button type="button" class="btn btn-ghost" id="med-cancel" data-i18n="common.cancel">取消</button>
+          <button type="submit" class="btn btn-primary" data-i18n="meds.form.save">保存</button>
         </div>
       </form>
     </div>
@@ -270,24 +281,24 @@
   <div class="modal" id="stock-modal" aria-hidden="true">
     <div class="modal-backdrop"></div>
     <div class="modal-content">
-      <h3>调整库存</h3>
+      <h3 data-i18n="meds.adjustTitle">调整库存</h3>
       <form id="stock-form">
         <input type="hidden" id="stock-med-id">
         <div class="form-row">
           <label class="form-field">
-            <span class="form-label">数量变化（正数增加，负数减少）</span>
+            <span class="form-label" data-i18n="meds.stock.delta">数量变化（正数增加，负数减少）</span>
             <input type="number" id="stock-delta" step="1" required>
           </label>
         </div>
         <div class="form-row">
           <label class="form-field">
-            <span class="form-label">理由</span>
-            <input type="text" id="stock-note" placeholder="如：开药、服用、盘点">
+            <span class="form-label" data-i18n="meds.stock.reason">理由</span>
+            <input type="text" id="stock-note" data-i18n-placeholder="meds.stock.reasonPlaceholder" placeholder="如：开药、服用、盘点">
           </label>
         </div>
         <div class="form-actions">
-          <button type="button" class="btn btn-ghost" id="stock-cancel">取消</button>
-          <button type="submit" class="btn btn-primary">确认</button>
+          <button type="button" class="btn btn-ghost" id="stock-cancel" data-i18n="common.cancel">取消</button>
+          <button type="submit" class="btn btn-primary" data-i18n="meds.stock.confirm">确认</button>
         </div>
       </form>
     </div>

@@ -1,4 +1,5 @@
 import { store, formatDateTime, nowHourFloor } from './store.js';
+import { t, subscribe } from './i18n.js';
 
 const formTabs = document.querySelectorAll('.form-tab');
 
@@ -97,14 +98,14 @@ function addInterruptionRow(awakeAt = null, asleepAt = null) {
   row.className = 'interruption-row';
   row.innerHTML = `
     <label class="form-field">
-      <span class="form-label">醒来时间</span>
+      <span class="form-label">${t('records.sleepForm.awakeTime')}</span>
       <input type="datetime-local" class="interrupt-awake" value="${awakeVal}" required>
     </label>
     <label class="form-field">
-      <span class="form-label">再次入睡</span>
+      <span class="form-label">${t('records.sleepForm.asleepTime')}</span>
       <input type="datetime-local" class="interrupt-asleep" value="${asleepVal}" required>
     </label>
-    <button type="button" class="btn btn-danger btn-sm remove-interruption">删除</button>
+    <button type="button" class="btn btn-danger btn-sm remove-interruption">${t('common.delete')}</button>
   `;
   sleepInterruptions.appendChild(row);
 }
@@ -135,13 +136,13 @@ function editSleep(sleep) {
 }
 
 function formatDuration(ms) {
-  if (ms <= 0) return '0 分钟';
+  if (ms <= 0) return t('duration.minutes', { m: 0 });
   const minutes = Math.round(ms / (60 * 1000));
   const h = Math.floor(minutes / 60);
   const m = minutes % 60;
-  if (h === 0) return `${m} 分钟`;
-  if (m === 0) return `${h} 小时`;
-  return `${h} 小时 ${m} 分钟`;
+  if (h === 0) return t('duration.minutes', { m });
+  if (m === 0) return t('duration.hours', { h });
+  return t('duration.hoursMinutes', { h, m });
 }
 
 function calcSleepDuration(sleep) {
@@ -206,7 +207,7 @@ function renderRecords() {
       const r = item.data;
       const mainClass = r.value === 0 ? 'neutral' : (r.value > 0 ? 'positive' : 'negative');
       const mixedText = r.mixed ? ` / ${r.mixedValue > 0 ? '+' : ''}${r.mixedValue}` : '';
-      const medText = r.medication ? ` · 药效 ±${r.medicationStrength}` : '';
+      const medText = r.medication ? t('records.history.medicationEffect', { strength: r.medicationStrength }) : '';
       el.innerHTML = `
         <header>
           <span class="value-badge ${mainClass}">${r.value > 0 ? '+' : ''}${r.value}${mixedText}</span>
@@ -214,8 +215,8 @@ function renderRecords() {
         </header>
         ${r.note ? `<p class="note">${r.note}</p>` : ''}
         <footer>
-          <button class="btn btn-icon" data-action="edit" data-id="${r.id}">编辑</button>
-          <button class="btn btn-danger" data-action="delete" data-id="${r.id}">删除</button>
+          <button class="btn btn-icon" data-action="edit" data-id="${r.id}">${t('common.edit')}</button>
+          <button class="btn btn-danger" data-action="delete" data-id="${r.id}">${t('common.delete')}</button>
         </footer>
       `;
     } else {
@@ -223,19 +224,19 @@ function renderRecords() {
       const { total, asleep } = calcSleepDuration(s);
       el.innerHTML = `
         <header>
-          <span class="quality-badge">${s.quality} 分</span>
+          <span class="quality-badge">${t('records.history.qualityUnit', { value: s.quality })}</span>
           <time>${formatDateTime(s.startTime)} ~ ${formatDateTime(s.endTime)}</time>
         </header>
         <div class="sleep-meta">
-          <span>总时长 ${formatDuration(total)}</span>
+          <span>${t('records.history.totalDuration', { duration: formatDuration(total) })}</span>
           <span>·</span>
-          <span>睡眠 ${formatDuration(asleep)}</span>
+          <span>${t('records.history.asleepDuration', { duration: formatDuration(asleep) })}</span>
         </div>
         <div class="sleep-bar-wrap">${buildSleepBar(s)}</div>
         ${s.note ? `<p class="note">${s.note}</p>` : ''}
         <footer>
-          <button class="btn btn-icon" data-action="edit" data-id="${s.id}">编辑</button>
-          <button class="btn btn-danger" data-action="delete" data-id="${s.id}">删除</button>
+          <button class="btn btn-icon" data-action="edit" data-id="${s.id}">${t('common.edit')}</button>
+          <button class="btn btn-danger" data-action="delete" data-id="${s.id}">${t('common.delete')}</button>
         </footer>
       `;
     }
@@ -264,16 +265,16 @@ function handleSubmit(e) {
 
 function validateSleep(payload, interruptions) {
   if (payload.endTime <= payload.startTime) {
-    alert('清醒时间必须晚于入睡时间');
+    alert(t('records.validation.endAfterStart'));
     return false;
   }
   for (const i of interruptions) {
     if (i.asleepAt <= i.awakeAt) {
-      alert('每次中断的再次入睡时间必须晚于醒来时间');
+      alert(t('records.validation.interruptionOrder'));
       return false;
     }
     if (i.awakeAt < payload.startTime || i.asleepAt > payload.endTime) {
-      alert('中断时段必须在入睡与清醒时间之间');
+      alert(t('records.validation.interruptionRange'));
       return false;
     }
   }
@@ -356,7 +357,7 @@ function initRecords() {
       if (action === 'edit') {
         editRecord(record);
       } else if (action === 'delete') {
-        if (confirm('确定删除这条情绪记录吗？')) {
+        if (confirm(t('records.confirm.deleteMood'))) {
           store.deleteRecord(id);
         }
       }
@@ -366,7 +367,7 @@ function initRecords() {
       if (action === 'edit') {
         editSleep(sleep);
       } else if (action === 'delete') {
-        if (confirm('确定删除这条睡眠记录吗？')) {
+        if (confirm(t('records.confirm.deleteSleep'))) {
           store.deleteSleep(id);
         }
       }
@@ -374,6 +375,7 @@ function initRecords() {
   });
 
   store.subscribe(() => renderRecords());
+  subscribe(() => renderRecords());
   renderRecords();
 }
 

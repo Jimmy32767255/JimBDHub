@@ -1,4 +1,5 @@
 import { store, formatDateTime, formatQuantity } from './store.js';
+import { t, subscribe } from './i18n.js';
 
 const medModal = document.getElementById('med-modal');
 const medForm = document.getElementById('med-form');
@@ -31,18 +32,18 @@ function renderMeds() {
     const pct = percent(med);
     tr.innerHTML = `
       <td><strong>${med.name}</strong></td>
-      <td>${med.category || '-'}</td>
+      <td>${med.category || t('meds.table.emptyNote')}</td>
       <td>
         <div class="progress-bar"><div class="progress-fill" style="width: ${pct}%"></div></div>
         <small style="color: var(--text-muted)">${pct}% · ${med.remainingPills}${med.unit}</small>
       </td>
       <td>${formatQuantity(med)}</td>
-      <td>${med.note || '-'}</td>
+      <td>${med.note || t('meds.table.emptyNote')}</td>
       <td>
         <div class="med-actions">
-          <button class="btn btn-icon" data-action="adjust" data-id="${med.id}" title="调整库存">+/-</button>
-          <button class="btn btn-icon" data-action="edit" data-id="${med.id}">编辑</button>
-          <button class="btn btn-danger" data-action="delete" data-id="${med.id}">删除</button>
+          <button class="btn btn-icon" data-action="adjust" data-id="${med.id}" title="${t('meds.adjustTitle')}">${t('meds.adjust')}</button>
+          <button class="btn btn-icon" data-action="edit" data-id="${med.id}">${t('common.edit')}</button>
+          <button class="btn btn-danger" data-action="delete" data-id="${med.id}">${t('common.delete')}</button>
         </div>
       </td>
     `;
@@ -78,7 +79,7 @@ function renderLogs() {
 function openModal(med = null) {
   medForm.reset();
   if (med) {
-    medModalTitle.textContent = '编辑药品';
+    medModalTitle.textContent = t('meds.modal.editTitle');
     medIdInput.value = med.id;
     medNameInput.value = med.name;
     medCategoryInput.value = med.category;
@@ -89,7 +90,7 @@ function openModal(med = null) {
     medRemainingInput.value = med.remainingPills;
     medNoteInput.value = med.note;
   } else {
-    medModalTitle.textContent = '新增药品';
+    medModalTitle.textContent = t('meds.modal.addTitle');
     medIdInput.value = '';
   }
   medModal.setAttribute('aria-hidden', 'false');
@@ -143,10 +144,10 @@ function handleStockSubmit(e) {
   const delta = Number(stockDeltaInput.value) || 0;
   const note = stockNoteInput.value.trim();
   if (delta === 0) {
-    alert('数量变化不能为 0');
+    alert(t('meds.validation.stockZero'));
     return;
   }
-  store.changeMedStock(id, delta, note || '库存调整');
+  store.changeMedStock(id, delta, note || t('meds.stock.defaultReason'));
   closeStockModal();
 }
 
@@ -173,13 +174,17 @@ function initMeds() {
     } else if (action === 'edit') {
       openModal(med);
     } else if (action === 'delete') {
-      if (confirm(`确定删除「${med.name}」吗？`)) {
+      if (confirm(t('meds.confirm.delete', { name: med.name }))) {
         store.deleteMed(id);
       }
     }
   });
 
   store.subscribe(() => {
+    renderMeds();
+    renderLogs();
+  });
+  subscribe(() => {
     renderMeds();
     renderLogs();
   });

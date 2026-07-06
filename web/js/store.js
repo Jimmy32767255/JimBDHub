@@ -1,3 +1,5 @@
+import { getLanguage, t } from './i18n.js';
+
 const KEYS = {
   records: 'jim_mood_records',
   meds: 'jim_medications',
@@ -183,7 +185,8 @@ export const store = {
       records: this.data.records,
       meds: this.data.meds,
       logs: this.data.logs,
-      sleeps: this.data.sleeps
+      sleeps: this.data.sleeps,
+      language: getLanguage()
     };
   },
 
@@ -194,6 +197,7 @@ export const store = {
     if (!Array.isArray(data.meds)) return false;
     if (!Array.isArray(data.logs)) return false;
     if ('sleeps' in data && !Array.isArray(data.sleeps)) return false;
+    if ('language' in data && typeof data.language !== 'string') return false;
     return true;
   },
 
@@ -205,7 +209,7 @@ export const store = {
     this.data.sleeps = data.sleeps || [];
     this.persist();
     this.notify();
-    return true;
+    return data.language || getLanguage();
   }
 };
 
@@ -222,7 +226,9 @@ export function formatDate(ts) {
 }
 
 export function formatQuantity(med) {
-  return `${med.boxCount}盒*${med.boardPerBox}${med.unit === '片' ? '板' : '瓶'}*${med.pillsPerBoard}${med.unit}`;
+  const boardUnit = med.unit === '片' ? 'unit.board' : 'unit.bottle';
+  const pillUnit = med.unit === '片' ? 'unit.tablet' : 'unit.pill';
+  return `${med.boxCount}${t('unit.box')}*${med.boardPerBox}${t(boardUnit)}*${med.pillsPerBoard}${t(pillUnit)}`;
 }
 
 export { generateId, nowHourFloor };

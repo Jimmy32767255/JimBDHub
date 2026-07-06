@@ -399,6 +399,25 @@ body {
   margin-top: 8px;
 }
 
+#language-select {
+  appearance: none;
+  -webkit-appearance: none;
+  display: inline-block;
+  background: var(--bg) url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='%2394a3b8' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E") no-repeat right 12px center;
+  border: 1px solid var(--surface-2);
+  border-radius: 10px;
+  padding: 10px 36px 10px 12px;
+  color: var(--text);
+  font-family: inherit;
+  font-size: 14px;
+  min-width: 200px;
+  cursor: pointer;
+  outline: none;
+}
+#language-select:focus {
+  border-color: var(--accent-blue);
+}
+
 .form-tabs {
   display: inline-flex;
   background: var(--bg);

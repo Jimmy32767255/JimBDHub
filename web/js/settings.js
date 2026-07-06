@@ -1,5 +1,6 @@
 import { store } from './store.js';
 import { platform } from './platform.js';
+import { t, setLanguage, getLanguage, subscribe, updateDOM } from './i18n.js';
 
 function defaultFileName() {
   const d = new Date();
@@ -13,7 +14,7 @@ async function exportBackup() {
     const json = JSON.stringify(data, null, 2);
     await platform.saveBackup(json, defaultFileName());
   } catch (err) {
-    alert(`导出失败：${err.message}`);
+    alert(t('settings.backup.exportError', { message: err.message }));
   }
 }
 
@@ -21,20 +22,23 @@ async function importBackup(text) {
   try {
     const data = JSON.parse(text);
     if (!store.validateBackup(data)) {
-      alert('备份文件格式不正确或版本不匹配。');
+      alert(t('settings.backup.invalidFormat'));
       return;
     }
-    if (!confirm('导入备份将覆盖当前所有数据，确定继续吗？')) {
+    if (!confirm(t('settings.backup.importConfirm'))) {
       return;
     }
-    const ok = store.restoreBackup(data);
-    if (ok) {
-      alert('导入成功，数据已恢复。');
+    const restoredLang = store.restoreBackup(data);
+    if (restoredLang) {
+      alert(t('settings.backup.importSuccess'));
+      if (restoredLang !== getLanguage()) {
+        await setLanguage(restoredLang);
+      }
     } else {
-      alert('导入失败，数据格式校验未通过。');
+      alert(t('settings.backup.importFail'));
     }
   } catch (err) {
-    alert(`导入失败：${err.message}`);
+    alert(t('settings.backup.exportError', { message: err.message }));
   }
 }
 
@@ -45,7 +49,7 @@ async function onImportClick() {
       await importBackup(text);
     }
   } catch (err) {
-    alert(`导入失败：${err.message}`);
+    alert(t('settings.backup.readError', { message: err.message }));
   }
 }
 
@@ -53,6 +57,14 @@ export function initSettings() {
   const exportBtn = document.getElementById('export-backup-btn');
   const importBtn = document.getElementById('import-backup-btn');
   const importInput = document.getElementById('import-backup-input');
+  const languageSelect = document.getElementById('language-select');
+
+  if (languageSelect) {
+    languageSelect.value = getLanguage();
+    languageSelect.addEventListener('change', () => {
+      setLanguage(languageSelect.value);
+    });
+  }
 
   exportBtn?.addEventListener('click', exportBackup);
   importBtn?.addEventListener('click', () => {
@@ -70,8 +82,15 @@ export function initSettings() {
       const text = await file.text();
       await importBackup(text);
     } catch (err) {
-      alert(`读取文件失败：${err.message}`);
+      alert(t('settings.backup.readError', { message: err.message }));
     }
     e.target.value = '';
+  });
+
+  subscribe(() => {
+    updateDOM();
+    if (languageSelect) {
+      languageSelect.value = getLanguage();
+    }
   });
 }

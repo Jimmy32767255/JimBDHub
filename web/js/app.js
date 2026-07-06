@@ -3,6 +3,7 @@ import { renderChart } from './chart.js';
 import { initMeds } from './meds.js';
 import { initRecords } from './records.js';
 import { initSettings } from './settings.js';
+import { initI18n, t, subscribe, updateDOM } from './i18n.js';
 
 const views = {
   overview: document.getElementById('overview-view'),
@@ -25,8 +26,7 @@ function setActiveView(name) {
   document.querySelectorAll('.nav-link[data-view]').forEach(link => {
     link.classList.toggle('active', link.dataset.view === name);
   });
-  const titles = { overview: '概览', meds: '药品库', records: '记录', settings: '设置' };
-  pageTitle.textContent = titles[name];
+  pageTitle.textContent = t('page.' + name);
   sidebar.classList.remove('open');
   if (name === 'overview') {
     setTimeout(() => drawChart(), 50);
@@ -86,7 +86,8 @@ function initResize() {
   });
 }
 
-function init() {
+async function init() {
+  await initI18n();
   store.init();
   initNavigation();
   initRouting();
@@ -96,6 +97,13 @@ function init() {
   initResize();
   drawChart();
   store.subscribe(() => {
+    if (views.overview.classList.contains('view-active')) {
+      drawChart();
+    }
+  });
+  subscribe(() => {
+    updateDOM();
+    pageTitle.textContent = t('page.' + (location.hash.slice(1) || 'overview'));
     if (views.overview.classList.contains('view-active')) {
       drawChart();
     }

@@ -1,4 +1,5 @@
 import { formatDateTime } from './store.js';
+import { t } from './i18n.js';
 
 const PADDING = { top: 30, right: 40, bottom: 40, left: 44 };
 const PX_PER_HOUR = 12;
@@ -38,7 +39,7 @@ function colorForValue(v, alpha = 1) {
 
 function formatMedicationInfo(r) {
   if (!r.medication) return '';
-  return `药效强度: ±${r.medicationStrength}`;
+  return t('chart.tooltip.medicationStrength', { strength: r.medicationStrength });
 }
 
 export function renderChart(records, container, tooltip) {
@@ -47,7 +48,7 @@ export function renderChart(records, container, tooltip) {
     const empty = createSVGElement('text', {
       x: '50%', y: '50%', 'text-anchor': 'middle', fill: '#94a3b8', 'font-size': '14'
     });
-    empty.textContent = '暂无记录';
+    empty.textContent = t('chart.empty');
     container.appendChild(empty);
     return;
   }
@@ -300,7 +301,7 @@ export function renderChart(records, container, tooltip) {
     const medText = r.medication ? `<div class="med">${formatMedicationInfo(r)}</div>` : '';
     tooltip.innerHTML = `
       <time>${formatDateTime(r.timestamp)}</time>
-      <div class="value">情绪值: ${r.value > 0 ? '+' : ''}${r.value}${mixedText}</div>
+      <div class="value">${t('chart.tooltip.value')}: ${r.value > 0 ? '+' : ''}${r.value}${mixedText}</div>
       ${medText}
       ${r.note ? `<div class="note">${r.note}</div>` : ''}
     `;

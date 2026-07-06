@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 function downloadJson(jsonString, fileName) {
   const blob = new Blob([jsonString], { type: 'application/json' });
   const url = URL.createObjectURL(blob);
@@ -14,7 +16,7 @@ function readJsonFromFile(file) {
   return new Promise((resolve, reject) => {
     const reader = new FileReader();
     reader.onload = () => resolve(reader.result);
-    reader.onerror = () => reject(new Error('读取文件失败'));
+    reader.onerror = () => reject(new Error(t('platform.readError')));
     reader.readAsText(file);
   });
 }
@@ -73,7 +75,7 @@ function waitForAndroidCallback() {
     const previousError = window.__androidBackupError;
     const timeout = setTimeout(() => {
       cleanup();
-      reject(new Error('等待 Android 响应超时'));
+      reject(new Error(t('platform.androidTimeout')));
     }, 60000);
 
     const cleanup = () => {
@@ -89,7 +91,7 @@ function waitForAndroidCallback() {
 
     window.__androidBackupError = (message) => {
       cleanup();
-      reject(new Error(message || 'Android 操作失败'));
+      reject(new Error(message || t('platform.androidError')));
     };
   });
 }
