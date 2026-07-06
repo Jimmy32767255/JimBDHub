@@ -101,9 +101,17 @@ export const platform = {
     return typeof window.AndroidBridge !== 'undefined';
   },
 
+  isDesktop() {
+    return typeof window.pywebview !== 'undefined';
+  },
+
   async saveBackup(jsonString, fileName) {
     if (this.isAndroid()) {
       window.AndroidBridge.saveBackup(jsonString, fileName);
+      return;
+    }
+    if (this.isDesktop()) {
+      await window.pywebview.api.saveBackup(jsonString, fileName);
       return;
     }
     downloadJson(jsonString, fileName);
@@ -114,6 +122,10 @@ export const platform = {
       window.AndroidBridge.pickBackup();
       const text = await waitForAndroidCallback();
       return text;
+    }
+    if (this.isDesktop()) {
+      const text = await window.pywebview.api.pickBackup();
+      return text || null;
     }
     return pickFileWithInput();
   }

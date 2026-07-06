@@ -45,6 +45,58 @@ def start_http_server(root: Path, port: int = 8765) -> HTTPServer:
     return server
 
 
+class DesktopBridge:
+    """暴露给前端 JS 的桌面端能力（备份导出/导入）。"""
+
+    window = None
+
+    def isDesktop(self):
+        return True
+
+    def saveBackup(self, json_string: str, file_name: str):
+        if not self.window:
+            return False
+        try:
+            result = self.window.create_file_dialog(
+                dialog_type=webview.SAVE_DIALOG,
+                directory=str(Path.home()),
+                save_filename=file_name,
+                file_types=("JSON files (*.json)",),
+            )
+            if not result:
+                return False
+            path = result[0] if isinstance(result, (list, tuple)) else result
+            if not path:
+                return False
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(json_string)
+            return True
+        except Exception as e:
+            print(f"保存备份失败: {e}", file=sys.stderr)
+            return False
+
+    def pickBackup(self):
+        if not self.window:
+            return None
+        try:
+            result = self.window.create_file_dialog(
+                dialog_type=webview.OPEN_DIALOG,
+                directory=str(Path.home()),
+                allow_multiple=False,
+                file_types=("JSON files (*.json)",),
+            )
+            if not result:
+                return None
+            path = result[0] if isinstance(result, (list, tuple)) else result
+            if not path:
+                return None
+            with open(path, "r", encoding="utf-8") as f:
+                return f.read()
+        except Exception as e:
+            print(f"选择备份失败: {e}", file=sys.stderr)
+            return None
+
+
 def main() -> None:
     web_root = get_web_root()
     if not web_root.exists():
@@ -55,14 +107,17 @@ def main() -> None:
     port = server.server_address[1]
     url = f"http://127.0.0.1:{port}/index.html"
 
-    webview.create_window(
+    bridge = DesktopBridge()
+    window = webview.create_window(
         title="JimBDHub",
         url=url,
         width=1200,
         height=800,
         min_size=(800, 600),
         text_select=True,
+        js_api=bridge,
     )
+    bridge.window = window
     webview.start(debug=False)
 
 
