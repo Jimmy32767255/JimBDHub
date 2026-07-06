@@ -30,6 +30,20 @@ function nowHourFloor() {
   return d.getTime();
 }
 
+function recalcLogRemainingAfter(medId) {
+  const med = store.data.meds.find(m => m.id === medId);
+  const logs = store.data.logs.filter(l => l.medicationId === medId);
+  if (!med || !logs.length) return;
+  const sumDeltas = logs.reduce((sum, l) => sum + (Number(l.delta) || 0), 0);
+  let base = med.remainingPills - sumDeltas;
+  logs
+    .sort((a, b) => a.timestamp - b.timestamp)
+    .forEach(log => {
+      base += Number(log.delta) || 0;
+      log.remainingAfter = Math.max(0, base);
+    });
+}
+
 export const store = {
   data: {
     records: [],
@@ -144,6 +158,7 @@ export const store = {
     const idx = this.data.meds.findIndex(m => m.id === id);
     if (idx === -1) return;
     this.data.meds[idx] = { ...this.data.meds[idx], ...patch };
+    recalcLogRemainingAfter(id);
     this.persist();
     this.notify();
   },
@@ -157,9 +172,39 @@ export const store = {
   addLog(log) {
     const l = { ...log, id: generateId(), timestamp: log.timestamp || Date.now() };
     this.data.logs.unshift(l);
+    recalcLogRemainingAfter(l.medicationId);
     this.persist();
     this.notify();
     return l;
+  },
+
+  updateLog(id, patch) {
+    const idx = this.data.logs.findIndex(l => l.id === id);
+    if (idx === -1) return;
+    const log = this.data.logs[idx];
+    const med = this.data.meds.find(m => m.id === log.medicationId);
+    if (med && patch.delta !== undefined) {
+      med.remainingPills = Math.max(0, med.remainingPills + (Number(patch.delta) - log.delta));
+    }
+    this.data.logs[idx] = { ...log, ...patch };
+    this.data.logs.sort((a, b) => b.timestamp - a.timestamp);
+    if (med) recalcLogRemainingAfter(med.id);
+    this.persist();
+    this.notify();
+  },
+
+  deleteLog(id) {
+    const idx = this.data.logs.findIndex(l => l.id === id);
+    if (idx === -1) return;
+    const log = this.data.logs[idx];
+    const med = this.data.meds.find(m => m.id === log.medicationId);
+    if (med) {
+      med.remainingPills = Math.max(0, med.remainingPills - log.delta);
+    }
+    this.data.logs.splice(idx, 1);
+    if (med) recalcLogRemainingAfter(med.id);
+    this.persist();
+    this.notify();
   },
 
   changeMedStock(medId, delta, note = '') {

@@ -312,6 +312,38 @@
     </div>
   </div>
 
+  <div class="modal" id="log-modal" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3 data-i18n="meds.log.modalTitle">编辑变更日志</h3>
+      <form id="log-form">
+        <input type="hidden" id="log-id">
+        <div class="form-row">
+          <label class="form-field">
+            <span class="form-label" data-i18n="meds.log.time">时间</span>
+            <input type="datetime-local" id="log-time" required>
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="form-field">
+            <span class="form-label" data-i18n="meds.log.delta">数量变化</span>
+            <input type="number" id="log-delta" step="1" required>
+          </label>
+        </div>
+        <div class="form-row">
+          <label class="form-field">
+            <span class="form-label" data-i18n="meds.log.reason">理由</span>
+            <input type="text" id="log-note" data-i18n-placeholder="meds.stock.reasonPlaceholder" placeholder="如：开药、服用、盘点">
+          </label>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="log-cancel" data-i18n="common.cancel">取消</button>
+          <button type="submit" class="btn btn-primary" data-i18n="common.save">保存</button>
+        </div>
+      </form>
+    </div>
+  </div>
+
   <script type="module" src="js/app.js"></script>
 </body>
 </html>

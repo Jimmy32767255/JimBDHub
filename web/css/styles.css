@@ -401,6 +401,12 @@ body {
 }
 .log-delta.positive { color: var(--accent-green); }
 .log-delta.negative { color: var(--accent-red); }
+.log-actions {
+  display: flex;
+  gap: 8px;
+  justify-content: flex-end;
+  margin-top: 10px;
+}
 
 .records-layout {
   display: grid;

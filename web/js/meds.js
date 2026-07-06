@@ -20,6 +20,13 @@ const stockMedIdInput = document.getElementById('stock-med-id');
 const stockDeltaInput = document.getElementById('stock-delta');
 const stockNoteInput = document.getElementById('stock-note');
 
+const logModal = document.getElementById('log-modal');
+const logForm = document.getElementById('log-form');
+const logIdInput = document.getElementById('log-id');
+const logTimeInput = document.getElementById('log-time');
+const logDeltaInput = document.getElementById('log-delta');
+const logNoteInput = document.getElementById('log-note');
+
 const medDbSearch = document.getElementById('med-db-search');
 const medDbTags = document.getElementById('med-db-tags');
 const medDbResults = document.getElementById('med-db-results');
@@ -166,6 +173,10 @@ function renderLogs() {
         <span class="log-delta ${log.delta < 0 ? 'negative' : 'positive'}">${sign}${log.delta}</span>
       </div>
       ${log.note ? `<small style="color: var(--text-muted); display: block; margin-top: 6px">${log.note}</small>` : ''}
+      <footer class="log-actions">
+        <button class="btn btn-icon btn-sm" data-action="edit-log" data-id="${log.id}">${t('common.edit')}</button>
+        <button class="btn btn-danger btn-sm" data-action="delete-log" data-id="${log.id}">${t('common.delete')}</button>
+      </footer>
     `;
     list.appendChild(item);
   });
@@ -211,6 +222,26 @@ function closeStockModal() {
   stockModal.setAttribute('aria-hidden', 'true');
 }
 
+function formatDateTimeLocal(ts) {
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+}
+
+function openLogModal(log) {
+  logForm.reset();
+  logIdInput.value = log.id;
+  logTimeInput.value = formatDateTimeLocal(log.timestamp);
+  logDeltaInput.value = log.delta;
+  logNoteInput.value = log.note || '';
+  logModal.setAttribute('aria-hidden', 'false');
+  logTimeInput.focus();
+}
+
+function closeLogModal() {
+  logModal.setAttribute('aria-hidden', 'true');
+}
+
 function handleFormSubmit(e) {
   e.preventDefault();
   const box = Number(medBoxInput.value) || 0;
@@ -250,6 +281,20 @@ function handleStockSubmit(e) {
   closeStockModal();
 }
 
+function handleLogSubmit(e) {
+  e.preventDefault();
+  const id = logIdInput.value;
+  const timestamp = new Date(logTimeInput.value).getTime();
+  const delta = Number(logDeltaInput.value) || 0;
+  const note = logNoteInput.value.trim();
+  if (Number.isNaN(timestamp)) {
+    alert(t('records.validation.endAfterStart'));
+    return;
+  }
+  store.updateLog(id, { timestamp, delta, note });
+  closeLogModal();
+}
+
 function initMeds() {
   document.getElementById('add-med-btn').addEventListener('click', () => openModal());
   document.getElementById('med-cancel').addEventListener('click', closeModal);
@@ -263,6 +308,10 @@ function initMeds() {
   document.getElementById('stock-cancel').addEventListener('click', closeStockModal);
   stockModal.querySelector('.modal-backdrop').addEventListener('click', closeStockModal);
   stockForm.addEventListener('submit', handleStockSubmit);
+
+  document.getElementById('log-cancel').addEventListener('click', closeLogModal);
+  logModal.querySelector('.modal-backdrop').addEventListener('click', closeLogModal);
+  logForm.addEventListener('submit', handleLogSubmit);
 
   document.querySelector('#meds-table tbody').addEventListener('click', e => {
     const btn = e.target.closest('button[data-action]');
@@ -279,6 +328,23 @@ function initMeds() {
     } else if (action === 'delete') {
       if (confirm(t('meds.confirm.delete', { name: med.name }))) {
         store.deleteMed(id);
+      }
+    }
+  });
+
+  document.getElementById('logs-list').addEventListener('click', e => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+    const log = store.data.logs.find(l => l.id === id);
+    if (!log) return;
+
+    if (action === 'edit-log') {
+      openLogModal(log);
+    } else if (action === 'delete-log') {
+      if (confirm(t('meds.log.confirmDelete', { name: log.name }))) {
+        store.deleteLog(id);
       }
     }
   });
