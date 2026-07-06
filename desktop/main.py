@@ -118,7 +118,11 @@ def main() -> None:
         js_api=bridge,
     )
     bridge.window = window
-    webview.start(debug=False)
+    webview.start(
+        debug=False,
+        private_mode=False,
+        storage_path=str(Path.home() / ".JimBDHub"),
+    )
 
 
 if __name__ == "__main__":
