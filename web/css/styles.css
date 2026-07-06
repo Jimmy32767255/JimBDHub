@@ -33,6 +33,7 @@ body {
   display: flex;
   height: 100vh;
   width: 100vw;
+  min-height: 0;
 }
 
 .sidebar {
@@ -44,6 +45,8 @@ body {
   display: flex;
   flex-direction: column;
   padding: 24px 16px;
+  overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
 }
 
 .brand {
@@ -104,7 +107,9 @@ body {
   display: flex;
   flex-direction: column;
   min-width: 0;
+  min-height: 0;
   position: relative;
+  overflow: hidden;
 }
 .topbar {
   display: none;
@@ -132,6 +137,9 @@ body {
   display: none;
   flex: 1;
   overflow-y: auto;
+  -webkit-overflow-scrolling: touch;
+  overscroll-behavior-y: contain;
+  min-height: 0;
   padding: 24px;
   animation: fadeIn 0.25s ease;
 }

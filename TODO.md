@@ -60,7 +60,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 有时候，当情绪为+时，数据点之间的连接线仍然为蓝色
 
-- [ ] 移动端界面无法滑动问题
+- [x] 移动端界面无法滑动问题
 - [x] 移动端点击导出/导入崩溃
 
 ## 修改：
