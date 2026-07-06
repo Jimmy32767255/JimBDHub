@@ -85,7 +85,11 @@ export function renderChart(records, container, tooltip) {
 
   const wrap = container.parentElement;
   const rect = wrap.getBoundingClientRect();
-  const height = rect.height;
+  const wrapStyle = getComputedStyle(wrap);
+  const padTop = parseFloat(wrapStyle.paddingTop) || 0;
+  const padBottom = parseFloat(wrapStyle.paddingBottom) || 0;
+  const padLeft = parseFloat(wrapStyle.paddingLeft) || 0;
+  const padRight = parseFloat(wrapStyle.paddingRight) || 0;
   const minTime = records[0].timestamp;
   const maxTime = records[records.length - 1].timestamp;
   const padMs = PAD_HOURS * HOUR_MS;
@@ -97,10 +101,11 @@ export function renderChart(records, container, tooltip) {
   const absoluteChartW = displaySpanHours * PX_PER_HOUR;
   const minChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
   const chartW = Math.max(absoluteChartW, minChartW);
-  const chartH = height - PADDING.top - PADDING.bottom;
   const width = PADDING.left + chartW + PADDING.right;
 
   container.setAttribute('width', width);
+  const height = wrap.clientHeight - padTop - padBottom;
+  const chartH = height - PADDING.top - PADDING.bottom;
   container.setAttribute('height', height);
   container.setAttribute('viewBox', `0 0 ${width} ${height}`);
   container.removeAttribute('preserveAspectRatio');
@@ -324,13 +329,15 @@ export function renderChart(records, container, tooltip) {
 
     const tRect = tooltip.getBoundingClientRect();
     const wrapRect = wrap.getBoundingClientRect();
-    const visibleX = x - wrap.scrollLeft;
-    let left = visibleX + 16;
-    let top = y - 16;
-    if (left + tRect.width > wrapRect.width) left = visibleX - tRect.width - 16;
-    if (left < 0) left = 0;
-    if (top + tRect.height > wrapRect.height) top = wrapRect.height - tRect.height - 8;
-    if (top < PADDING.top) top = PADDING.top;
+    const contentW = wrapRect.width - padLeft - padRight;
+    const contentH = wrapRect.height - padTop - padBottom;
+    const visibleX = padLeft + x - wrap.scrollLeft;
+    let left = padLeft + x + 16;
+    if (visibleX + 16 + tRect.width > contentW) left = padLeft + x - tRect.width - 16;
+    if (left - wrap.scrollLeft < 0) left = wrap.scrollLeft;
+    let top = padTop + y - 16;
+    if (padTop + y - 16 + tRect.height > contentH) top = padTop + y - tRect.height - 16;
+    if (top - wrap.scrollTop < padTop + PADDING.top) top = wrap.scrollTop + padTop + PADDING.top;
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${top}px`;
   }
@@ -496,14 +503,19 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
 
   const wrap = container.parentElement;
   const rect = wrap.getBoundingClientRect();
-  const height = rect.height;
+  const wrapStyle = getComputedStyle(wrap);
+  const padTop = parseFloat(wrapStyle.paddingTop) || 0;
+  const padBottom = parseFloat(wrapStyle.paddingBottom) || 0;
+  const padLeft = parseFloat(wrapStyle.paddingLeft) || 0;
+  const padRight = parseFloat(wrapStyle.paddingRight) || 0;
   const containerChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
   const absoluteChartW = displaySpanHours * effectivePxPerHour;
   const chartW = Math.max(absoluteChartW, containerChartW);
-  const chartH = height - PADDING.top - PADDING.bottom;
   const width = PADDING.left + chartW + PADDING.right;
 
   container.setAttribute('width', width);
+  const height = wrap.clientHeight - padTop - padBottom;
+  const chartH = height - PADDING.top - PADDING.bottom;
   container.setAttribute('height', height);
   container.setAttribute('viewBox', `0 0 ${width} ${height}`);
   container.removeAttribute('preserveAspectRatio');
@@ -871,16 +883,25 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
     vLine.setAttribute('x1', x);
     vLine.setAttribute('x2', x);
 
-    let content = `<time>${formatDateTime(ts)}</time>`;
-
-    // 情绪信息
+    let nearest = null;
+    let nearestValue = null;
     if (hasMoodData) {
-      let nearest = records[0];
       let minDiff = Infinity;
       records.forEach(r => {
         const diff = Math.abs(r.timestamp - ts);
         if (diff < minDiff) { minDiff = diff; nearest = r; }
       });
+      if (nearest) {
+        nearestValue = nearest.mixed
+          ? (Math.abs(nearest.value) >= Math.abs(nearest.mixedValue) ? nearest.value : nearest.mixedValue)
+          : nearest.value;
+      }
+    }
+
+    let content = `<time>${formatDateTime(ts)}</time>`;
+
+    // 情绪信息
+    if (nearest) {
       const mixedText = nearest.mixed ? ` / ${nearest.mixedValue > 0 ? '+' : ''}${nearest.mixedValue}` : '';
       const medText = (nearest.doses || []).length
         ? `<div class="med">${nearest.doses.map(d => `${d.name} ${d.amount}${d.unit}`).join('、')}</div>`
@@ -916,15 +937,22 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
 
     tooltip.innerHTML = content;
     tooltip.classList.add('visible');
+    tooltip.style.position = 'fixed';
 
     const tRect = tooltip.getBoundingClientRect();
     const wrapRect = wrap.getBoundingClientRect();
-    const visibleX = x - wrap.scrollLeft;
-    let left = visibleX + 16;
-    let top = PADDING.top;
-    if (left + tRect.width > wrapRect.width) left = visibleX - tRect.width - 16;
-    if (left < 0) left = 0;
-    if (top + tRect.height > wrapRect.height) top = wrapRect.height - tRect.height - 8;
+    const viewportX = wrapRect.left + padLeft + x - wrap.scrollLeft;
+    let viewportY = wrapRect.top + padTop + PADDING.top;
+    if (nearestValue !== null) viewportY = wrapRect.top + padTop + yMoodFor(nearestValue);
+
+    const vw = window.innerWidth;
+    const vh = window.innerHeight;
+    let left = viewportX + 16;
+    let top = viewportY - tRect.height - 16;
+    if (left + tRect.width + 12 > vw) left = viewportX - tRect.width - 16;
+    if (left < 8) left = 8;
+    if (top < 8) top = viewportY + 16;
+    if (top + tRect.height + 8 > vh) top = vh - tRect.height - 8;
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${top}px`;
   }
@@ -944,7 +972,7 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
     let flatIndex = 0;
     records.forEach(r => {
       const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
-      values.forEach(v => {
+      values.forEach(() => {
         const pt = points[flatIndex++];
         if (pt) {
           pt.addEventListener('mouseenter', () => {
@@ -965,7 +993,7 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
       hideTooltip();
       return;
     }
-    const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
+    const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / effectivePxPerHour;
     showCombinedTooltip(ts);
   });
   container.addEventListener('mouseleave', hideTooltip);
@@ -975,7 +1003,7 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
     const touch = e.touches[0];
     const x = touch.clientX - rect.left;
     if (x < PADDING.left || x > width - PADDING.right) return;
-    const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
+    const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / effectivePxPerHour;
     showCombinedTooltip(ts);
   }, { passive: true });
   container.addEventListener('touchend', hideTooltip, { passive: true });
@@ -1008,14 +1036,19 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
 
   const wrap = container.parentElement;
   const rect = wrap.getBoundingClientRect();
-  const height = rect.height;
+  const wrapStyle = getComputedStyle(wrap);
+  const padTop = parseFloat(wrapStyle.paddingTop) || 0;
+  const padBottom = parseFloat(wrapStyle.paddingBottom) || 0;
+  const padLeft = parseFloat(wrapStyle.paddingLeft) || 0;
+  const padRight = parseFloat(wrapStyle.paddingRight) || 0;
   const absoluteChartW = displaySpanHours * PX_PER_HOUR;
   const minChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
   const chartW = Math.max(absoluteChartW, minChartW);
-  const chartH = height - PADDING.top - PADDING.bottom;
   const width = PADDING.left + chartW + PADDING.right;
 
   container.setAttribute('width', width);
+  const height = wrap.clientHeight - padTop - padBottom;
+  const chartH = height - PADDING.top - PADDING.bottom;
   container.setAttribute('height', height);
   container.setAttribute('viewBox', `0 0 ${width} ${height}`);
   container.removeAttribute('preserveAspectRatio');
@@ -1150,11 +1183,14 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
 
     const tRect = tooltip.getBoundingClientRect();
     const wrapRect = wrap.getBoundingClientRect();
-    const visibleX = x - wrap.scrollLeft;
-    let left = visibleX + 16;
-    let top = PADDING.top;
-    if (left + tRect.width > wrapRect.width) left = visibleX - tRect.width - 16;
-    if (left < 0) left = 0;
+    const contentW = wrapRect.width - padLeft - padRight;
+    const contentH = wrapRect.height - padTop - padBottom;
+    const visibleX = padLeft + x - wrap.scrollLeft;
+    let left = padLeft + x + 16;
+    if (visibleX + 16 + tRect.width > contentW) left = padLeft + x - tRect.width - 16;
+    if (left - wrap.scrollLeft < 0) left = wrap.scrollLeft;
+    let top = padTop + PADDING.top;
+    if (top + tRect.height > contentH) top = contentH - tRect.height - 8;
     tooltip.style.left = `${left}px`;
     tooltip.style.top = `${top}px`;
   }
