@@ -31,6 +31,8 @@ function nowHourFloor() {
   return d.getTime();
 }
 
+const DAY_MS = 24 * 60 * 60 * 1000;
+
 function recalcLogRemainingAfter(medId) {
   const med = store.data.meds.find(m => m.id === medId);
   const logs = store.data.logs.filter(l => l.medicationId === medId);
@@ -96,22 +98,34 @@ export const store = {
   },
 
   getRecordsInRange(range) {
-    const now = Date.now();
     let start = 0;
-    if (range === 'week') start = now - 7 * 24 * 60 * 60 * 1000;
-    if (range === 'month') start = now - 30 * 24 * 60 * 60 * 1000;
+    let end = Infinity;
+    if (range && typeof range === 'object') {
+      start = range.start ?? 0;
+      end = range.end ?? Infinity;
+    } else {
+      const now = Date.now();
+      if (range === 'week') start = now - 7 * DAY_MS;
+      if (range === 'month') start = now - 30 * DAY_MS;
+    }
     return this.data.records
-      .filter(r => r.timestamp >= start)
+      .filter(r => r.timestamp >= start && r.timestamp <= end)
       .sort((a, b) => a.timestamp - b.timestamp);
   },
 
   getSleepsInRange(range) {
-    const now = Date.now();
     let start = 0;
-    if (range === 'week') start = now - 7 * 24 * 60 * 60 * 1000;
-    if (range === 'month') start = now - 30 * 24 * 60 * 60 * 1000;
+    let end = Infinity;
+    if (range && typeof range === 'object') {
+      start = range.start ?? 0;
+      end = range.end ?? Infinity;
+    } else {
+      const now = Date.now();
+      if (range === 'week') start = now - 7 * DAY_MS;
+      if (range === 'month') start = now - 30 * DAY_MS;
+    }
     return this.data.sleeps
-      .filter(s => s.startTime >= start)
+      .filter(s => s.startTime <= end && s.endTime >= start)
       .sort((a, b) => a.startTime - b.startTime);
   },
 

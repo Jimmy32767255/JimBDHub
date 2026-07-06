@@ -361,7 +361,7 @@ export function renderChart(records, container, tooltip) {
 
   container.addEventListener('mousemove', e => {
     const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left + wrap.scrollLeft;
+    const x = e.clientX - rect.left;
     if (x < PADDING.left || x > width - PADDING.right) {
       hideTooltip();
       return;
@@ -381,7 +381,7 @@ export function renderChart(records, container, tooltip) {
   container.addEventListener('touchstart', e => {
     const rect = container.getBoundingClientRect();
     const touch = e.touches[0];
-    const x = touch.clientX - rect.left + wrap.scrollLeft;
+    const x = touch.clientX - rect.left;
     if (x < PADDING.left || x > width - PADDING.right) return;
     const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
     let nearest = records[0];
@@ -448,7 +448,8 @@ function medColor(index) {
 }
 
 export function renderCombinedChart(records, sleeps = [], container, tooltip, legendContainer, options = {}) {
-  const { showMood = true, showEffect = true, showSleep = true } = options;
+  const { showMood = true, showEffect = true, showSleep = true, pxPerHour } = options;
+  const effectivePxPerHour = pxPerHour || PX_PER_HOUR;
   const theme = getTheme();
   const colors = {
     positive: theme.positiveColor,
@@ -496,9 +497,9 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
   const wrap = container.parentElement;
   const rect = wrap.getBoundingClientRect();
   const height = rect.height;
-  const absoluteChartW = displaySpanHours * PX_PER_HOUR;
-  const minChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
-  const chartW = Math.max(absoluteChartW, minChartW);
+  const containerChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
+  const absoluteChartW = displaySpanHours * effectivePxPerHour;
+  const chartW = Math.max(absoluteChartW, containerChartW);
   const chartH = height - PADDING.top - PADDING.bottom;
   const width = PADDING.left + chartW + PADDING.right;
 
@@ -507,7 +508,7 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
   container.setAttribute('viewBox', `0 0 ${width} ${height}`);
   container.removeAttribute('preserveAspectRatio');
 
-  const xFor = ts => PADDING.left + ((ts - displayMinTime) / HOUR_MS) * PX_PER_HOUR;
+  const xFor = ts => PADDING.left + ((ts - displayMinTime) / HOUR_MS) * effectivePxPerHour;
   const yMoodFor = v => PADDING.top + ((10 - v) / 20) * chartH;
   const yTop = yMoodFor(10);
   const yBottom = yMoodFor(-10);
@@ -959,7 +960,7 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
 
   container.addEventListener('mousemove', e => {
     const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left + wrap.scrollLeft;
+    const x = e.clientX - rect.left;
     if (x < PADDING.left || x > width - PADDING.right) {
       hideTooltip();
       return;
@@ -972,7 +973,7 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
   container.addEventListener('touchstart', e => {
     const rect = container.getBoundingClientRect();
     const touch = e.touches[0];
-    const x = touch.clientX - rect.left + wrap.scrollLeft;
+    const x = touch.clientX - rect.left;
     if (x < PADDING.left || x > width - PADDING.right) return;
     const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
     showCombinedTooltip(ts);
@@ -1165,7 +1166,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
 
   container.addEventListener('mousemove', e => {
     const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left + wrap.scrollLeft;
+    const x = e.clientX - rect.left;
     if (x < PADDING.left || x > width - PADDING.right) {
       hideEffectTooltip();
       return;
@@ -1178,7 +1179,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   container.addEventListener('touchstart', e => {
     const rect = container.getBoundingClientRect();
     const touch = e.touches[0];
-    const x = touch.clientX - rect.left + wrap.scrollLeft;
+    const x = touch.clientX - rect.left;
     if (x < PADDING.left || x > width - PADDING.right) return;
     const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
     showEffectTooltip(t);

@@ -211,26 +211,32 @@ body {
   padding: 12px 20px;
   border-bottom: 1px solid var(--theme-surface-2);
 }
-.range-tabs {
+.zoom-controls {
   display: inline-flex;
   background: var(--theme-bg);
   border-radius: 10px;
   padding: 4px;
   gap: 4px;
 }
-.range-tab {
+.zoom-btn {
   background: transparent;
   border: none;
   color: var(--theme-text-muted);
   padding: 6px 14px;
   border-radius: 8px;
-  font-size: 13px;
+  font-size: 15px;
+  line-height: 1;
   cursor: pointer;
   transition: all 0.2s;
+  min-width: 38px;
 }
-.range-tab.active, .range-tab:hover {
+.zoom-btn:hover {
   background: var(--theme-surface-2);
   color: var(--theme-text);
+}
+.zoom-btn.reset {
+  font-size: 13px;
+  padding: 6px 12px;
 }
 
 .chart-wrap {

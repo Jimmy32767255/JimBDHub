@@ -22,7 +22,9 @@ const showMoodCheckbox = document.getElementById('show-mood');
 const showEffectCheckbox = document.getElementById('show-effect');
 const showSleepCheckbox = document.getElementById('show-sleep');
 
-let currentRange = 'week';
+const BASE_PX_PER_HOUR = 12;
+let currentPxPerHour = BASE_PX_PER_HOUR;
+const ZOOM_FACTOR = 1.4;
 
 function setActiveView(name) {
   Object.entries(views).forEach(([key, el]) => {
@@ -38,13 +40,27 @@ function setActiveView(name) {
   }
 }
 
+function resetZoom() {
+  currentPxPerHour = BASE_PX_PER_HOUR;
+}
+
+function zoomIn() {
+  currentPxPerHour *= ZOOM_FACTOR;
+}
+
+function zoomOut() {
+  currentPxPerHour /= ZOOM_FACTOR;
+  if (currentPxPerHour < BASE_PX_PER_HOUR) currentPxPerHour = BASE_PX_PER_HOUR;
+}
+
 function drawChart() {
-  const records = store.getRecordsInRange(currentRange);
-  const sleeps = store.getSleepsInRange(currentRange);
+  const records = store.getRecordsInRange('all');
+  const sleeps = store.getSleepsInRange('all');
   renderCombinedChart(records, sleeps, combinedChartSvg, combinedChartTooltip, combinedLegend, {
     showMood: showMoodCheckbox.checked,
     showEffect: showEffectCheckbox.checked,
-    showSleep: showSleepCheckbox.checked
+    showSleep: showSleepCheckbox.checked,
+    pxPerHour: currentPxPerHour
   });
 }
 
@@ -60,13 +76,17 @@ function initNavigation() {
     sidebar.classList.toggle('open');
   });
 
-  document.querySelectorAll('.range-tab').forEach(tab => {
-    tab.addEventListener('click', () => {
-      document.querySelectorAll('.range-tab').forEach(t => t.classList.remove('active'));
-      tab.classList.add('active');
-      currentRange = tab.dataset.range;
-      drawChart();
-    });
+  document.getElementById('zoom-in')?.addEventListener('click', () => {
+    zoomIn();
+    drawChart();
+  });
+  document.getElementById('zoom-out')?.addEventListener('click', () => {
+    zoomOut();
+    drawChart();
+  });
+  document.getElementById('zoom-reset')?.addEventListener('click', () => {
+    resetZoom();
+    drawChart();
   });
 
   // 复选框控制图表显示
