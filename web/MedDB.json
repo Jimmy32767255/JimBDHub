@@ -4,258 +4,449 @@
     {
       "name": "碳酸锂",
       "category": "心境稳定剂",
-      "tags": ["心境稳定剂", "双相障碍"],
+      "tags": [
+        "心境稳定剂",
+        "双相障碍"
+      ],
       "unit": "片",
       "pillsPerBoard": 24,
-      "note": "常用心境稳定剂，需定期监测血锂浓度与甲状腺功能。"
+      "note": "常用心境稳定剂，需定期监测血锂浓度与甲状腺功能。",
+      "onsetHours": 1.0,
+      "peakHours": 2.5,
+      "halfLifeHours": 24.0
     },
     {
       "name": "丙戊酸钠",
       "category": "心境稳定剂",
-      "tags": ["心境稳定剂", "双相障碍", "抗癫痫"],
+      "tags": [
+        "心境稳定剂",
+        "双相障碍",
+        "抗癫痫"
+      ],
       "unit": "片",
       "pillsPerBoard": 24,
-      "note": "心境稳定剂，也可用于癫痫。"
+      "note": "心境稳定剂，也可用于癫痫。",
+      "onsetHours": 0.5,
+      "peakHours": 2.0,
+      "halfLifeHours": 12.0
     },
     {
       "name": "丙戊酸镁",
       "category": "心境稳定剂",
-      "tags": ["心境稳定剂", "双相障碍", "抗癫痫"],
+      "tags": [
+        "心境稳定剂",
+        "双相障碍",
+        "抗癫痫"
+      ],
       "unit": "片",
       "pillsPerBoard": 24,
-      "note": "与丙戊酸钠作用类似，胃肠道反应可能较轻。"
+      "note": "与丙戊酸钠作用类似，胃肠道反应可能较轻。",
+      "onsetHours": 0.5,
+      "peakHours": 2.0,
+      "halfLifeHours": 12.0
     },
     {
       "name": "拉莫三嗪",
       "category": "心境稳定剂",
-      "tags": ["心境稳定剂", "双相障碍", "抗癫痫"],
+      "tags": [
+        "心境稳定剂",
+        "双相障碍",
+        "抗癫痫"
+      ],
       "unit": "片",
       "pillsPerBoard": 30,
-      "note": "对双相抑郁维持治疗较有效，需缓慢加量以防皮疹。"
+      "note": "对双相抑郁维持治疗较有效，需缓慢加量以防皮疹。",
+      "onsetHours": 1.0,
+      "peakHours": 3.0,
+      "halfLifeHours": 29.0
     },
     {
       "name": "卡马西平",
       "category": "心境稳定剂",
-      "tags": ["心境稳定剂", "双相障碍", "抗癫痫"],
+      "tags": [
+        "心境稳定剂",
+        "双相障碍",
+        "抗癫痫"
+      ],
       "unit": "片",
       "pillsPerBoard": 24,
-      "note": "传统心境稳定剂，需注意药物相互作用。"
+      "note": "传统心境稳定剂，需注意药物相互作用。",
+      "onsetHours": 1.0,
+      "peakHours": 4.0,
+      "halfLifeHours": 15.0
     },
     {
       "name": "喹硫平",
       "category": "抗精神病药",
-      "tags": ["抗精神病药", "心境稳定剂", "双相障碍", "安眠药"],
+      "tags": [
+        "抗精神病药",
+        "心境稳定剂",
+        "双相障碍",
+        "安眠药"
+      ],
       "unit": "片",
       "pillsPerBoard": 20,
-      "note": "第二代抗精神病药，常作为心境稳定剂增效剂。"
+      "note": "第二代抗精神病药，常作为心境稳定剂增效剂。",
+      "onsetHours": 0.5,
+      "peakHours": 2.0,
+      "halfLifeHours": 6.0
     },
     {
       "name": "奥氮平",
       "category": "抗精神病药",
-      "tags": ["抗精神病药", "心境稳定剂", "双相障碍"],
+      "tags": [
+        "抗精神病药",
+        "心境稳定剂",
+        "双相障碍"
+      ],
       "unit": "片",
       "pillsPerBoard": 14,
-      "note": "第二代抗精神病药，镇静与食欲增加较明显。"
+      "note": "第二代抗精神病药，镇静与食欲增加较明显。",
+      "onsetHours": 1.0,
+      "peakHours": 6.0,
+      "halfLifeHours": 30.0
     },
     {
       "name": "利培酮",
       "category": "抗精神病药",
-      "tags": ["抗精神病药", "双相障碍"],
+      "tags": [
+        "抗精神病药",
+        "双相障碍"
+      ],
       "unit": "片",
       "pillsPerBoard": 20,
-      "note": "第二代抗精神病药，需注意锥体外系反应。"
+      "note": "第二代抗精神病药，需注意锥体外系反应。",
+      "onsetHours": 1.0,
+      "peakHours": 3.0,
+      "halfLifeHours": 20.0
     },
     {
       "name": "阿立哌唑",
       "category": "抗精神病药",
-      "tags": ["抗精神病药", "双相障碍"],
+      "tags": [
+        "抗精神病药",
+        "双相障碍"
+      ],
       "unit": "片",
       "pillsPerBoard": 20,
-      "note": "第二代抗精神病药，激活作用较明显。"
+      "note": "第二代抗精神病药，激活作用较明显。",
+      "onsetHours": 1.0,
+      "peakHours": 3.0,
+      "halfLifeHours": 75.0
     },
     {
       "name": "鲁拉西酮",
       "category": "抗精神病药",
-      "tags": ["抗精神病药", "双相障碍"],
+      "tags": [
+        "抗精神病药",
+        "双相障碍"
+      ],
       "unit": "片",
       "pillsPerBoard": 30,
-      "note": "第二代抗精神病药，需与食物同服。"
+      "note": "第二代抗精神病药，需与食物同服。",
+      "onsetHours": 1.0,
+      "peakHours": 3.0,
+      "halfLifeHours": 18.0
     },
     {
       "name": "齐拉西酮",
       "category": "抗精神病药",
-      "tags": ["抗精神病药", "双相障碍"],
+      "tags": [
+        "抗精神病药",
+        "双相障碍"
+      ],
       "unit": "粒",
       "pillsPerBoard": 20,
-      "note": "第二代抗精神病药，需与食物同服。"
+      "note": "第二代抗精神病药，需与食物同服。",
+      "onsetHours": 1.0,
+      "peakHours": 2.0,
+      "halfLifeHours": 7.0
     },
     {
       "name": "帕利哌酮",
       "category": "抗精神病药",
-      "tags": ["抗精神病药", "双相障碍"],
+      "tags": [
+        "抗精神病药",
+        "双相障碍"
+      ],
       "unit": "片",
       "pillsPerBoard": 14,
-      "note": "利培酮活性代谢产物，作用时间较长。"
+      "note": "利培酮活性代谢产物，作用时间较长。",
+      "onsetHours": 1.0,
+      "peakHours": 4.0,
+      "halfLifeHours": 23.0
     },
     {
       "name": "氨磺必利",
       "category": "抗精神病药",
-      "tags": ["抗精神病药"],
+      "tags": [
+        "抗精神病药"
+      ],
       "unit": "片",
       "pillsPerBoard": 20,
-      "note": "第二代抗精神病药，对阴性症状可能有效。"
+      "note": "第二代抗精神病药，对阴性症状可能有效。",
+      "onsetHours": 1.0,
+      "peakHours": 2.0,
+      "halfLifeHours": 12.0
     },
     {
       "name": "舍曲林",
       "category": "抗抑郁药",
-      "tags": ["抗抑郁药"],
+      "tags": [
+        "抗抑郁药"
+      ],
       "unit": "片",
       "pillsPerBoard": 14,
-      "note": "SSRI类抗抑郁药。"
+      "note": "SSRI类抗抑郁药。",
+      "onsetHours": 1.5,
+      "peakHours": 4.0,
+      "halfLifeHours": 26.0
     },
     {
       "name": "氟西汀",
       "category": "抗抑郁药",
-      "tags": ["抗抑郁药"],
+      "tags": [
+        "抗抑郁药"
+      ],
       "unit": "片",
       "pillsPerBoard": 14,
-      "note": "SSRI类抗抑郁药，半衰期较长。"
+      "note": "SSRI类抗抑郁药，半衰期较长。",
+      "onsetHours": 1.5,
+      "peakHours": 6.0,
+      "halfLifeHours": 35.0
     },
     {
       "name": "艾司西酞普兰",
       "category": "抗抑郁药",
-      "tags": ["抗抑郁药"],
+      "tags": [
+        "抗抑郁药"
+      ],
       "unit": "片",
       "pillsPerBoard": 14,
-      "note": "SSRI类抗抑郁药。"
+      "note": "SSRI类抗抑郁药。",
+      "onsetHours": 1.5,
+      "peakHours": 4.0,
+      "halfLifeHours": 27.0
     },
     {
       "name": "文拉法辛",
       "category": "抗抑郁药",
-      "tags": ["抗抑郁药"],
+      "tags": [
+        "抗抑郁药"
+      ],
       "unit": "粒",
       "pillsPerBoard": 14,
-      "note": "SNRI类抗抑郁药。"
+      "note": "SNRI类抗抑郁药。",
+      "onsetHours": 1.5,
+      "peakHours": 3.0,
+      "halfLifeHours": 5.0
     },
     {
       "name": "度洛西汀",
       "category": "抗抑郁药",
-      "tags": ["抗抑郁药"],
+      "tags": [
+        "抗抑郁药"
+      ],
       "unit": "粒",
       "pillsPerBoard": 14,
-      "note": "SNRI类抗抑郁药。"
+      "note": "SNRI类抗抑郁药。",
+      "onsetHours": 2.0,
+      "peakHours": 6.0,
+      "halfLifeHours": 12.0
     },
     {
       "name": "安非他酮",
       "category": "抗抑郁药",
-      "tags": ["抗抑郁药"],
+      "tags": [
+        "抗抑郁药"
+      ],
       "unit": "片",
       "pillsPerBoard": 14,
-      "note": "NDRI类抗抑郁药，可能降低癫痫阈值。"
+      "note": "NDRI类抗抑郁药，可能降低癫痫阈值。",
+      "onsetHours": 1.0,
+      "peakHours": 2.0,
+      "halfLifeHours": 15.0
     },
     {
       "name": "米氮平",
       "category": "抗抑郁药",
-      "tags": ["抗抑郁药", "安眠药"],
+      "tags": [
+        "抗抑郁药",
+        "安眠药"
+      ],
       "unit": "片",
       "pillsPerBoard": 10,
-      "note": "NaSSA类抗抑郁药，有助眠与增加食欲作用。"
+      "note": "NaSSA类抗抑郁药，有助眠与增加食欲作用。",
+      "onsetHours": 1.0,
+      "peakHours": 2.0,
+      "halfLifeHours": 20.0
     },
     {
       "name": "曲唑酮",
       "category": "抗抑郁药",
-      "tags": ["抗抑郁药", "安眠药"],
+      "tags": [
+        "抗抑郁药",
+        "安眠药"
+      ],
       "unit": "片",
       "pillsPerBoard": 14,
-      "note": "SARI类抗抑郁药，低剂量常作助眠。"
+      "note": "SARI类抗抑郁药，低剂量常作助眠。",
+      "onsetHours": 0.5,
+      "peakHours": 1.5,
+      "halfLifeHours": 7.0
     },
     {
       "name": "劳拉西泮",
       "category": "抗焦虑药",
-      "tags": ["抗焦虑药", "镇静催眠"],
+      "tags": [
+        "抗焦虑药",
+        "镇静催眠"
+      ],
       "unit": "片",
       "pillsPerBoard": 20,
-      "note": "苯二氮䓬类，用于急性焦虑与失眠。"
+      "note": "苯二氮䓬类，用于急性焦虑与失眠。",
+      "onsetHours": 0.25,
+      "peakHours": 1.0,
+      "halfLifeHours": 12.0
     },
     {
       "name": "阿普唑仑",
       "category": "抗焦虑药",
-      "tags": ["抗焦虑药", "镇静催眠"],
+      "tags": [
+        "抗焦虑药",
+        "镇静催眠"
+      ],
       "unit": "片",
       "pillsPerBoard": 20,
-      "note": "苯二氮䓬类，起效较快，易产生耐受。"
+      "note": "苯二氮䓬类，起效较快，易产生耐受。",
+      "onsetHours": 0.25,
+      "peakHours": 1.5,
+      "halfLifeHours": 11.0
     },
     {
       "name": "氯硝西泮",
       "category": "抗焦虑药",
-      "tags": ["抗焦虑药", "镇静催眠", "抗癫痫"],
+      "tags": [
+        "抗焦虑药",
+        "镇静催眠",
+        "抗癫痫"
+      ],
       "unit": "片",
       "pillsPerBoard": 20,
-      "note": "苯二氮䓬类，作用时间较长。"
+      "note": "苯二氮䓬类，作用时间较长。",
+      "onsetHours": 0.5,
+      "peakHours": 1.5,
+      "halfLifeHours": 30.0
     },
     {
       "name": "丁螺环酮",
       "category": "抗焦虑药",
-      "tags": ["抗焦虑药"],
+      "tags": [
+        "抗焦虑药"
+      ],
       "unit": "片",
       "pillsPerBoard": 20,
-      "note": "非苯二氮䓬类抗焦虑药，无依赖性。"
+      "note": "非苯二氮䓬类抗焦虑药，无依赖性。",
+      "onsetHours": 0.5,
+      "peakHours": 1.5,
+      "halfLifeHours": 2.5
     },
     {
       "name": "唑吡坦",
       "category": "安眠药",
-      "tags": ["安眠药", "镇静催眠"],
+      "tags": [
+        "安眠药",
+        "镇静催眠"
+      ],
       "unit": "片",
       "pillsPerBoard": 14,
-      "note": "非苯二氮䓬类安眠药。"
+      "note": "非苯二氮䓬类安眠药。",
+      "onsetHours": 0.25,
+      "peakHours": 1.0,
+      "halfLifeHours": 2.5
     },
     {
       "name": "右佐匹克隆",
       "category": "安眠药",
-      "tags": ["安眠药", "镇静催眠"],
+      "tags": [
+        "安眠药",
+        "镇静催眠"
+      ],
       "unit": "片",
       "pillsPerBoard": 14,
-      "note": "非苯二氮䓬类安眠药。"
+      "note": "非苯二氮䓬类安眠药。",
+      "onsetHours": 0.25,
+      "peakHours": 1.0,
+      "halfLifeHours": 6.0
     },
     {
       "name": "佐匹克隆",
       "category": "安眠药",
-      "tags": ["安眠药", "镇静催眠"],
+      "tags": [
+        "安眠药",
+        "镇静催眠"
+      ],
       "unit": "片",
       "pillsPerBoard": 14,
-      "note": "非苯二氮䓬类安眠药，可能有金属味副作用。"
+      "note": "非苯二氮䓬类安眠药，可能有金属味副作用。",
+      "onsetHours": 0.5,
+      "peakHours": 1.5,
+      "halfLifeHours": 5.0
     },
     {
       "name": "哌甲酯",
       "category": "中枢兴奋剂",
-      "tags": ["ADHD", "中枢兴奋剂"],
+      "tags": [
+        "ADHD",
+        "中枢兴奋剂"
+      ],
       "unit": "片",
       "pillsPerBoard": 20,
-      "note": "用于注意缺陷多动障碍，双相患者慎用。"
+      "note": "用于注意缺陷多动障碍，双相患者慎用。",
+      "onsetHours": 0.5,
+      "peakHours": 1.0,
+      "halfLifeHours": 3.5
     },
     {
       "name": "托莫西汀",
       "category": "ADHD用药",
-      "tags": ["ADHD"],
+      "tags": [
+        "ADHD"
+      ],
       "unit": "粒",
       "pillsPerBoard": 14,
-      "note": "非兴奋剂类ADHD药物。"
+      "note": "非兴奋剂类ADHD药物。",
+      "onsetHours": 1.0,
+      "peakHours": 2.0,
+      "halfLifeHours": 5.0
     },
     {
       "name": "普萘洛尔",
       "category": "β受体阻滞剂",
-      "tags": ["抗焦虑药", "躯体症状"],
+      "tags": [
+        "抗焦虑药",
+        "躯体症状"
+      ],
       "unit": "片",
       "pillsPerBoard": 24,
-      "note": "可缓解焦虑相关的躯体症状如心悸、手抖。"
+      "note": "可缓解焦虑相关的躯体症状如心悸、手抖。",
+      "onsetHours": 0.5,
+      "peakHours": 1.0,
+      "halfLifeHours": 4.0
     },
     {
       "name": "苯海索",
       "category": "抗胆碱药",
-      "tags": ["抗精神病药增效", "副作用处理"],
+      "tags": [
+        "抗精神病药增效",
+        "副作用处理"
+      ],
       "unit": "片",
       "pillsPerBoard": 24,
-      "note": "用于缓解抗精神病药引起的锥体外系反应。"
+      "note": "用于缓解抗精神病药引起的锥体外系反应。",
+      "onsetHours": 1.0,
+      "peakHours": 2.0,
+      "halfLifeHours": 5.0
     }
   ]
 }

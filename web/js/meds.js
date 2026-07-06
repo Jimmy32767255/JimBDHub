@@ -12,6 +12,9 @@ const medBoardInput = document.getElementById('med-board');
 const medPillsInput = document.getElementById('med-pills');
 const medUnitInput = document.getElementById('med-unit');
 const medRemainingInput = document.getElementById('med-remaining');
+const medOnsetInput = document.getElementById('med-onset');
+const medPeakInput = document.getElementById('med-peak');
+const medHalfLifeInput = document.getElementById('med-half-life');
 const medNoteInput = document.getElementById('med-note');
 
 const stockModal = document.getElementById('stock-modal');
@@ -115,6 +118,9 @@ function fillMedForm(med) {
   medPillsInput.value = med.pillsPerBoard || 0;
   medUnitInput.value = med.unit || '片';
   medRemainingInput.value = med.pillsPerBoard || 0;
+  medOnsetInput.value = med.onsetHours ?? 1;
+  medPeakInput.value = med.peakHours ?? 2;
+  medHalfLifeInput.value = med.halfLifeHours ?? 12;
   medNoteInput.value = med.note || '';
   medDbSearch.value = '';
   medDbSelectedTag = '';
@@ -198,10 +204,16 @@ function openModal(med = null) {
     medPillsInput.value = med.pillsPerBoard;
     medUnitInput.value = med.unit;
     medRemainingInput.value = med.remainingPills;
+    medOnsetInput.value = med.onsetHours ?? 1;
+    medPeakInput.value = med.peakHours ?? 2;
+    medHalfLifeInput.value = med.halfLifeHours ?? 12;
     medNoteInput.value = med.note;
   } else {
     medModalTitle.textContent = t('meds.modal.addTitle');
     medIdInput.value = '';
+    medOnsetInput.value = 1;
+    medPeakInput.value = 2;
+    medHalfLifeInput.value = 12;
   }
   medModal.setAttribute('aria-hidden', 'false');
   medNameInput.focus();
@@ -258,6 +270,9 @@ function handleFormSubmit(e) {
     unit: medUnitInput.value,
     totalPills: total,
     remainingPills: remaining,
+    onsetHours: Math.max(0, Number(medOnsetInput.value) || 0),
+    peakHours: Math.max(0, Number(medPeakInput.value) || 0),
+    halfLifeHours: Math.max(0.1, Number(medHalfLifeInput.value) || 0.1),
     note: medNoteInput.value.trim()
   };
   if (medIdInput.value) {

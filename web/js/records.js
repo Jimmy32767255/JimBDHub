@@ -13,9 +13,8 @@ const mixedValueRow = document.getElementById('mixed-value-row');
 const mixedValueInput = document.getElementById('record-mixed-value');
 const mixedValueOut = document.getElementById('mixed-value-out');
 const medicationInput = document.getElementById('record-medication');
-const strengthField = document.getElementById('medication-strength-field');
-const strengthInput = document.getElementById('record-medication-strength');
-const strengthOut = document.getElementById('strength-out');
+const dosesField = document.getElementById('medication-doses-field');
+const dosesList = document.getElementById('medication-doses-list');
 const noteInput = document.getElementById('record-note');
 const cancelBtn = document.getElementById('record-cancel');
 
@@ -39,7 +38,6 @@ function toDatetimeLocal(ts) {
 function updateRangeOutputs() {
   valueOut.textContent = valueInput.value;
   mixedValueOut.textContent = mixedValueInput.value;
-  strengthOut.textContent = strengthInput.value;
   sleepQualityOut.textContent = sleepQualityInput.value;
 }
 
@@ -48,7 +46,8 @@ function resetForm() {
   idInput.value = '';
   timeInput.value = toDatetimeLocal(nowHourFloor());
   mixedValueRow.hidden = true;
-  strengthField.hidden = true;
+  dosesField.hidden = true;
+  renderDoses([]);
   updateRangeOutputs();
 }
 
@@ -58,13 +57,64 @@ function editRecord(record) {
   valueInput.value = record.value;
   mixedInput.checked = record.mixed;
   mixedValueInput.value = record.mixedValue;
-  medicationInput.checked = record.medication;
-  strengthInput.value = record.medicationStrength;
+  medicationInput.checked = !!record.doses && record.doses.length > 0;
   noteInput.value = record.note || '';
   mixedValueRow.hidden = !record.mixed;
-  strengthField.hidden = !record.medication;
+  dosesField.hidden = !medicationInput.checked;
+  renderDoses(record.doses || []);
   updateRangeOutputs();
   switchForm('mood');
+}
+
+function renderDoses(selectedDoses = []) {
+  dosesList.innerHTML = '';
+  if (store.data.meds.length === 0) {
+    dosesList.innerHTML = `<div class="doses-empty">${t('records.moodForm.noMeds')}</div>`;
+    return;
+  }
+  const byId = Object.fromEntries(selectedDoses.map(d => [d.medicationId, d]));
+  store.data.meds.forEach(med => {
+    const existing = byId[med.id];
+    const row = document.createElement('label');
+    row.className = 'dose-row';
+    row.innerHTML = `
+      <input type="checkbox" class="dose-check" data-id="${med.id}" ${existing ? 'checked' : ''}>
+      <span class="dose-name">${med.name}</span>
+      <input type="number" class="dose-amount" data-id="${med.id}" min="0.1" step="0.1" value="${existing ? existing.amount : 1}" ${existing ? '' : 'disabled'}>
+      <span class="dose-unit">${med.unit}</span>
+    `;
+    dosesList.appendChild(row);
+  });
+
+  dosesList.querySelectorAll('.dose-check').forEach(check => {
+    check.addEventListener('change', () => {
+      const rowEl = check.closest('.dose-row');
+      const amountInput = rowEl.querySelector(`.dose-amount[data-id="${check.dataset.id}"]`);
+      if (amountInput) amountInput.disabled = !check.checked;
+    });
+  });
+}
+
+function collectDoses() {
+  const rows = dosesList.querySelectorAll('.dose-row');
+  const doses = [];
+  rows.forEach(row => {
+    const check = row.querySelector('.dose-check');
+    const amountInput = row.querySelector('.dose-amount');
+    if (!check || !check.checked) return;
+    const med = store.data.meds.find(m => m.id === check.dataset.id);
+    if (!med) return;
+    doses.push({
+      medicationId: med.id,
+      name: med.name,
+      amount: Math.max(0.1, Number(amountInput.value) || 1),
+      unit: med.unit,
+      onsetHours: med.onsetHours ?? 1,
+      peakHours: med.peakHours ?? 2,
+      halfLifeHours: med.halfLifeHours ?? 12
+    });
+  });
+  return doses;
 }
 
 function defaultSleepTimes() {
@@ -207,7 +257,9 @@ function renderRecords() {
       const r = item.data;
       const mainClass = r.value === 0 ? 'neutral' : (r.value > 0 ? 'positive' : 'negative');
       const mixedText = r.mixed ? ` / ${r.mixedValue > 0 ? '+' : ''}${r.mixedValue}` : '';
-      const medText = r.medication ? t('records.history.medicationEffect', { strength: r.medicationStrength }) : '';
+      const medText = (r.doses || []).length
+        ? t('records.history.medicationDoses', { names: r.doses.map(d => `${d.name} ${d.amount}${d.unit}`).join('、') })
+        : '';
       el.innerHTML = `
         <header>
           <span class="value-badge ${mainClass}">${r.value > 0 ? '+' : ''}${r.value}${mixedText}</span>
@@ -246,21 +298,52 @@ function renderRecords() {
 
 function handleSubmit(e) {
   e.preventDefault();
+  const doses = medicationInput.checked ? collectDoses() : [];
   const payload = {
     timestamp: new Date(timeInput.value).getTime(),
     value: Number(valueInput.value),
     mixed: mixedInput.checked,
     mixedValue: mixedInput.checked ? Number(mixedValueInput.value) : 0,
-    medication: medicationInput.checked,
-    medicationStrength: medicationInput.checked ? Number(strengthInput.value) : 0,
+    doses,
     note: noteInput.value.trim()
   };
   if (idInput.value) {
+    const oldRecord = store.data.records.find(r => r.id === idInput.value);
     store.updateRecord(idInput.value, payload);
+    adjustStockForEdit(oldRecord, payload);
   } else {
     store.addRecord(payload);
+    adjustStockForDoses(doses, 'records.moodForm.doseLogNote', -1);
   }
   resetForm();
+}
+
+function adjustStockForDoses(doses, noteKey, multiplier = -1) {
+  doses.forEach(d => {
+    if (!d.medicationId) return;
+    store.changeMedStock(d.medicationId, multiplier * d.amount, t(noteKey));
+  });
+}
+
+function sumDosesByMed(doses) {
+  const map = {};
+  doses.forEach(d => {
+    if (!d.medicationId) return;
+    map[d.medicationId] = (map[d.medicationId] || 0) + d.amount;
+  });
+  return map;
+}
+
+function adjustStockForEdit(oldRecord, newRecord) {
+  const oldByMed = sumDosesByMed(oldRecord.doses || []);
+  const newByMed = sumDosesByMed(newRecord.doses || []);
+  const allIds = new Set([...Object.keys(oldByMed), ...Object.keys(newByMed)]);
+  allIds.forEach(medId => {
+    const diff = (newByMed[medId] || 0) - (oldByMed[medId] || 0);
+    if (diff !== 0) {
+      store.changeMedStock(medId, -diff, t('records.moodForm.doseAdjustLogNote'));
+    }
+  });
 }
 
 function validateSleep(payload, interruptions) {
@@ -319,14 +402,14 @@ function initRecords() {
 
   valueInput.addEventListener('input', updateRangeOutputs);
   mixedValueInput.addEventListener('input', updateRangeOutputs);
-  strengthInput.addEventListener('input', updateRangeOutputs);
   sleepQualityInput.addEventListener('input', updateRangeOutputs);
 
   mixedInput.addEventListener('change', () => {
     mixedValueRow.hidden = !mixedInput.checked;
   });
   medicationInput.addEventListener('change', () => {
-    strengthField.hidden = !medicationInput.checked;
+    dosesField.hidden = !medicationInput.checked;
+    if (medicationInput.checked) renderDoses();
   });
   cancelBtn.addEventListener('click', resetForm);
   moodForm.addEventListener('submit', handleSubmit);
@@ -358,6 +441,7 @@ function initRecords() {
         editRecord(record);
       } else if (action === 'delete') {
         if (confirm(t('records.confirm.deleteMood'))) {
+          adjustStockForDoses(record.doses || [], 'records.moodForm.doseDeleteLogNote', 1);
           store.deleteRecord(id);
         }
       }

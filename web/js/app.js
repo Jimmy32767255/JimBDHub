@@ -1,5 +1,5 @@
 import { store } from './store.js';
-import { renderChart } from './chart.js';
+import { renderCombinedChart } from './chart.js';
 import { initMeds } from './meds.js';
 import { initRecords } from './records.js';
 import { initSettings } from './settings.js';
@@ -13,10 +13,13 @@ const views = {
   settings: document.getElementById('settings-view')
 };
 const pageTitle = document.getElementById('page-title');
-const chartSvg = document.getElementById('mood-chart');
-const chartTooltip = document.getElementById('chart-tooltip');
+const combinedChartSvg = document.getElementById('combined-chart');
+const combinedChartTooltip = document.getElementById('combined-chart-tooltip');
+const combinedLegend = document.getElementById('combined-legend');
 const sidebar = document.getElementById('sidebar');
 const menuToggle = document.getElementById('menu-toggle');
+const showMoodCheckbox = document.getElementById('show-mood');
+const showEffectCheckbox = document.getElementById('show-effect');
 
 let currentRange = 'week';
 
@@ -36,7 +39,10 @@ function setActiveView(name) {
 
 function drawChart() {
   const records = store.getRecordsInRange(currentRange);
-  renderChart(records, chartSvg, chartTooltip);
+  renderCombinedChart(records, combinedChartSvg, combinedChartTooltip, combinedLegend, {
+    showMood: showMoodCheckbox.checked,
+    showEffect: showEffectCheckbox.checked
+  });
 }
 
 function initNavigation() {
@@ -60,6 +66,9 @@ function initNavigation() {
     });
   });
 
+  // 复选框控制图表显示
+  showMoodCheckbox.addEventListener('change', drawChart);
+  showEffectCheckbox.addEventListener('change', drawChart);
 }
 
 function initRouting() {

@@ -55,7 +55,23 @@ export const store = {
   listeners: [],
 
   init() {
-    this.data.records = load(KEYS.records, []);
+    this.data.records = load(KEYS.records, []).map(r => {
+      if (r.medication && !Array.isArray(r.doses)) {
+        return {
+          ...r,
+          doses: [{
+            medicationId: null,
+            name: r.medicationName || t('records.moodForm.legacyMedication'),
+            amount: r.medicationAmount || 1,
+            unit: r.medicationUnit || '片',
+            onsetHours: 1,
+            peakHours: 2,
+            halfLifeHours: 12
+          }]
+        };
+      }
+      return r;
+    });
     this.data.meds = load(KEYS.meds, []);
     this.data.logs = load(KEYS.logs, []);
     this.data.sleeps = load(KEYS.sleeps, []);

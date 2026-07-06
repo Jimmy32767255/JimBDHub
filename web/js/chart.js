@@ -61,11 +61,6 @@ function colorForValue(v, theme, alpha = 1) {
   return interpolateColor(base, v, alpha);
 }
 
-function formatMedicationInfo(r) {
-  if (!r.medication) return '';
-  return t('chart.tooltip.medicationStrength', { strength: r.medicationStrength });
-}
-
 export function renderChart(records, container, tooltip) {
   const theme = getTheme();
   const colors = {
@@ -173,25 +168,6 @@ export function renderChart(records, container, tooltip) {
     timeAxisGroup.appendChild(label);
   }
   container.appendChild(timeAxisGroup);
-
-  records.forEach(r => {
-    if (!r.medication) return;
-    const x = xFor(r.timestamp);
-    const strength = r.medicationStrength || 0;
-    if (strength <= 0) return;
-    const yTop = yFor(strength);
-    const yBottom = yFor(-strength);
-    const medLineTop = createSVGElement('line', {
-      x1: x, y1: PADDING.top, x2: x, y2: yTop,
-      stroke: `rgba(${hexToRgb(colors.textMuted)}, 0.35)`, 'stroke-width': 2, 'stroke-dasharray': '3 3'
-    });
-    const medLineBottom = createSVGElement('line', {
-      x1: x, y1: height - PADDING.bottom, x2: x, y2: yBottom,
-      stroke: `rgba(${hexToRgb(colors.textMuted)}, 0.35)`, 'stroke-width': 2, 'stroke-dasharray': '3 3'
-    });
-    container.appendChild(medLineTop);
-    container.appendChild(medLineBottom);
-  });
 
   function curveSegment(x1, y1, x2, y2) {
     if (!useCurve) return ` L ${x2} ${y2}`;
@@ -335,7 +311,9 @@ export function renderChart(records, container, tooltip) {
     hLine.setAttribute('y2', y);
 
     const mixedText = r.mixed ? ` / ${r.mixedValue > 0 ? '+' : ''}${r.mixedValue}` : '';
-    const medText = r.medication ? `<div class="med">${formatMedicationInfo(r)}</div>` : '';
+    const medText = (r.doses || []).length
+      ? `<div class="med">${r.doses.map(d => `${d.name} ${d.amount}${d.unit}`).join('、')}</div>`
+      : '';
     tooltip.innerHTML = `
       <time>${formatDateTime(r.timestamp)}</time>
       <div class="value">${t('chart.tooltip.value')}: ${r.value > 0 ? '+' : ''}${r.value}${mixedText}</div>
@@ -388,7 +366,7 @@ export function renderChart(records, container, tooltip) {
       hideTooltip();
       return;
     }
-    const t = displayMinTime + ((x - PADDING.left) / chartW) * displaySpan;
+    const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
     let nearest = records[0];
     let minDiff = Infinity;
     records.forEach(r => {
@@ -405,7 +383,7 @@ export function renderChart(records, container, tooltip) {
     const touch = e.touches[0];
     const x = touch.clientX - rect.left + wrap.scrollLeft;
     if (x < PADDING.left || x > width - PADDING.right) return;
-    const t = displayMinTime + ((x - PADDING.left) / chartW) * displaySpan;
+    const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
     let nearest = records[0];
     let minDiff = Infinity;
     records.forEach(r => {
@@ -416,4 +394,688 @@ export function renderChart(records, container, tooltip) {
     showTooltip(nearest, v);
   }, { passive: true });
   container.addEventListener('touchend', hideTooltip, { passive: true });
+}
+
+const MED_COLORS = ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'];
+
+function extractDoses(records) {
+  const doses = [];
+  records.forEach(r => {
+    (r.doses || []).forEach(d => {
+      doses.push({ ...d, timestamp: r.timestamp });
+    });
+  });
+  return doses;
+}
+
+function pkEffect(dtHours, onsetHours, peakHours, halfLifeHours) {
+  if (dtHours < 0 || dtHours < onsetHours) return 0;
+  if (dtHours <= peakHours) {
+    const denom = Math.max(0.1, peakHours - onsetHours);
+    return (dtHours - onsetHours) / denom;
+  }
+  return Math.exp(-(dtHours - peakHours) * Math.LN2 / halfLifeHours);
+}
+
+function groupDosesByMed(doses) {
+  const groups = {};
+  doses.forEach(d => {
+    const key = d.medicationId || d.name;
+    if (!groups[key]) {
+      groups[key] = {
+        medicationId: d.medicationId,
+        name: d.name,
+        unit: d.unit,
+        doses: []
+      };
+    }
+    groups[key].doses.push(d);
+  });
+  return Object.values(groups);
+}
+
+function medColor(index) {
+  return MED_COLORS[index % MED_COLORS.length];
+}
+
+export function renderCombinedChart(records, container, tooltip, legendContainer, options = {}) {
+  const { showMood = true, showEffect = true } = options;
+  const theme = getTheme();
+  const colors = {
+    positive: theme.positiveColor,
+    negative: theme.negativeColor,
+    neutral: theme.neutralColor,
+    accent: theme.accentColor,
+    bg: theme.backgroundColor,
+    textMuted: theme.textMutedColor
+  };
+  const useCurve = theme.curveLine !== 'line';
+
+  container.innerHTML = '';
+  if (legendContainer) legendContainer.innerHTML = '';
+
+  const doses = extractDoses(records);
+  const hasMoodData = records.length > 0 && showMood;
+  const hasEffectData = doses.length > 0 && showEffect;
+
+  if (!hasMoodData && !hasEffectData) {
+    const empty = createSVGElement('text', {
+      x: '50%', y: '50%', 'text-anchor': 'middle', fill: colors.textMuted, 'font-size': '14'
+    });
+    empty.textContent = t('chart.empty');
+    container.appendChild(empty);
+    return;
+  }
+
+  // 计算时间范围
+  const allTimestamps = records.map(r => r.timestamp).concat(doses.map(d => d.timestamp));
+  const minTime = Math.min(...allTimestamps);
+  const maxTime = Math.max(...allTimestamps);
+  const padMs = PAD_HOURS * HOUR_MS;
+  const displayMinTime = minTime - padMs;
+  const displayMaxTime = maxTime + padMs;
+  const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
+  const displaySpanHours = displaySpan / HOUR_MS;
+
+  const wrap = container.parentElement;
+  const rect = wrap.getBoundingClientRect();
+  const height = rect.height;
+  const absoluteChartW = displaySpanHours * PX_PER_HOUR;
+  const minChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
+  const chartW = Math.max(absoluteChartW, minChartW);
+  const chartH = height - PADDING.top - PADDING.bottom;
+  const width = PADDING.left + chartW + PADDING.right;
+
+  container.setAttribute('width', width);
+  container.setAttribute('height', height);
+  container.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  container.removeAttribute('preserveAspectRatio');
+
+  const xFor = ts => PADDING.left + ((ts - displayMinTime) / HOUR_MS) * PX_PER_HOUR;
+  const yMoodFor = v => PADDING.top + ((10 - v) / 20) * chartH;
+  const yTop = yMoodFor(10);
+  const yBottom = yMoodFor(-10);
+
+  const defs = createSVGElement('defs');
+  container.appendChild(defs);
+
+  // 情绪渐变
+  if (hasMoodData) {
+    const mainGradient = createSVGElement('linearGradient', { id: 'grad-main', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+    mainGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
+    mainGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': colors.neutral }));
+    mainGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
+    defs.appendChild(mainGradient);
+
+    const posGradient = createSVGElement('linearGradient', { id: 'grad-pos', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+    posGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
+    posGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': `rgba(${hexToRgb(colors.positive)}, 0.05)` }));
+    defs.appendChild(posGradient);
+
+    const negGradient = createSVGElement('linearGradient', { id: 'grad-neg', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+    negGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': `rgba(${hexToRgb(colors.negative)}, 0.05)` }));
+    negGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
+    defs.appendChild(negGradient);
+
+    const mixedGradient = createSVGElement('linearGradient', { id: 'grad-mixed', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+    mixedGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': `rgba(${hexToRgb(colors.positive)}, 0.45)` }));
+    mixedGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': `rgba(${hexToRgb(colors.neutral)}, 0.15)` }));
+    mixedGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': `rgba(${hexToRgb(colors.negative)}, 0.45)` }));
+    defs.appendChild(mixedGradient);
+  }
+
+  // 绘制网格（情绪 Y 轴）
+  const gridGroup = createSVGElement('g', { class: 'grid' });
+  for (let v = -10; v <= 10; v += 2) {
+    const y = yMoodFor(v);
+    const line = createSVGElement('line', {
+      x1: PADDING.left, y1: y, x2: width - PADDING.right, y2: y,
+      stroke: v === 0 ? colors.neutral : theme.surface2Color,
+      'stroke-width': v === 0 ? 1.5 : 1,
+      'stroke-dasharray': v === 0 ? '' : '4 4'
+    });
+    gridGroup.appendChild(line);
+    if (hasMoodData) {
+      const label = createSVGElement('text', {
+        x: PADDING.left - 10, y: y + 4, 'text-anchor': 'end', fill: colors.textMuted, 'font-size': '11'
+      });
+      label.textContent = v > 0 ? `+${v}` : String(v);
+      gridGroup.appendChild(label);
+    }
+  }
+  container.appendChild(gridGroup);
+
+  // 药效 Y 轴（右侧）
+  if (hasEffectData) {
+    const groups = groupDosesByMed(doses);
+    const sampleHours = Math.max(1, Math.floor(displaySpanHours / 200));
+    const samplePoints = [];
+    for (let h = 0; h <= displaySpanHours; h += sampleHours) {
+      samplePoints.push(displayMinTime + h * HOUR_MS);
+    }
+    if (samplePoints[samplePoints.length - 1] < displayMaxTime) {
+      samplePoints.push(displayMaxTime);
+    }
+
+    const series = groups.map((g, idx) => {
+      const data = samplePoints.map(ts => {
+        let effect = 0;
+        g.doses.forEach(d => {
+          const dt = (ts - d.timestamp) / HOUR_MS;
+          effect += d.amount * pkEffect(dt, d.onsetHours, d.peakHours, d.halfLifeHours);
+        });
+        return { t: ts, effect };
+      });
+      return { ...g, color: medColor(idx), data };
+    });
+
+    const maxEffect = Math.max(0.1, ...series.flatMap(s => s.data.map(p => p.effect)));
+    const yMax = Math.ceil(maxEffect * 1.1);
+    const yEffectFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
+
+    // 右侧 Y 轴标签
+    for (let v = 0; v <= yMax; v += Math.max(1, Math.round(yMax / 4))) {
+      const y = yEffectFor(v);
+      const label = createSVGElement('text', {
+        x: width - PADDING.right + 10, y: y + 4, 'text-anchor': 'start', fill: colors.textMuted, 'font-size': '11'
+      });
+      label.textContent = String(v);
+      gridGroup.appendChild(label);
+    }
+
+    // 绘制药效曲线
+    series.forEach(s => {
+      const areaD = s.data.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.t)} ${yEffectFor(p.effect)}`).join(' ')
+        + ` L ${xFor(s.data[s.data.length - 1].t)} ${yEffectFor(0)} L ${xFor(s.data[0].t)} ${yEffectFor(0)} Z`;
+      container.appendChild(createSVGElement('path', {
+        d: areaD,
+        fill: `rgba(${hexToRgb(s.color)}, 0.15)`,
+        stroke: 'none'
+      }));
+
+      let lineD = '';
+      s.data.forEach((p, i) => {
+        lineD += `${i === 0 ? 'M' : 'L'} ${xFor(p.t)} ${yEffectFor(p.effect)}`;
+      });
+      container.appendChild(createSVGElement('path', {
+        d: lineD,
+        fill: 'none',
+        stroke: s.color,
+        'stroke-width': 2,
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round'
+      }));
+
+      if (legendContainer) {
+        const item = document.createElement('span');
+        item.className = 'legend-item';
+        item.innerHTML = `<i class="dot" style="background:${s.color}"></i><span>${s.name}</span>`;
+        legendContainer.appendChild(item);
+      }
+    });
+  }
+
+  // 时间轴
+  const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
+  const timeStepHours = getTimeStepHours(displaySpanHours);
+  const startHour = Math.ceil(displayMinTime / HOUR_MS / timeStepHours) * timeStepHours;
+  const endHour = Math.floor(displayMaxTime / HOUR_MS / timeStepHours) * timeStepHours;
+  for (let h = startHour; h <= endHour; h += timeStepHours) {
+    const ts = h * HOUR_MS;
+    const x = xFor(ts);
+    const gridLine = createSVGElement('line', {
+      x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
+      stroke: `rgba(${hexToRgb(theme.surface2Color)}, 0.5)`, 'stroke-width': 1, 'stroke-dasharray': '3 3'
+    });
+    timeAxisGroup.appendChild(gridLine);
+    const label = createSVGElement('text', {
+      x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
+      fill: colors.textMuted, 'font-size': '10'
+    });
+    label.textContent = formatAxisTime(ts, displaySpanHours);
+    timeAxisGroup.appendChild(label);
+  }
+  container.appendChild(timeAxisGroup);
+
+  // 绘制情绪曲线
+  if (hasMoodData) {
+    function curveSegment(x1, y1, x2, y2) {
+      if (!useCurve) return ` L ${x2} ${y2}`;
+      const cp1x = x1 + (x2 - x1) * 0.35;
+      const cp2x = x2 - (x2 - x1) * 0.35;
+      return ` C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
+    }
+
+    function makeCurveD(items, getValue) {
+      if (items.length === 0) return '';
+      let d = `M ${xFor(items[0].timestamp)} ${yMoodFor(getValue(items[0]))}`;
+      for (let i = 1; i < items.length; i++) {
+        const prev = items[i - 1], curr = items[i];
+        const x1 = xFor(prev.timestamp), y1 = yMoodFor(getValue(prev));
+        const x2 = xFor(curr.timestamp), y2 = yMoodFor(getValue(curr));
+        d += curveSegment(x1, y1, x2, y2);
+      }
+      return d;
+    }
+
+    function makeAreaUnderCurveD(items, getValue, baselineY) {
+      if (items.length === 0) return '';
+      let d = `M ${xFor(items[0].timestamp)} ${baselineY}`;
+      d += ` L ${xFor(items[0].timestamp)} ${yMoodFor(getValue(items[0]))}`;
+      for (let i = 1; i < items.length; i++) {
+        const prev = items[i - 1], curr = items[i];
+        const x1 = xFor(prev.timestamp), y1 = yMoodFor(getValue(prev));
+        const x2 = xFor(curr.timestamp), y2 = yMoodFor(getValue(curr));
+        d += curveSegment(x1, y1, x2, y2);
+      }
+      d += ` L ${xFor(items[items.length - 1].timestamp)} ${baselineY} Z`;
+      return d;
+    }
+
+    const hasMixed = records.some(r => r.mixed);
+    if (hasMixed) {
+      const mixedRecords = records.map(r => ({
+        ...r,
+        upper: r.mixed ? Math.max(r.value, r.mixedValue) : r.value,
+        lower: r.mixed ? Math.min(r.value, r.mixedValue) : r.value
+      }));
+
+      let areaD = `M ${xFor(mixedRecords[0].timestamp)} ${yMoodFor(mixedRecords[0].upper)}`;
+      for (let i = 1; i < mixedRecords.length; i++) {
+        const prev = mixedRecords[i - 1], curr = mixedRecords[i];
+        const x1 = xFor(prev.timestamp), y1u = yMoodFor(prev.upper);
+        const x2 = xFor(curr.timestamp), y2u = yMoodFor(curr.upper);
+        areaD += curveSegment(x1, y1u, x2, y2u);
+      }
+      for (let i = mixedRecords.length - 1; i >= 0; i--) {
+        const curr = mixedRecords[i];
+        const x2 = xFor(curr.timestamp), y2l = yMoodFor(curr.lower);
+        if (i === mixedRecords.length - 1) {
+          areaD += ` L ${x2} ${y2l}`;
+        } else {
+          const next = mixedRecords[i + 1];
+          const x1 = xFor(next.timestamp), y1l = yMoodFor(next.lower);
+          areaD += curveSegment(x1, y1l, x2, y2l);
+        }
+      }
+      areaD += ' Z';
+      container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-mixed)', stroke: 'none' }));
+
+      container.appendChild(createSVGElement('path', {
+        d: makeCurveD(mixedRecords, r => r.upper),
+        fill: 'none', stroke: colors.positive, 'stroke-width': 2.5
+      }));
+      container.appendChild(createSVGElement('path', {
+        d: makeCurveD(mixedRecords, r => r.lower),
+        fill: 'none', stroke: colors.negative, 'stroke-width': 2.5
+      }));
+    } else {
+      container.appendChild(createSVGElement('path', {
+        d: makeCurveD(records, r => r.value),
+        fill: 'none', stroke: 'url(#grad-main)', 'stroke-width': 3,
+        'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+      }));
+
+      const zeroY = yMoodFor(0);
+      const areaD = makeAreaUnderCurveD(records, r => r.value, zeroY);
+      if (areaD) {
+        container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-main)', stroke: 'none', opacity: '0.12' }));
+      }
+    }
+
+    // 情绪数据点
+    records.forEach((r, i) => {
+      const x = xFor(r.timestamp);
+      const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
+      values.forEach(v => {
+        const y = yMoodFor(v);
+        const circle = createSVGElement('circle', {
+          cx: x, cy: y, r: 5,
+          fill: colorForValue(v, theme, 1),
+          stroke: colors.bg,
+          'stroke-width': 2,
+          class: 'chart-point'
+        });
+        circle.style.transition = 'r 0.2s ease';
+        container.appendChild(circle);
+      });
+    });
+  }
+
+  // 情绪图例
+  if (hasMoodData && legendContainer) {
+    const moodLegend = document.createElement('span');
+    moodLegend.className = 'legend-item';
+    moodLegend.innerHTML = `<i class="dot" style="background:${colors.positive}"></i><span data-i18n="chart.legend.manic">${t('chart.legend.manic')}</span>`;
+    legendContainer.appendChild(moodLegend);
+
+    const moodLegend2 = document.createElement('span');
+    moodLegend2.className = 'legend-item';
+    moodLegend2.innerHTML = `<i class="dot" style="background:${colors.negative}"></i><span data-i18n="chart.legend.depressed">${t('chart.legend.depressed')}</span>`;
+    legendContainer.appendChild(moodLegend2);
+  }
+
+  // 十字线和交互
+  const crosshairGroup = createSVGElement('g', { class: 'crosshair', display: 'none' });
+  const crosshairStroke = `rgba(${hexToRgb(colors.textMuted)}, 0.5)`;
+  const vLine = createSVGElement('line', {
+    x1: 0, y1: PADDING.top, x2: 0, y2: height - PADDING.bottom,
+    stroke: crosshairStroke, 'stroke-width': 1, 'stroke-dasharray': '4 4'
+  });
+  crosshairGroup.appendChild(vLine);
+  container.appendChild(crosshairGroup);
+
+  let activePoint = null;
+
+  function showCombinedTooltip(ts) {
+    crosshairGroup.setAttribute('display', 'block');
+    const x = xFor(ts);
+    vLine.setAttribute('x1', x);
+    vLine.setAttribute('x2', x);
+
+    let content = `<time>${formatDateTime(ts)}</time>`;
+
+    // 情绪信息
+    if (hasMoodData) {
+      let nearest = records[0];
+      let minDiff = Infinity;
+      records.forEach(r => {
+        const diff = Math.abs(r.timestamp - ts);
+        if (diff < minDiff) { minDiff = diff; nearest = r; }
+      });
+      const mixedText = nearest.mixed ? ` / ${nearest.mixedValue > 0 ? '+' : ''}${nearest.mixedValue}` : '';
+      const medText = (nearest.doses || []).length
+        ? `<div class="med">${nearest.doses.map(d => `${d.name} ${d.amount}${d.unit}`).join('、')}</div>`
+        : '';
+      content += `<div class="value">${t('chart.tooltip.value')}: ${nearest.value > 0 ? '+' : ''}${nearest.value}${mixedText}</div>${medText}`;
+      if (nearest.note) content += `<div class="note">${nearest.note}</div>`;
+    }
+
+    // 药效信息
+    if (hasEffectData) {
+      const groups = groupDosesByMed(doses);
+      const sampleHours = Math.max(1, Math.floor(displaySpanHours / 200));
+      groups.forEach((g, idx) => {
+        let effect = 0;
+        g.doses.forEach(d => {
+          const dt = (ts - d.timestamp) / HOUR_MS;
+          effect += d.amount * pkEffect(dt, d.onsetHours, d.peakHours, d.halfLifeHours);
+        });
+        if (effect > 0) {
+          content += `<div style="color:${medColor(idx)}">${g.name}: ${effect.toFixed(2)}</div>`;
+        }
+      });
+    }
+
+    tooltip.innerHTML = content;
+    tooltip.classList.add('visible');
+
+    const tRect = tooltip.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const visibleX = x - wrap.scrollLeft;
+    let left = visibleX + 16;
+    let top = PADDING.top;
+    if (left + tRect.width > wrapRect.width) left = visibleX - tRect.width - 16;
+    if (left < 0) left = 0;
+    if (top + tRect.height > wrapRect.height) top = wrapRect.height - tRect.height - 8;
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  }
+
+  function hideTooltip() {
+    crosshairGroup.setAttribute('display', 'none');
+    tooltip.classList.remove('visible');
+    if (activePoint) {
+      activePoint.setAttribute('r', 5);
+      activePoint = null;
+    }
+  }
+
+  // 数据点悬停
+  if (hasMoodData) {
+    const points = Array.from(container.querySelectorAll('.chart-point'));
+    let flatIndex = 0;
+    records.forEach(r => {
+      const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
+      values.forEach(v => {
+        const pt = points[flatIndex++];
+        if (pt) {
+          pt.addEventListener('mouseenter', () => {
+            activePoint = pt;
+            pt.setAttribute('r', 8);
+            showCombinedTooltip(r.timestamp);
+          });
+          pt.addEventListener('mouseleave', hideTooltip);
+        }
+      });
+    });
+  }
+
+  container.addEventListener('mousemove', e => {
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left + wrap.scrollLeft;
+    if (x < PADDING.left || x > width - PADDING.right) {
+      hideTooltip();
+      return;
+    }
+    const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
+    showCombinedTooltip(ts);
+  });
+  container.addEventListener('mouseleave', hideTooltip);
+
+  container.addEventListener('touchstart', e => {
+    const rect = container.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left + wrap.scrollLeft;
+    if (x < PADDING.left || x > width - PADDING.right) return;
+    const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
+    showCombinedTooltip(ts);
+  }, { passive: true });
+  container.addEventListener('touchend', hideTooltip, { passive: true });
+}
+
+export function renderEffectChart(records, container, tooltip, legendContainer) {
+  const theme = getTheme();
+  const textMuted = theme.textMutedColor;
+  container.innerHTML = '';
+  if (legendContainer) legendContainer.innerHTML = '';
+
+  const doses = extractDoses(records);
+  if (doses.length === 0) {
+    const empty = createSVGElement('text', {
+      x: '50%', y: '50%', 'text-anchor': 'middle', fill: textMuted, 'font-size': '14'
+    });
+    empty.textContent = t('chart.effectEmpty');
+    container.appendChild(empty);
+    return;
+  }
+
+  const allTimestamps = records.map(r => r.timestamp).concat(doses.map(d => d.timestamp));
+  const minTime = Math.min(...allTimestamps);
+  const maxTime = Math.max(...allTimestamps);
+  const padMs = PAD_HOURS * HOUR_MS;
+  const displayMinTime = minTime - padMs;
+  const displayMaxTime = maxTime + padMs;
+  const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
+  const displaySpanHours = displaySpan / HOUR_MS;
+
+  const wrap = container.parentElement;
+  const rect = wrap.getBoundingClientRect();
+  const height = rect.height;
+  const absoluteChartW = displaySpanHours * PX_PER_HOUR;
+  const minChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
+  const chartW = Math.max(absoluteChartW, minChartW);
+  const chartH = height - PADDING.top - PADDING.bottom;
+  const width = PADDING.left + chartW + PADDING.right;
+
+  container.setAttribute('width', width);
+  container.setAttribute('height', height);
+  container.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  container.removeAttribute('preserveAspectRatio');
+
+  const xFor = t => PADDING.left + ((t - displayMinTime) / HOUR_MS) * PX_PER_HOUR;
+
+  const groups = groupDosesByMed(doses);
+  const sampleHours = Math.max(1, Math.floor(displaySpanHours / 200));
+  const samplePoints = [];
+  for (let h = 0; h <= displaySpanHours; h += sampleHours) {
+    samplePoints.push(displayMinTime + h * HOUR_MS);
+  }
+  if (samplePoints[samplePoints.length - 1] < displayMaxTime) {
+    samplePoints.push(displayMaxTime);
+  }
+
+  const series = groups.map((g, idx) => {
+    const data = samplePoints.map(t => {
+      let effect = 0;
+      g.doses.forEach(d => {
+        const dt = (t - d.timestamp) / HOUR_MS;
+        effect += d.amount * pkEffect(dt, d.onsetHours, d.peakHours, d.halfLifeHours);
+      });
+      return { t, effect };
+    });
+    return { ...g, color: medColor(idx), data };
+  });
+
+  const maxEffect = Math.max(0.1, ...series.flatMap(s => s.data.map(p => p.effect)));
+  const yMax = Math.ceil(maxEffect * 1.1);
+  const yFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
+
+  const defs = createSVGElement('defs');
+  container.appendChild(defs);
+
+  const gridGroup = createSVGElement('g', { class: 'grid' });
+  for (let v = 0; v <= yMax; v += Math.max(1, Math.round(yMax / 4))) {
+    const y = yFor(v);
+    const line = createSVGElement('line', {
+      x1: PADDING.left, y1: y, x2: width - PADDING.right, y2: y,
+      stroke: v === 0 ? theme.neutralColor : theme.surface2Color,
+      'stroke-width': v === 0 ? 1.5 : 1,
+      'stroke-dasharray': v === 0 ? '' : '4 4'
+    });
+    gridGroup.appendChild(line);
+    const label = createSVGElement('text', {
+      x: PADDING.left - 10, y: y + 4, 'text-anchor': 'end', fill: textMuted, 'font-size': '11'
+    });
+    label.textContent = String(v);
+    gridGroup.appendChild(label);
+  }
+  container.appendChild(gridGroup);
+
+  const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
+  const timeStepHours = getTimeStepHours(displaySpanHours);
+  const startHour = Math.ceil(displayMinTime / HOUR_MS / timeStepHours) * timeStepHours;
+  const endHour = Math.floor(displayMaxTime / HOUR_MS / timeStepHours) * timeStepHours;
+  for (let h = startHour; h <= endHour; h += timeStepHours) {
+    const t = h * HOUR_MS;
+    const x = xFor(t);
+    const gridLine = createSVGElement('line', {
+      x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
+      stroke: `rgba(${hexToRgb(theme.surface2Color)}, 0.5)`, 'stroke-width': 1, 'stroke-dasharray': '3 3'
+    });
+    timeAxisGroup.appendChild(gridLine);
+    const label = createSVGElement('text', {
+      x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
+      fill: textMuted, 'font-size': '10'
+    });
+    label.textContent = formatAxisTime(t, displaySpanHours);
+    timeAxisGroup.appendChild(label);
+  }
+  container.appendChild(timeAxisGroup);
+
+  series.forEach(s => {
+    const areaD = s.data.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.t)} ${yFor(p.effect)}`).join(' ')
+      + ` L ${xFor(s.data[s.data.length - 1].t)} ${yFor(0)} L ${xFor(s.data[0].t)} ${yFor(0)} Z`;
+    container.appendChild(createSVGElement('path', {
+      d: areaD,
+      fill: `rgba(${hexToRgb(s.color)}, 0.15)`,
+      stroke: 'none'
+    }));
+
+    let lineD = '';
+    s.data.forEach((p, i) => {
+      lineD += `${i === 0 ? 'M' : 'L'} ${xFor(p.t)} ${yFor(p.effect)}`;
+    });
+    container.appendChild(createSVGElement('path', {
+      d: lineD,
+      fill: 'none',
+      stroke: s.color,
+      'stroke-width': 2,
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round'
+    }));
+
+    if (legendContainer) {
+      const item = document.createElement('span');
+      item.className = 'legend-item';
+      item.innerHTML = `<i class="dot" style="background:${s.color}"></i><span>${s.name}</span>`;
+      legendContainer.appendChild(item);
+    }
+  });
+
+  const crosshairGroup = createSVGElement('g', { class: 'crosshair', display: 'none' });
+  const crosshairStroke = `rgba(${hexToRgb(textMuted)}, 0.5)`;
+  const vLine = createSVGElement('line', {
+    x1: 0, y1: PADDING.top, x2: 0, y2: height - PADDING.bottom,
+    stroke: crosshairStroke, 'stroke-width': 1, 'stroke-dasharray': '4 4'
+  });
+  crosshairGroup.appendChild(vLine);
+  container.appendChild(crosshairGroup);
+
+  function showEffectTooltip(timestamp) {
+    crosshairGroup.setAttribute('display', 'block');
+    const x = xFor(timestamp);
+    vLine.setAttribute('x1', x);
+    vLine.setAttribute('x2', x);
+
+    const rows = series.map(s => {
+      const effect = s.data.reduce((closest, p) =>
+        Math.abs(p.t - timestamp) < Math.abs(closest.t - timestamp) ? p : closest, s.data[0]).effect;
+      return `<div style="color:${s.color}">${s.name}: ${effect.toFixed(2)}</div>`;
+    }).join('');
+
+    tooltip.innerHTML = `
+      <time>${formatDateTime(timestamp)}</time>
+      <div class="value">${t('chart.effectTooltip')}</div>
+      ${rows}
+    `;
+    tooltip.classList.add('visible');
+
+    const tRect = tooltip.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    const visibleX = x - wrap.scrollLeft;
+    let left = visibleX + 16;
+    let top = PADDING.top;
+    if (left + tRect.width > wrapRect.width) left = visibleX - tRect.width - 16;
+    if (left < 0) left = 0;
+    tooltip.style.left = `${left}px`;
+    tooltip.style.top = `${top}px`;
+  }
+
+  function hideEffectTooltip() {
+    crosshairGroup.setAttribute('display', 'none');
+    tooltip.classList.remove('visible');
+  }
+
+  container.addEventListener('mousemove', e => {
+    const rect = container.getBoundingClientRect();
+    const x = e.clientX - rect.left + wrap.scrollLeft;
+    if (x < PADDING.left || x > width - PADDING.right) {
+      hideEffectTooltip();
+      return;
+    }
+    const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
+    showEffectTooltip(t);
+  });
+  container.addEventListener('mouseleave', hideEffectTooltip);
+
+  container.addEventListener('touchstart', e => {
+    const rect = container.getBoundingClientRect();
+    const touch = e.touches[0];
+    const x = touch.clientX - rect.left + wrap.scrollLeft;
+    if (x < PADDING.left || x > width - PADDING.right) return;
+    const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
+    showEffectTooltip(t);
+  }, { passive: true });
+  container.addEventListener('touchend', hideEffectTooltip, { passive: true });
 }

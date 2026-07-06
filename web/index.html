@@ -43,14 +43,10 @@
       </header>
 
       <section class="view view-active" id="overview-view" aria-labelledby="page-title">
-        <div class="card chart-card">
+        <div class="card chart-card combined-chart-card">
           <div class="card-header">
-            <h3 data-i18n="chart.title">情绪波动</h3>
-            <div class="chart-legend">
-              <span class="legend-item"><i class="dot red"></i><span data-i18n="chart.legend.manic">躁狂 / 亢奋</span></span>
-              <span class="legend-item"><i class="dot blue"></i><span data-i18n="chart.legend.depressed">抑郁 / 低落</span></span>
-              <span class="legend-item"><i class="dot gray"></i><span data-i18n="chart.legend.medication">药效区间</span></span>
-            </div>
+            <h3 data-i18n="chart.combinedTitle">综合曲线</h3>
+            <div class="chart-legend" id="combined-legend"></div>
           </div>
           <div class="chart-toolbar">
             <div class="range-tabs">
@@ -59,9 +55,19 @@
               <button class="range-tab" data-range="all" data-i18n="chart.range.all">全部</button>
             </div>
           </div>
-          <div class="chart-wrap" id="chart-wrap">
-            <svg id="mood-chart"></svg>
-            <div class="chart-tooltip" id="chart-tooltip" aria-hidden="true"></div>
+          <div class="chart-wrap" id="combined-chart-wrap">
+            <svg id="combined-chart"></svg>
+            <div class="chart-tooltip" id="combined-chart-tooltip" aria-hidden="true"></div>
+          </div>
+          <div class="chart-controls">
+            <label class="chart-checkbox">
+              <input type="checkbox" id="show-mood" checked>
+              <span data-i18n="chart.showMood">情绪曲线</span>
+            </label>
+            <label class="chart-checkbox">
+              <input type="checkbox" id="show-effect" checked>
+              <span data-i18n="chart.showEffect">药效曲线</span>
+            </label>
           </div>
         </div>
       </section>
@@ -133,15 +139,17 @@
                   <input type="range" id="record-mixed-value" min="-10" max="10" step="1" value="0">
                 </label>
               </div>
-              <div class="form-row two-col">
+              <div class="form-row">
                 <label class="form-field checkbox-field">
                   <input type="checkbox" id="record-medication">
                   <span data-i18n="records.moodForm.medication">使用药物</span>
                 </label>
-                <label class="form-field" id="medication-strength-field" hidden>
-                  <span class="form-label"><span data-i18n="records.moodForm.medicationStrength">药效强度</span> <output id="strength-out">5</output></span>
-                  <input type="range" id="record-medication-strength" min="0" max="10" step="1" value="5">
-                </label>
+              </div>
+              <div class="form-row" id="medication-doses-field" hidden>
+                <div class="form-field">
+                  <span class="form-label" data-i18n="records.moodForm.medicationDoses">本次服用</span>
+                  <div id="medication-doses-list"></div>
+                </div>
               </div>
               <div class="form-row">
                 <label class="form-field">
@@ -326,6 +334,11 @@
             <select id="med-unit"><option value="粒" data-i18n="unit.pill">粒</option><option value="片" data-i18n="unit.tablet">片</option></select>
           </label>
           <label class="form-field"><span class="form-label" data-i18n="meds.form.remaining">当前剩余（总数）</span><input type="number" id="med-remaining" min="0" required></label>
+        </div>
+        <div class="form-row three-col">
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.onsetHours">起效时间（小时）</span><input type="number" id="med-onset" min="0" step="0.5" required></label>
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.peakHours">达峰时间（小时）</span><input type="number" id="med-peak" min="0" step="0.5" required></label>
+          <label class="form-field"><span class="form-label" data-i18n="meds.form.halfLifeHours">半衰期（小时）</span><input type="number" id="med-half-life" min="0.1" step="0.5" required></label>
         </div>
         <div class="form-row">
           <label class="form-field"><span class="form-label" data-i18n="meds.form.note">备注</span><textarea id="med-note" rows="2"></textarea></label>
