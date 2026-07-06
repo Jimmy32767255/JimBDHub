@@ -204,40 +204,6 @@ function calcSleepDuration(sleep) {
   return { total, awakeTotal, asleep };
 }
 
-function buildSleepBar(sleep) {
-  const { total } = calcSleepDuration(sleep);
-  if (total === 0) return '<div class="sleep-bar"></div>';
-
-  const interruptions = [...(sleep.interruptions || [])].sort((a, b) => a.awakeAt - b.awakeAt);
-  const segments = [];
-  let cursor = sleep.startTime;
-
-  interruptions.forEach(i => {
-    if (i.awakeAt > cursor) {
-      segments.push({ type: 'asleep', start: cursor, end: i.awakeAt });
-    }
-    segments.push({ type: 'awake', start: i.awakeAt, end: i.asleepAt });
-    cursor = i.asleepAt;
-  });
-  if (cursor < sleep.endTime) {
-    segments.push({ type: 'asleep', start: cursor, end: sleep.endTime });
-  }
-
-  const parts = segments.map(seg => {
-    const pct = ((seg.end - seg.start) / total) * 100;
-    return `<div class="sleep-segment ${seg.type}" style="width:${pct}%"></div>`;
-  });
-
-  interruptions.forEach(i => {
-    const awakePct = ((i.awakeAt - sleep.startTime) / total) * 100;
-    const asleepPct = ((i.asleepAt - sleep.startTime) / total) * 100;
-    parts.push(`<div class="sleep-interruption-line" style="left:${awakePct}%"></div>`);
-    parts.push(`<div class="sleep-interruption-line" style="left:${asleepPct}%"></div>`);
-  });
-
-  return `<div class="sleep-bar">${parts.join('')}</div>`;
-}
-
 function renderRecords() {
   const list = document.getElementById('records-list');
   list.innerHTML = '';
@@ -284,7 +250,6 @@ function renderRecords() {
           <span>·</span>
           <span>${t('records.history.asleepDuration', { duration: formatDuration(asleep) })}</span>
         </div>
-        <div class="sleep-bar-wrap">${buildSleepBar(s)}</div>
         ${s.note ? `<p class="note">${s.note}</p>` : ''}
         <footer>
           <button class="btn btn-icon" data-action="edit" data-id="${s.id}">${t('common.edit')}</button>

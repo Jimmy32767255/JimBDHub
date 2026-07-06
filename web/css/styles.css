@@ -701,33 +701,6 @@ body {
   margin: 8px 0;
 }
 
-.sleep-bar-wrap {
-  margin: 10px 0;
-}
-
-.sleep-bar {
-  position: relative;
-  display: flex;
-  width: 220px;
-  height: 14px;
-  border-radius: 7px;
-  overflow: hidden;
-  background: var(--theme-surface-2);
-}
-.sleep-segment {
-  height: 100%;
-}
-.sleep-segment.asleep { background: #8b5cf6; }
-.sleep-segment.awake { background: var(--theme-neutral); }
-.sleep-interruption-line {
-  position: absolute;
-  top: 0;
-  bottom: 0;
-  width: 1px;
-  background: var(--theme-positive);
-  pointer-events: none;
-}
-
 .interruption-row {
   display: grid;
   grid-template-columns: 1fr 1fr auto;

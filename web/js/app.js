@@ -20,6 +20,7 @@ const sidebar = document.getElementById('sidebar');
 const menuToggle = document.getElementById('menu-toggle');
 const showMoodCheckbox = document.getElementById('show-mood');
 const showEffectCheckbox = document.getElementById('show-effect');
+const showSleepCheckbox = document.getElementById('show-sleep');
 
 let currentRange = 'week';
 
@@ -39,9 +40,11 @@ function setActiveView(name) {
 
 function drawChart() {
   const records = store.getRecordsInRange(currentRange);
-  renderCombinedChart(records, combinedChartSvg, combinedChartTooltip, combinedLegend, {
+  const sleeps = store.getSleepsInRange(currentRange);
+  renderCombinedChart(records, sleeps, combinedChartSvg, combinedChartTooltip, combinedLegend, {
     showMood: showMoodCheckbox.checked,
-    showEffect: showEffectCheckbox.checked
+    showEffect: showEffectCheckbox.checked,
+    showSleep: showSleepCheckbox.checked
   });
 }
 
@@ -69,6 +72,7 @@ function initNavigation() {
   // 复选框控制图表显示
   showMoodCheckbox.addEventListener('change', drawChart);
   showEffectCheckbox.addEventListener('change', drawChart);
+  showSleepCheckbox.addEventListener('change', drawChart);
 }
 
 function initRouting() {

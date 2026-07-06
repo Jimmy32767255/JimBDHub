@@ -438,8 +438,8 @@ function medColor(index) {
   return MED_COLORS[index % MED_COLORS.length];
 }
 
-export function renderCombinedChart(records, container, tooltip, legendContainer, options = {}) {
-  const { showMood = true, showEffect = true } = options;
+export function renderCombinedChart(records, sleeps = [], container, tooltip, legendContainer, options = {}) {
+  const { showMood = true, showEffect = true, showSleep = true } = options;
   const theme = getTheme();
   const colors = {
     positive: theme.positiveColor,
@@ -457,8 +457,9 @@ export function renderCombinedChart(records, container, tooltip, legendContainer
   const doses = extractDoses(records);
   const hasMoodData = records.length > 0 && showMood;
   const hasEffectData = doses.length > 0 && showEffect;
+  const hasSleepData = sleeps.length > 0 && showSleep;
 
-  if (!hasMoodData && !hasEffectData) {
+  if (!hasMoodData && !hasEffectData && !hasSleepData) {
     const empty = createSVGElement('text', {
       x: '50%', y: '50%', 'text-anchor': 'middle', fill: colors.textMuted, 'font-size': '14'
     });
@@ -468,7 +469,9 @@ export function renderCombinedChart(records, container, tooltip, legendContainer
   }
 
   // 计算时间范围
-  const allTimestamps = records.map(r => r.timestamp).concat(doses.map(d => d.timestamp));
+  const allTimestamps = records.map(r => r.timestamp)
+    .concat(doses.map(d => d.timestamp))
+    .concat(sleeps.flatMap(s => [s.startTime, s.endTime]));
   const minTime = Math.min(...allTimestamps);
   const maxTime = Math.max(...allTimestamps);
   const padMs = PAD_HOURS * HOUR_MS;
@@ -637,6 +640,87 @@ export function renderCombinedChart(records, container, tooltip, legendContainer
   }
   container.appendChild(timeAxisGroup);
 
+  // 绘制睡眠条（在零值基线上）
+  if (hasSleepData) {
+    const sleepBarHeight = 14;
+    const sleepY = yMoodFor(0) - sleepBarHeight / 2;
+    const sleepClipId = 'sleep-bar-clip';
+
+    sleeps.forEach((sleep, sleepIdx) => {
+      const xStart = xFor(sleep.startTime);
+      const xEnd = xFor(sleep.endTime);
+      const totalWidth = xEnd - xStart;
+      if (totalWidth <= 0) return;
+
+      const interruptions = [...(sleep.interruptions || [])].sort((a, b) => a.awakeAt - b.awakeAt);
+      const segments = [];
+      let cursor = sleep.startTime;
+
+      interruptions.forEach(i => {
+        if (i.awakeAt > cursor) {
+          segments.push({ type: 'asleep', start: cursor, end: i.awakeAt });
+        }
+        segments.push({ type: 'awake', start: i.awakeAt, end: i.asleepAt });
+        cursor = i.asleepAt;
+      });
+      if (cursor < sleep.endTime) {
+        segments.push({ type: 'asleep', start: cursor, end: sleep.endTime });
+      }
+
+      const clipId = `${sleepClipId}-${sleepIdx}`;
+      const clipPath = createSVGElement('clipPath', { id: clipId });
+      clipPath.appendChild(createSVGElement('rect', {
+        x: xStart, y: sleepY, width: totalWidth, height: sleepBarHeight,
+        rx: sleepBarHeight / 2, ry: sleepBarHeight / 2
+      }));
+      defs.appendChild(clipPath);
+
+      const group = createSVGElement('g', { class: 'sleep-bar-group', 'clip-path': `url(#${clipId})` });
+      const overlayGroup = createSVGElement('g', { class: 'sleep-bar-overlay' });
+
+      segments.forEach(seg => {
+        const sx = xFor(seg.start);
+        const sw = xFor(seg.end) - sx;
+        if (sw <= 0) return;
+        const segRect = createSVGElement('rect', {
+          x: sx, y: sleepY, width: sw, height: sleepBarHeight,
+          fill: seg.type === 'asleep' ? '#8b5cf6' : theme.surface2Color
+        });
+        group.appendChild(segRect);
+      });
+
+      interruptions.forEach(i => {
+        const ix1 = xFor(i.awakeAt);
+        const ix2 = xFor(i.asleepAt);
+        if (ix1 >= xStart && ix1 <= xEnd) {
+          group.appendChild(createSVGElement('line', {
+            x1: ix1, y1: sleepY - 2, x2: ix1, y2: sleepY + sleepBarHeight + 2,
+            stroke: '#ef4444', 'stroke-width': 1.5
+          }));
+        }
+        if (ix2 >= xStart && ix2 <= xEnd) {
+          group.appendChild(createSVGElement('line', {
+            x1: ix2, y1: sleepY - 2, x2: ix2, y2: sleepY + sleepBarHeight + 2,
+            stroke: '#ef4444', 'stroke-width': 1.5
+          }));
+        }
+      });
+
+      container.appendChild(group);
+
+      // 质量标记 Qx（放在 clipPath 外避免被裁剪）
+      const centerX = (xStart + xEnd) / 2;
+      const labelY = sleepY - 6;
+      const qualityLabel = createSVGElement('text', {
+        x: centerX, y: labelY, 'text-anchor': 'middle',
+        fill: '#8b5cf6', 'font-size': '11', 'font-weight': '600'
+      });
+      qualityLabel.textContent = `Q${sleep.quality}`;
+      overlayGroup.appendChild(qualityLabel);
+      container.appendChild(overlayGroup);
+    });
+  }
+
   // 绘制情绪曲线
   if (hasMoodData) {
     function curveSegment(x1, y1, x2, y2) {
@@ -724,7 +808,7 @@ export function renderCombinedChart(records, container, tooltip, legendContainer
     }
 
     // 情绪数据点
-    records.forEach((r, i) => {
+    records.forEach(r => {
       const x = xFor(r.timestamp);
       const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
       values.forEach(v => {
@@ -794,7 +878,6 @@ export function renderCombinedChart(records, container, tooltip, legendContainer
     // 药效信息
     if (hasEffectData) {
       const groups = groupDosesByMed(doses);
-      const sampleHours = Math.max(1, Math.floor(displaySpanHours / 200));
       groups.forEach((g, idx) => {
         let effect = 0;
         g.doses.forEach(d => {
@@ -804,6 +887,16 @@ export function renderCombinedChart(records, container, tooltip, legendContainer
         if (effect > 0) {
           content += `<div style="color:${medColor(idx)}">${g.name}: ${effect.toFixed(2)}</div>`;
         }
+      });
+    }
+
+    // 睡眠信息
+    if (hasSleepData) {
+      const overlapping = sleeps.filter(s => ts >= s.startTime && ts <= s.endTime);
+      overlapping.forEach(s => {
+        const inInterruption = (s.interruptions || []).some(i => ts >= i.awakeAt && ts <= i.asleepAt);
+        const stateText = inInterruption ? t('records.history.awake') : t('records.history.asleep');
+        content += `<div style="color:#8b5cf6">${t('records.history.sleep')}: ${stateText} (${formatDateTime(s.startTime)} ~ ${formatDateTime(s.endTime)})</div>`;
       });
     }
 
