@@ -1,5 +1,6 @@
 import { formatDateTime } from './store.js';
 import { t } from './i18n.js';
+import { getTheme } from './theme.js';
 
 const PADDING = { top: 30, right: 40, bottom: 40, left: 44 };
 const PX_PER_HOUR = 12;
@@ -27,14 +28,37 @@ function createSVGElement(tag, attrs = {}) {
   return el;
 }
 
-function colorForValue(v, alpha = 1) {
-  if (v === 0) return `rgba(100, 116, 139, ${alpha})`;
-  if (v > 0) {
-    const t = Math.min(1, v / 10);
-    return `rgba(239, ${68 + Math.round(100 * (1 - t))}, ${68 + Math.round(130 * (1 - t))}, ${alpha})`;
+function interpolateColor(base, v, alpha = 1) {
+  const t = Math.min(1, Math.abs(v) / 10);
+  const factor = 1 - t;
+  const r = Math.round(255 * factor + (base >> 16) * t);
+  const g = Math.round(255 * factor + ((base >> 8) & 0xff) * t);
+  const b = Math.round(255 * factor + (base & 0xff) * t);
+  return `rgba(${r}, ${g}, ${b}, ${alpha})`;
+}
+
+function hexToInt(hex) {
+  return parseInt(hex.replace('#', ''), 16);
+}
+
+function hexToRgb(hex) {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `${r}, ${g}, ${b}`;
+}
+
+function colorForValue(v, theme, alpha = 1) {
+  if (v === 0) {
+    const rgb = hexToInt(theme.neutralColor);
+    const r = rgb >> 16;
+    const g = (rgb >> 8) & 0xff;
+    const b = rgb & 0xff;
+    return `rgba(${r}, ${g}, ${b}, ${alpha})`;
   }
-  const t = Math.min(1, -v / 10);
-  return `rgba(${59 + Math.round(100 * (1 - t))}, ${130 + Math.round(100 * (1 - t))}, 246, ${alpha})`;
+  const base = hexToInt(v > 0 ? theme.positiveColor : theme.negativeColor);
+  return interpolateColor(base, v, alpha);
 }
 
 function formatMedicationInfo(r) {
@@ -43,10 +67,21 @@ function formatMedicationInfo(r) {
 }
 
 export function renderChart(records, container, tooltip) {
+  const theme = getTheme();
+  const colors = {
+    positive: theme.positiveColor,
+    negative: theme.negativeColor,
+    neutral: theme.neutralColor,
+    accent: theme.accentColor,
+    bg: theme.backgroundColor,
+    textMuted: theme.textMutedColor
+  };
+  const useCurve = theme.curveLine !== 'line';
+
   container.innerHTML = '';
   if (records.length === 0) {
     const empty = createSVGElement('text', {
-      x: '50%', y: '50%', 'text-anchor': 'middle', fill: '#94a3b8', 'font-size': '14'
+      x: '50%', y: '50%', 'text-anchor': 'middle', fill: colors.textMuted, 'font-size': '14'
     });
     empty.textContent = t('chart.empty');
     container.appendChild(empty);
@@ -83,19 +118,19 @@ export function renderChart(records, container, tooltip) {
   const yBottom = yFor(-10);
 
   const posGradient = createSVGElement('linearGradient', { id: 'grad-pos', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-  posGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': '#ef4444' }));
-  posGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': 'rgba(239,68,68,0.05)' }));
+  posGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
+  posGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': `rgba(${hexToRgb(colors.positive)}, 0.05)` }));
   defs.appendChild(posGradient);
 
   const negGradient = createSVGElement('linearGradient', { id: 'grad-neg', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-  negGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': 'rgba(59,130,246,0.05)' }));
-  negGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': '#3b82f6' }));
+  negGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': `rgba(${hexToRgb(colors.negative)}, 0.05)` }));
+  negGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
   defs.appendChild(negGradient);
 
   const mixedGradient = createSVGElement('linearGradient', { id: 'grad-mixed', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-  mixedGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': 'rgba(239,68,68,0.45)' }));
-  mixedGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': 'rgba(148,163,184,0.15)' }));
-  mixedGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': 'rgba(59,130,246,0.45)' }));
+  mixedGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': `rgba(${hexToRgb(colors.positive)}, 0.45)` }));
+  mixedGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': `rgba(${hexToRgb(colors.neutral)}, 0.15)` }));
+  mixedGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': `rgba(${hexToRgb(colors.negative)}, 0.45)` }));
   defs.appendChild(mixedGradient);
 
   container.appendChild(defs);
@@ -105,13 +140,13 @@ export function renderChart(records, container, tooltip) {
     const y = yFor(v);
     const line = createSVGElement('line', {
       x1: PADDING.left, y1: y, x2: width - PADDING.right, y2: y,
-      stroke: v === 0 ? '#94a3b8' : '#334155',
+      stroke: v === 0 ? colors.neutral : theme.surface2Color,
       'stroke-width': v === 0 ? 1.5 : 1,
       'stroke-dasharray': v === 0 ? '' : '4 4'
     });
     gridGroup.appendChild(line);
     const label = createSVGElement('text', {
-      x: PADDING.left - 10, y: y + 4, 'text-anchor': 'end', fill: '#94a3b8', 'font-size': '11'
+      x: PADDING.left - 10, y: y + 4, 'text-anchor': 'end', fill: colors.textMuted, 'font-size': '11'
     });
     label.textContent = v > 0 ? `+${v}` : String(v);
     gridGroup.appendChild(label);
@@ -127,12 +162,12 @@ export function renderChart(records, container, tooltip) {
     const x = xFor(t);
     const gridLine = createSVGElement('line', {
       x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
-      stroke: 'rgba(51,65,85,0.5)', 'stroke-width': 1, 'stroke-dasharray': '3 3'
+      stroke: `rgba(${hexToRgb(theme.surface2Color)}, 0.5)`, 'stroke-width': 1, 'stroke-dasharray': '3 3'
     });
     timeAxisGroup.appendChild(gridLine);
     const label = createSVGElement('text', {
       x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
-      fill: '#94a3b8', 'font-size': '10'
+      fill: colors.textMuted, 'font-size': '10'
     });
     label.textContent = formatAxisTime(t, displaySpanHours);
     timeAxisGroup.appendChild(label);
@@ -148,15 +183,22 @@ export function renderChart(records, container, tooltip) {
     const yBottom = yFor(-strength);
     const medLineTop = createSVGElement('line', {
       x1: x, y1: PADDING.top, x2: x, y2: yTop,
-      stroke: 'rgba(148,163,184,0.35)', 'stroke-width': 2, 'stroke-dasharray': '3 3'
+      stroke: `rgba(${hexToRgb(colors.textMuted)}, 0.35)`, 'stroke-width': 2, 'stroke-dasharray': '3 3'
     });
     const medLineBottom = createSVGElement('line', {
       x1: x, y1: height - PADDING.bottom, x2: x, y2: yBottom,
-      stroke: 'rgba(148,163,184,0.35)', 'stroke-width': 2, 'stroke-dasharray': '3 3'
+      stroke: `rgba(${hexToRgb(colors.textMuted)}, 0.35)`, 'stroke-width': 2, 'stroke-dasharray': '3 3'
     });
     container.appendChild(medLineTop);
     container.appendChild(medLineBottom);
   });
+
+  function curveSegment(x1, y1, x2, y2) {
+    if (!useCurve) return ` L ${x2} ${y2}`;
+    const cp1x = x1 + (x2 - x1) * 0.35;
+    const cp2x = x2 - (x2 - x1) * 0.35;
+    return ` C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
+  }
 
   function makeCurveD(items, getValue) {
     if (items.length === 0) return '';
@@ -165,9 +207,7 @@ export function renderChart(records, container, tooltip) {
       const prev = items[i - 1], curr = items[i];
       const x1 = xFor(prev.timestamp), y1 = yFor(getValue(prev));
       const x2 = xFor(curr.timestamp), y2 = yFor(getValue(curr));
-      const cp1x = x1 + (x2 - x1) * 0.35;
-      const cp2x = x2 - (x2 - x1) * 0.35;
-      d += ` C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
+      d += curveSegment(x1, y1, x2, y2);
     }
     return d;
   }
@@ -180,9 +220,7 @@ export function renderChart(records, container, tooltip) {
       const prev = items[i - 1], curr = items[i];
       const x1 = xFor(prev.timestamp), y1 = yFor(getValue(prev));
       const x2 = xFor(curr.timestamp), y2 = yFor(getValue(curr));
-      const cp1x = x1 + (x2 - x1) * 0.35;
-      const cp2x = x2 - (x2 - x1) * 0.35;
-      d += ` C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
+      d += curveSegment(x1, y1, x2, y2);
     }
     d += ` L ${xFor(items[items.length - 1].timestamp)} ${baselineY} Z`;
     return d;
@@ -201,8 +239,7 @@ export function renderChart(records, container, tooltip) {
       const prev = mixedRecords[i - 1], curr = mixedRecords[i];
       const x1 = xFor(prev.timestamp), y1u = yFor(prev.upper);
       const x2 = xFor(curr.timestamp), y2u = yFor(curr.upper);
-      const cp1x = x1 + (x2 - x1) * 0.35, cp2x = x2 - (x2 - x1) * 0.35;
-      areaD += ` C ${cp1x} ${y1u}, ${cp2x} ${y2u}, ${x2} ${y2u}`;
+      areaD += curveSegment(x1, y1u, x2, y2u);
     }
     for (let i = mixedRecords.length - 1; i >= 0; i--) {
       const curr = mixedRecords[i];
@@ -212,8 +249,7 @@ export function renderChart(records, container, tooltip) {
       } else {
         const next = mixedRecords[i + 1];
         const x1 = xFor(next.timestamp), y1l = yFor(next.lower);
-        const cp1x = x1 + (x2 - x1) * 0.35, cp2x = x2 - (x2 - x1) * 0.35;
-        areaD += ` C ${cp1x} ${y1l}, ${cp2x} ${y2l}, ${x2} ${y2l}`;
+        areaD += curveSegment(x1, y1l, x2, y2l);
       }
     }
     areaD += ' Z';
@@ -221,17 +257,17 @@ export function renderChart(records, container, tooltip) {
 
     container.appendChild(createSVGElement('path', {
       d: makeCurveD(mixedRecords, r => r.upper),
-      fill: 'none', stroke: '#ef4444', 'stroke-width': 2.5
+      fill: 'none', stroke: colors.positive, 'stroke-width': 2.5
     }));
     container.appendChild(createSVGElement('path', {
       d: makeCurveD(mixedRecords, r => r.lower),
-      fill: 'none', stroke: '#3b82f6', 'stroke-width': 2.5
+      fill: 'none', stroke: colors.negative, 'stroke-width': 2.5
     }));
   } else {
     const mainGradient = createSVGElement('linearGradient', { id: 'grad-main', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-    mainGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': '#ef4444' }));
-    mainGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': '#64748b' }));
-    mainGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': '#3b82f6' }));
+    mainGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
+    mainGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': colors.neutral }));
+    mainGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
     defs.appendChild(mainGradient);
 
     container.appendChild(createSVGElement('path', {
@@ -248,13 +284,14 @@ export function renderChart(records, container, tooltip) {
   }
 
   const crosshairGroup = createSVGElement('g', { class: 'crosshair', display: 'none' });
+  const crosshairStroke = `rgba(${hexToRgb(colors.textMuted)}, 0.5)`;
   const vLine = createSVGElement('line', {
     x1: 0, y1: PADDING.top, x2: 0, y2: height - PADDING.bottom,
-    stroke: '#e2e8f0', 'stroke-width': 1, 'stroke-dasharray': '4 4'
+    stroke: crosshairStroke, 'stroke-width': 1, 'stroke-dasharray': '4 4'
   });
   const hLine = createSVGElement('line', {
     x1: PADDING.left, y1: 0, x2: width - PADDING.right, y2: 0,
-    stroke: '#e2e8f0', 'stroke-width': 1, 'stroke-dasharray': '4 4'
+    stroke: crosshairStroke, 'stroke-width': 1, 'stroke-dasharray': '4 4'
   });
   crosshairGroup.appendChild(vLine);
   crosshairGroup.appendChild(hLine);
@@ -267,8 +304,8 @@ export function renderChart(records, container, tooltip) {
       const y = yFor(v);
       const circle = createSVGElement('circle', {
         cx: x, cy: y, r: 5,
-        fill: colorForValue(v, 1),
-        stroke: '#0f172a',
+        fill: colorForValue(v, theme, 1),
+        stroke: colors.bg,
         'stroke-width': 2,
         class: 'chart-point'
       });
@@ -276,7 +313,7 @@ export function renderChart(records, container, tooltip) {
       container.appendChild(circle);
 
       const anim = createSVGElement('circle', {
-        cx: x, cy: y, r: 5, fill: colorForValue(v, 0.3), class: 'point-pulse'
+        cx: x, cy: y, r: 5, fill: colorForValue(v, theme, 0.3), class: 'point-pulse'
       });
       const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
       style.textContent = `@keyframes pulse-${i} { 0% { r: 5; opacity: 0.5; } 100% { r: 12; opacity: 0; } }`;

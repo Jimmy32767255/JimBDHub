@@ -1,4 +1,5 @@
 import { getLanguage, t } from './i18n.js';
+import { getTheme, setTheme } from './theme.js';
 
 const KEYS = {
   records: 'jim_mood_records',
@@ -231,7 +232,8 @@ export const store = {
       meds: this.data.meds,
       logs: this.data.logs,
       sleeps: this.data.sleeps,
-      language: getLanguage()
+      language: getLanguage(),
+      theme: getTheme()
     };
   },
 
@@ -243,6 +245,7 @@ export const store = {
     if (!Array.isArray(data.logs)) return false;
     if ('sleeps' in data && !Array.isArray(data.sleeps)) return false;
     if ('language' in data && typeof data.language !== 'string') return false;
+    if ('theme' in data && (typeof data.theme !== 'object' || data.theme === null)) return false;
     return true;
   },
 
@@ -252,6 +255,9 @@ export const store = {
     this.data.meds = data.meds;
     this.data.logs = data.logs;
     this.data.sleeps = data.sleeps || [];
+    if (data.theme) {
+      setTheme(data.theme);
+    }
     this.persist();
     this.notify();
     return data.language || getLanguage();

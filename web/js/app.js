@@ -4,6 +4,7 @@ import { initMeds } from './meds.js';
 import { initRecords } from './records.js';
 import { initSettings } from './settings.js';
 import { initI18n, t, subscribe, updateDOM } from './i18n.js';
+import { initTheme, subscribe as subscribeTheme } from './theme.js';
 
 const views = {
   overview: document.getElementById('overview-view'),
@@ -88,6 +89,7 @@ function initResize() {
 
 async function init() {
   await initI18n();
+  initTheme();
   store.init();
   initNavigation();
   initRouting();
@@ -104,6 +106,11 @@ async function init() {
   subscribe(() => {
     updateDOM();
     pageTitle.textContent = t('page.' + (location.hash.slice(1) || 'overview'));
+    if (views.overview.classList.contains('view-active')) {
+      drawChart();
+    }
+  });
+  subscribeTheme(() => {
     if (views.overview.classList.contains('view-active')) {
       drawChart();
     }

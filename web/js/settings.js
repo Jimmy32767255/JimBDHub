@@ -1,6 +1,7 @@
 import { store } from './store.js';
 import { platform } from './platform.js';
 import { t, setLanguage, getLanguage, subscribe, updateDOM } from './i18n.js';
+import { getTheme, setTheme, resetTheme, applySystemTheme, subscribe as subscribeTheme } from './theme.js';
 
 function defaultFileName() {
   const d = new Date();
@@ -53,6 +54,60 @@ async function onImportClick() {
   }
 }
 
+function bindThemeControls() {
+  const positiveInput = document.getElementById('theme-positive-color');
+  const negativeInput = document.getElementById('theme-negative-color');
+  const neutralInput = document.getElementById('theme-neutral-color');
+  const backgroundInput = document.getElementById('theme-background-color');
+  const surfaceInput = document.getElementById('theme-surface-color');
+  const accentInput = document.getElementById('theme-accent-color');
+  const curveLineGroup = document.getElementById('theme-curve-line');
+  const systemBtn = document.getElementById('theme-system-btn');
+  const resetBtn = document.getElementById('theme-reset-btn');
+
+  function updateUIFromTheme(theme) {
+    if (positiveInput) positiveInput.value = theme.positiveColor;
+    if (negativeInput) negativeInput.value = theme.negativeColor;
+    if (neutralInput) neutralInput.value = theme.neutralColor;
+    if (backgroundInput) backgroundInput.value = theme.backgroundColor;
+    if (surfaceInput) surfaceInput.value = theme.surfaceColor;
+    if (accentInput) accentInput.value = theme.accentColor;
+    if (curveLineGroup) {
+      curveLineGroup.querySelectorAll('.segment-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.line === theme.curveLine);
+      });
+    }
+  }
+
+  const colorMap = [
+    [positiveInput, 'positiveColor'],
+    [negativeInput, 'negativeColor'],
+    [neutralInput, 'neutralColor'],
+    [backgroundInput, 'backgroundColor'],
+    [surfaceInput, 'surfaceColor'],
+    [accentInput, 'accentColor']
+  ];
+
+  colorMap.forEach(([input, key]) => {
+    if (!input) return;
+    input.addEventListener('input', () => {
+      setTheme({ [key]: input.value, useSystemTheme: false });
+    });
+  });
+
+  curveLineGroup?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.segment-btn');
+    if (!btn) return;
+    setTheme({ curveLine: btn.dataset.line, useSystemTheme: false });
+  });
+
+  systemBtn?.addEventListener('click', applySystemTheme);
+  resetBtn?.addEventListener('click', resetTheme);
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
 export function initSettings() {
   const exportBtn = document.getElementById('export-backup-btn');
   const importBtn = document.getElementById('import-backup-btn');
@@ -86,6 +141,8 @@ export function initSettings() {
     }
     e.target.value = '';
   });
+
+  bindThemeControls();
 
   subscribe(() => {
     updateDOM();

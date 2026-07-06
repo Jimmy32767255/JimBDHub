@@ -1,0 +1,146 @@
+const STORAGE_KEY = 'jimbdhub_theme';
+
+const DEFAULT_THEME = {
+  curveLine: 'curve',
+  positiveColor: '#ef4444',
+  negativeColor: '#3b82f6',
+  neutralColor: '#64748b',
+  backgroundColor: '#0f172a',
+  surfaceColor: '#1e293b',
+  surface2Color: '#334155',
+  surface3Color: '#475569',
+  textColor: '#f8fafc',
+  textMutedColor: '#94a3b8',
+  accentColor: '#ef4444',
+  useSystemTheme: false
+};
+
+const SYSTEM_PRESETS = {
+  dark: { ...DEFAULT_THEME },
+  light: {
+    backgroundColor: '#f8fafc',
+    surfaceColor: '#ffffff',
+    surface2Color: '#e2e8f0',
+    surface3Color: '#cbd5e1',
+    textColor: '#0f172a',
+    textMutedColor: '#64748b',
+    accentColor: '#dc2626',
+    positiveColor: '#dc2626',
+    negativeColor: '#2563eb',
+    neutralColor: '#64748b'
+  }
+};
+
+let currentTheme = { ...DEFAULT_THEME };
+let listeners = [];
+
+function hexToRgb(hex) {
+  const clean = hex.replace('#', '');
+  const r = parseInt(clean.slice(0, 2), 16);
+  const g = parseInt(clean.slice(2, 4), 16);
+  const b = parseInt(clean.slice(4, 6), 16);
+  return `${r}, ${g}, ${b}`;
+}
+
+function shadeColor(hex, percent) {
+  const f = parseInt(hex.slice(1), 16);
+  const t = percent < 0 ? 0 : 255;
+  const p = percent < 0 ? -percent : percent;
+  const R = f >> 16;
+  const G = (f >> 8) & 0x00ff;
+  const B = f & 0x0000ff;
+  const nr = Math.round((t - R) * p) + R;
+  const ng = Math.round((t - G) * p) + G;
+  const nb = Math.round((t - B) * p) + B;
+  return `#${(0x1000000 + nr * 0x10000 + ng * 0x100 + nb).toString(16).slice(1)}`;
+}
+
+function getSystemScheme() {
+  return window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light';
+}
+
+function load() {
+  try {
+    const raw = localStorage.getItem(STORAGE_KEY);
+    if (raw) {
+      const saved = JSON.parse(raw);
+      return { ...DEFAULT_THEME, ...saved };
+    }
+  } catch {}
+  return { ...DEFAULT_THEME };
+}
+
+function save(theme) {
+  localStorage.setItem(STORAGE_KEY, JSON.stringify(theme));
+}
+
+function applyCSS(theme) {
+  const root = document.documentElement;
+  root.style.setProperty('--theme-positive', theme.positiveColor);
+  root.style.setProperty('--theme-positive-rgb', hexToRgb(theme.positiveColor));
+  root.style.setProperty('--theme-negative', theme.negativeColor);
+  root.style.setProperty('--theme-negative-rgb', hexToRgb(theme.negativeColor));
+  root.style.setProperty('--theme-neutral', theme.neutralColor);
+  root.style.setProperty('--theme-neutral-rgb', hexToRgb(theme.neutralColor));
+  root.style.setProperty('--theme-accent', theme.accentColor);
+  root.style.setProperty('--theme-accent-rgb', hexToRgb(theme.accentColor));
+  root.style.setProperty('--theme-accent-dark', shadeColor(theme.accentColor, -0.4));
+  root.style.setProperty('--theme-bg', theme.backgroundColor);
+  root.style.setProperty('--theme-bg-rgb', hexToRgb(theme.backgroundColor));
+  root.style.setProperty('--theme-surface', theme.surfaceColor);
+  root.style.setProperty('--theme-surface-rgb', hexToRgb(theme.surfaceColor));
+  root.style.setProperty('--theme-surface-2', theme.surface2Color);
+  root.style.setProperty('--theme-surface-2-rgb', hexToRgb(theme.surface2Color));
+  root.style.setProperty('--theme-surface-3', theme.surface3Color);
+  root.style.setProperty('--theme-surface-3-rgb', hexToRgb(theme.surface3Color));
+  root.style.setProperty('--theme-text', theme.textColor);
+  root.style.setProperty('--theme-text-rgb', hexToRgb(theme.textColor));
+  root.style.setProperty('--theme-text-muted', theme.textMutedColor);
+  root.style.setProperty('--theme-text-muted-rgb', hexToRgb(theme.textMutedColor));
+}
+
+export function getTheme() {
+  return { ...currentTheme };
+}
+
+export function setTheme(partial) {
+  currentTheme = { ...currentTheme, ...partial };
+  save(currentTheme);
+  applyCSS(currentTheme);
+  listeners.forEach(fn => fn(currentTheme));
+}
+
+export function resetTheme() {
+  setTheme({ ...DEFAULT_THEME });
+}
+
+export function applySystemTheme() {
+  const scheme = getSystemScheme();
+  setTheme({ ...SYSTEM_PRESETS[scheme], useSystemTheme: true });
+}
+
+export function initTheme() {
+  currentTheme = load();
+  if (currentTheme.useSystemTheme) {
+    const scheme = getSystemScheme();
+    currentTheme = { ...currentTheme, ...SYSTEM_PRESETS[scheme], useSystemTheme: true };
+  }
+  applyCSS(currentTheme);
+
+  window.matchMedia('(prefers-color-scheme: dark)').addEventListener('change', () => {
+    if (currentTheme.useSystemTheme) {
+      applySystemTheme();
+    }
+  });
+}
+
+export function subscribe(fn) {
+  listeners.push(fn);
+  return () => {
+    listeners = listeners.filter(l => l !== fn);
+  };
+}
+
+export function getSystemSchemeName() {
+  return getSystemScheme();
+}
