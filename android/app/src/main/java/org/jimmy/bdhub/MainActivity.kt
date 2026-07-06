@@ -167,14 +167,14 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun saveBackup(json: String, suggestedName: String) {
             runOnUiThread {
-                saveBackup(json, suggestedName)
+                this@MainActivity.saveBackup(json, suggestedName)
             }
         }
 
         @JavascriptInterface
         fun pickBackup() {
             runOnUiThread {
-                pickBackup()
+                this@MainActivity.pickBackup()
             }
         }
     }
