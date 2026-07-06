@@ -417,6 +417,15 @@ function pkEffect(dtHours, onsetHours, peakHours, halfLifeHours) {
   return Math.exp(-(dtHours - peakHours) * Math.LN2 / halfLifeHours);
 }
 
+function effectEndTime(dose, threshold = 0.01) {
+  const { timestamp, amount, peakHours, halfLifeHours } = dose;
+  if (!amount || amount <= threshold || !halfLifeHours || halfLifeHours <= 0) {
+    return timestamp + Math.max(0, peakHours || 0) * HOUR_MS;
+  }
+  const decayEndHours = peakHours + halfLifeHours * Math.log(amount / threshold) / Math.LN2;
+  return timestamp + decayEndHours * HOUR_MS;
+}
+
 function groupDosesByMed(doses) {
   const groups = {};
   doses.forEach(d => {
@@ -473,7 +482,11 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
     .concat(doses.map(d => d.timestamp))
     .concat(sleeps.flatMap(s => [s.startTime, s.endTime]));
   const minTime = Math.min(...allTimestamps);
-  const maxTime = Math.max(...allTimestamps);
+  let maxTime = Math.max(...allTimestamps);
+  if (hasEffectData) {
+    const maxEffectEnd = Math.max(...doses.map(d => effectEndTime(d, 0.01)));
+    maxTime = Math.max(maxTime, maxEffectEnd);
+  }
   const padMs = PAD_HOURS * HOUR_MS;
   const displayMinTime = minTime - padMs;
   const displayMaxTime = maxTime + padMs;
