@@ -1,0 +1,119 @@
+# AppImage Builder 配置文件
+# 用于构建 JimBDHub 的 AppImage 包
+
+version: 1
+
+script:
+  # 创建 AppDir 结构
+  - rm -rf $TARGET_APPDIR || true
+  - mkdir -p $TARGET_APPDIR/usr/share/jimbdhub
+  - mkdir -p $TARGET_APPDIR/usr/bin
+  - mkdir -p $TARGET_APPDIR/usr/share/applications
+  - mkdir -p $TARGET_APPDIR/usr/share/icons/hicolor/256x256/apps
+  - mkdir -p $TARGET_APPDIR/usr/share/pixmaps
+
+  # 复制程序文件
+  - cp -r $SOURCE_DIR/desktop $TARGET_APPDIR/usr/share/jimbdhub/
+  - cp -r $SOURCE_DIR/assets $TARGET_APPDIR/usr/share/jimbdhub/
+  - cp -r $SOURCE_DIR/web $TARGET_APPDIR/usr/share/jimbdhub/
+
+  # 复制图标
+  - cp $SOURCE_DIR/assets/JimBDHubIcon256.png $TARGET_APPDIR/usr/share/icons/hicolor/256x256/apps/JimBDHubIcon256.png
+  - cp $SOURCE_DIR/assets/JimBDHubIcon256.png $TARGET_APPDIR/usr/share/pixmaps/JimBDHubIcon256.png
+
+  # 创建启动脚本
+  - |
+    cat > $TARGET_APPDIR/usr/bin/jimbdhub << 'EOF'
+    #!/bin/bash
+    # JimBDHub AppImage 启动脚本
+
+    # 获取 AppDir 路径
+    APP_DIR="$(dirname "$(dirname "$(readlink -f "$0")")")"
+
+    # 强制使用 PyQt6
+    export QT_API=pyqt6
+
+    # 设置 Python 路径
+    export PYTHONPATH="$APP_DIR/usr/share/jimbdhub:$PYTHONPATH"
+
+    # 启动程序
+    exec python3 "$APP_DIR/usr/share/jimbdhub/desktop/main.py" "$@"
+    EOF
+  - chmod +x $TARGET_APPDIR/usr/bin/jimbdhub
+
+  # 创建桌面文件
+  - |
+    cat > $TARGET_APPDIR/usr/share/applications/jimbdhub.desktop << 'EOF'
+    [Desktop Entry]
+    Name=JimBDHub
+    Comment=一个给双相情感障碍患者记录情绪变化的软件
+    Exec=jimbdhub
+    Icon=JimBDHubIcon256
+    Terminal=false
+    Type=Application
+    Categories=Utility
+    StartupNotify=true
+    EOF
+
+  # 创建 AppRun 脚本
+  - |
+    cat > $TARGET_APPDIR/AppRun << 'EOF'
+    #!/bin/bash
+    # AppImage 入口点
+
+    # 获取 AppDir 路径
+    SELF=$(readlink -f "$0")
+    HERE=${SELF%/*}
+
+    # 强制使用 PyQt6
+    export QT_API=pyqt6
+
+    # 设置环境变量
+    export PATH="$HERE/usr/bin:$PATH"
+    export PYTHONPATH="$HERE/usr/share/jimbdhub:$PYTHONPATH"
+
+    # 启动程序
+    exec python3 "$HERE/usr/share/jimbdhub/desktop/main.py" "$@"
+    EOF
+  - chmod +x $TARGET_APPDIR/AppRun
+
+  # 创建 .desktop 文件到根目录
+  - cp $TARGET_APPDIR/usr/share/applications/jimbdhub.desktop $TARGET_APPDIR/jimbdhub.desktop
+  - cp $TARGET_APPDIR/usr/share/icons/hicolor/256x256/apps/JimBDHubIcon256.png $TARGET_APPDIR/JimBDHubIcon256.png || true
+
+AppDir:
+  path: ./AppDir
+
+  app_info:
+    id: com.github.jimmy32767255.jimbdhub
+    name: JimBDHub
+    icon: JimBDHubIcon256
+    version: 0.0.1
+    exec: usr/bin/jimbdhub
+    exec_args: "$@"
+
+  apt:
+    arch: amd64
+    sources:
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy main restricted universe multiverse'
+        key_url: 'http://keyserver.ubuntu.com/pks/lookup?op=get&search=0x871920D1991BC93C'
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy-updates main restricted universe multiverse'
+      - sourceline: 'deb http://archive.ubuntu.com/ubuntu/ jammy-backports main restricted universe multiverse'
+
+    include:
+      - python3
+      - python3-pip
+      # PyQt6 需要通过 pip 安装，不使用系统包
+
+  files:
+    exclude:
+      - usr/share/man
+      - usr/share/doc/*/README.*
+      - usr/share/doc/*/changelog.*
+      - usr/share/doc/*/NEWS.*
+      - usr/share/doc/*/TODO.*
+
+AppImage:
+  arch: x86_64
+  update-information: guess
+  sign-key: None
