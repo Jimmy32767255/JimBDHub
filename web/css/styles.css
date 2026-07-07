@@ -418,6 +418,23 @@ body {
   padding: 10px 4px;
 }
 
+#med-manual-fields {
+  display: flex;
+  flex-direction: column;
+  gap: 0;
+  transition: opacity 0.2s ease, max-height 0.25s ease;
+  opacity: 1;
+  max-height: 2000px;
+  overflow: hidden;
+}
+#med-manual-fields[hidden] {
+  display: none;
+}
+#med-toggle-manual {
+  width: 100%;
+  justify-content: center;
+}
+
 .logs-list {
   padding: 16px;
   display: flex;

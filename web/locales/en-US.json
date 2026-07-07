@@ -97,6 +97,8 @@
   "meds.form.category": "Category",
   "meds.form.categoryPlaceholder": "e.g. mood stabilizer",
   "meds.form.dbSearch": "Search built-in medication database",
+  "meds.form.manualToggle": "Manual add / edit",
+  "meds.form.manualToggleHide": "Hide manual form",
   "meds.form.dbSearchPlaceholder": "Enter medication name or category...",
   "meds.form.dbTagAll": "All",
   "meds.form.dbNoResults": "No matching medications",

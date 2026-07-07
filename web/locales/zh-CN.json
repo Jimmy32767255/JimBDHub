@@ -97,6 +97,8 @@
   "meds.form.category": "分类",
   "meds.form.categoryPlaceholder": "如：心境稳定剂",
   "meds.form.dbSearch": "快速搜索内置药品库",
+  "meds.form.manualToggle": "手动添加 / 修改",
+  "meds.form.manualToggleHide": "隐藏手动表单",
   "meds.form.dbSearchPlaceholder": "输入药品名称或分类...",
   "meds.form.dbTagAll": "全部",
   "meds.form.dbNoResults": "无匹配药品",

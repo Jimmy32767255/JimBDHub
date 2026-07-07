@@ -33,10 +33,13 @@ const logNoteInput = document.getElementById('log-note');
 const medDbSearch = document.getElementById('med-db-search');
 const medDbTags = document.getElementById('med-db-tags');
 const medDbResults = document.getElementById('med-db-results');
+const medToggleManual = document.getElementById('med-toggle-manual');
+const medManualFields = document.getElementById('med-manual-fields');
 
 let medDbData = [];
 let medDbTagsList = [];
 let medDbSelectedTag = '';
+let manualFieldsVisible = false;
 
 async function loadMedDB() {
   try {
@@ -126,6 +129,7 @@ function fillMedForm(med) {
   medDbSelectedTag = '';
   renderTags();
   renderMedResults([]);
+  setManualFieldsVisible(false);
 }
 
 function percent(med) {
@@ -188,6 +192,23 @@ function renderLogs() {
   });
 }
 
+function setManualFieldsVisible(visible) {
+  manualFieldsVisible = visible;
+  medManualFields.hidden = !visible;
+  medToggleManual.textContent = visible ? t('meds.form.manualToggleHide') : t('meds.form.manualToggle');
+  medNameInput.required = visible;
+  medOnsetInput.required = visible;
+  medPeakInput.required = visible;
+  medHalfLifeInput.required = visible;
+}
+
+function toggleManualFields() {
+  setManualFieldsVisible(!manualFieldsVisible);
+  if (manualFieldsVisible) {
+    medNameInput.focus();
+  }
+}
+
 function openModal(med = null) {
   medForm.reset();
   medDbSearch.value = '';
@@ -208,15 +229,16 @@ function openModal(med = null) {
     medPeakInput.value = med.peakHours ?? 2;
     medHalfLifeInput.value = med.halfLifeHours ?? 12;
     medNoteInput.value = med.note;
+    setManualFieldsVisible(true);
   } else {
     medModalTitle.textContent = t('meds.modal.addTitle');
     medIdInput.value = '';
     medOnsetInput.value = 1;
     medPeakInput.value = 2;
     medHalfLifeInput.value = 12;
+    setManualFieldsVisible(false);
   }
   medModal.setAttribute('aria-hidden', 'false');
-  medNameInput.focus();
 }
 
 function closeModal() {
@@ -256,6 +278,11 @@ function closeLogModal() {
 
 function handleFormSubmit(e) {
   e.preventDefault();
+  if (!manualFieldsVisible && !medNameInput.value.trim()) {
+    setManualFieldsVisible(true);
+    medNameInput.focus();
+    return;
+  }
   const box = Number(medBoxInput.value) || 0;
   const board = Number(medBoardInput.value) || 0;
   const pills = Number(medPillsInput.value) || 0;
@@ -315,6 +342,7 @@ function initMeds() {
   document.getElementById('med-cancel').addEventListener('click', closeModal);
   medModal.querySelector('.modal-backdrop').addEventListener('click', closeModal);
   medForm.addEventListener('submit', handleFormSubmit);
+  medToggleManual.addEventListener('click', toggleManualFields);
 
   medDbSearch.addEventListener('input', () => {
     renderMedResults(filterMeds(medDbSearch.value.trim(), medDbSelectedTag));
