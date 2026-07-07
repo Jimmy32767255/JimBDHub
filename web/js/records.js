@@ -29,6 +29,13 @@ const addInterruptionBtn = document.getElementById('add-interruption-btn');
 const sleepNoteInput = document.getElementById('sleep-note');
 const sleepCancelBtn = document.getElementById('sleep-cancel');
 
+const eventForm = document.getElementById('event-form');
+const eventIdInput = document.getElementById('event-id');
+const eventTimeInput = document.getElementById('event-time');
+const eventTitleInput = document.getElementById('event-title');
+const eventNoteInput = document.getElementById('event-note');
+const eventCancelBtn = document.getElementById('event-cancel');
+
 function toDatetimeLocal(ts) {
   const d = new Date(ts);
   const pad = n => String(n).padStart(2, '0');
@@ -210,7 +217,8 @@ function renderRecords() {
 
   const moodItems = store.data.records.map(r => ({ kind: 'mood', data: r, time: r.timestamp }));
   const sleepItems = store.data.sleeps.map(s => ({ kind: 'sleep', data: s, time: s.startTime }));
-  const all = [...moodItems, ...sleepItems].sort((a, b) => b.time - a.time);
+  const eventItems = store.data.events.map(e => ({ kind: 'event', data: e, time: e.timestamp }));
+  const all = [...moodItems, ...sleepItems, ...eventItems].sort((a, b) => b.time - a.time);
 
   all.forEach((item, idx) => {
     const el = document.createElement('div');
@@ -237,7 +245,7 @@ function renderRecords() {
           <button class="btn btn-danger" data-action="delete" data-id="${r.id}">${t('common.delete')}</button>
         </footer>
       `;
-    } else {
+    } else if (item.kind === 'sleep') {
       const s = item.data;
       const { total, asleep } = calcSleepDuration(s);
       el.innerHTML = `
@@ -254,6 +262,20 @@ function renderRecords() {
         <footer>
           <button class="btn btn-icon" data-action="edit" data-id="${s.id}">${t('common.edit')}</button>
           <button class="btn btn-danger" data-action="delete" data-id="${s.id}">${t('common.delete')}</button>
+        </footer>
+      `;
+    } else {
+      const ev = item.data;
+      el.innerHTML = `
+        <header>
+          <span class="event-badge">${t('records.history.event')}</span>
+          <time>${formatDateTime(ev.timestamp)}</time>
+        </header>
+        <h4 style="margin: 8px 0 4px; font-size: 15px; font-weight: 600;">${ev.title}</h4>
+        ${ev.note ? `<p class="note">${ev.note}</p>` : ''}
+        <footer>
+          <button class="btn btn-icon" data-action="edit" data-id="${ev.id}">${t('common.edit')}</button>
+          <button class="btn btn-danger" data-action="delete" data-id="${ev.id}">${t('common.delete')}</button>
         </footer>
       `;
     }
@@ -348,17 +370,29 @@ function handleSleepSubmit(e) {
   resetSleepForm();
 }
 
+function resetEventForm() {
+  eventForm.reset();
+  eventIdInput.value = '';
+  eventTimeInput.value = toDatetimeLocal(nowHourFloor());
+  eventTitleInput.value = '';
+  eventNoteInput.value = '';
+}
+
+function editEvent(event) {
+  eventIdInput.value = event.id;
+  eventTimeInput.value = toDatetimeLocal(event.timestamp);
+  eventTitleInput.value = event.title || '';
+  eventNoteInput.value = event.note || '';
+  switchForm('event');
+}
+
 function switchForm(name) {
   formTabs.forEach(tab => {
     tab.classList.toggle('active', tab.dataset.form === name);
   });
-  if (name === 'mood') {
-    moodForm.hidden = false;
-    sleepForm.hidden = true;
-  } else {
-    moodForm.hidden = true;
-    sleepForm.hidden = false;
-  }
+  moodForm.hidden = name !== 'mood';
+  sleepForm.hidden = name !== 'sleep';
+  eventForm.hidden = name !== 'event';
 }
 
 function initRecords() {
@@ -391,6 +425,9 @@ function initRecords() {
     if (btn) btn.closest('.interruption-row').remove();
   });
 
+  eventCancelBtn.addEventListener('click', resetEventForm);
+  eventForm.addEventListener('submit', handleEventSubmit);
+
   document.getElementById('records-list').addEventListener('click', e => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -410,7 +447,7 @@ function initRecords() {
           store.deleteRecord(id);
         }
       }
-    } else {
+    } else if (kind === 'sleep') {
       const sleep = store.data.sleeps.find(s => s.id === id);
       if (!sleep) return;
       if (action === 'edit') {
@@ -420,12 +457,37 @@ function initRecords() {
           store.deleteSleep(id);
         }
       }
+    } else {
+      const event = store.data.events.find(ev => ev.id === id);
+      if (!event) return;
+      if (action === 'edit') {
+        editEvent(event);
+      } else if (action === 'delete') {
+        if (confirm(t('records.confirm.deleteEvent'))) {
+          store.deleteEvent(id);
+        }
+      }
     }
   });
 
   store.subscribe(() => renderRecords());
   subscribe(() => renderRecords());
   renderRecords();
+}
+
+function handleEventSubmit(e) {
+  e.preventDefault();
+  const payload = {
+    timestamp: new Date(eventTimeInput.value).getTime(),
+    title: eventTitleInput.value.trim(),
+    note: eventNoteInput.value.trim()
+  };
+  if (eventIdInput.value) {
+    store.updateEvent(eventIdInput.value, payload);
+  } else {
+    store.addEvent(payload);
+  }
+  resetEventForm();
 }
 
 export { initRecords };

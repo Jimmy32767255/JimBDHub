@@ -116,6 +116,7 @@
               <div class="form-tabs">
                 <button type="button" class="form-tab active" data-form="mood" data-i18n="records.formTabs.mood">情绪</button>
                 <button type="button" class="form-tab" data-form="sleep" data-i18n="records.formTabs.sleep">睡眠</button>
+                <button type="button" class="form-tab" data-form="event" data-i18n="records.formTabs.event">事件</button>
               </div>
             </div>
             <form id="record-form" class="record-form">
@@ -164,6 +165,31 @@
               <div class="form-actions">
                 <button type="button" class="btn btn-ghost" id="record-cancel" data-i18n="common.cancel">取消</button>
                 <button type="submit" class="btn btn-primary" data-i18n="records.moodForm.save">保存记录</button>
+              </div>
+            </form>
+            <form id="event-form" class="record-form" hidden>
+              <input type="hidden" id="event-id">
+              <div class="form-row">
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.eventForm.time">时间</span>
+                  <input type="datetime-local" id="event-time" required>
+                </label>
+              </div>
+              <div class="form-row">
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.eventForm.title">事件标题</span>
+                  <input type="text" id="event-title" data-i18n-placeholder="records.eventForm.titlePlaceholder" placeholder="如：复诊、换药、重要谈话" required>
+                </label>
+              </div>
+              <div class="form-row">
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.eventForm.note">详情</span>
+                  <textarea id="event-note" rows="3" data-i18n-placeholder="records.moodForm.notePlaceholder" placeholder="记录事件经过、影响等"></textarea>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-ghost" id="event-cancel" data-i18n="common.cancel">取消</button>
+                <button type="submit" class="btn btn-primary" data-i18n="records.eventForm.save">保存事件</button>
               </div>
             </form>
             <form id="sleep-form" class="record-form" hidden>

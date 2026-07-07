@@ -5,7 +5,8 @@ const KEYS = {
   records: 'jim_mood_records',
   meds: 'jim_medications',
   logs: 'jim_med_logs',
-  sleeps: 'jim_sleep_records'
+  sleeps: 'jim_sleep_records',
+  events: 'jim_events'
 };
 
 function generateId() {
@@ -52,7 +53,8 @@ export const store = {
     records: [],
     meds: [],
     logs: [],
-    sleeps: []
+    sleeps: [],
+    events: []
   },
   listeners: [],
 
@@ -77,6 +79,7 @@ export const store = {
     this.data.meds = load(KEYS.meds, []);
     this.data.logs = load(KEYS.logs, []);
     this.data.sleeps = load(KEYS.sleeps, []);
+    this.data.events = load(KEYS.events, []);
   },
 
   persist() {
@@ -84,6 +87,7 @@ export const store = {
     save(KEYS.meds, this.data.meds);
     save(KEYS.logs, this.data.logs);
     save(KEYS.sleeps, this.data.sleeps);
+    save(KEYS.events, this.data.events);
   },
 
   subscribe(fn) {
@@ -127,6 +131,22 @@ export const store = {
     return this.data.sleeps
       .filter(s => s.startTime <= end && s.endTime >= start)
       .sort((a, b) => a.startTime - b.startTime);
+  },
+
+  getEventsInRange(range) {
+    let start = 0;
+    let end = Infinity;
+    if (range && typeof range === 'object') {
+      start = range.start ?? 0;
+      end = range.end ?? Infinity;
+    } else {
+      const now = Date.now();
+      if (range === 'week') start = now - 7 * DAY_MS;
+      if (range === 'month') start = now - 30 * DAY_MS;
+    }
+    return this.data.events
+      .filter(e => e.timestamp >= start && e.timestamp <= end)
+      .sort((a, b) => a.timestamp - b.timestamp);
   },
 
   addRecord(record) {
@@ -173,6 +193,30 @@ export const store = {
 
   deleteSleep(id) {
     this.data.sleeps = this.data.sleeps.filter(s => s.id !== id);
+    this.persist();
+    this.notify();
+  },
+
+  addEvent(event) {
+    const e = { ...event, id: generateId() };
+    this.data.events.push(e);
+    this.data.events.sort((a, b) => a.timestamp - b.timestamp);
+    this.persist();
+    this.notify();
+    return e;
+  },
+
+  updateEvent(id, patch) {
+    const idx = this.data.events.findIndex(e => e.id === id);
+    if (idx === -1) return;
+    this.data.events[idx] = { ...this.data.events[idx], ...patch };
+    this.data.events.sort((a, b) => a.timestamp - b.timestamp);
+    this.persist();
+    this.notify();
+  },
+
+  deleteEvent(id) {
+    this.data.events = this.data.events.filter(e => e.id !== id);
     this.persist();
     this.notify();
   },
@@ -262,6 +306,7 @@ export const store = {
       meds: this.data.meds,
       logs: this.data.logs,
       sleeps: this.data.sleeps,
+      events: this.data.events,
       language: getLanguage(),
       theme: getTheme()
     };
@@ -274,6 +319,7 @@ export const store = {
     if (!Array.isArray(data.meds)) return false;
     if (!Array.isArray(data.logs)) return false;
     if ('sleeps' in data && !Array.isArray(data.sleeps)) return false;
+    if ('events' in data && !Array.isArray(data.events)) return false;
     if ('language' in data && typeof data.language !== 'string') return false;
     if ('theme' in data && (typeof data.theme !== 'object' || data.theme === null)) return false;
     return true;
@@ -285,6 +331,7 @@ export const store = {
     this.data.meds = data.meds;
     this.data.logs = data.logs;
     this.data.sleeps = data.sleeps || [];
+    this.data.events = data.events || [];
     if (data.theme) {
       setTheme(data.theme);
     }

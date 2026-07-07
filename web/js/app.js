@@ -56,7 +56,8 @@ function zoomOut() {
 function drawChart() {
   const records = store.getRecordsInRange('all');
   const sleeps = store.getSleepsInRange('all');
-  renderCombinedChart(records, sleeps, combinedChartSvg, combinedChartTooltip, combinedLegend, {
+  const events = store.getEventsInRange('all');
+  renderCombinedChart(records, sleeps, events, combinedChartSvg, combinedChartTooltip, combinedLegend, {
     showMood: showMoodCheckbox.checked,
     showEffect: showEffectCheckbox.checked,
     showSleep: showSleepCheckbox.checked,

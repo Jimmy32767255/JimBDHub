@@ -454,7 +454,7 @@ function medColor(index) {
   return MED_COLORS[index % MED_COLORS.length];
 }
 
-export function renderCombinedChart(records, sleeps = [], container, tooltip, legendContainer, options = {}) {
+export function renderCombinedChart(records, sleeps = [], events = [], container, tooltip, legendContainer, options = {}) {
   const { showMood = true, showEffect = true, showSleep = true, pxPerHour } = options;
   const effectivePxPerHour = pxPerHour || PX_PER_HOUR;
   const theme = getTheme();
@@ -488,7 +488,8 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
   // 计算时间范围
   const allTimestamps = records.map(r => r.timestamp)
     .concat(doses.map(d => d.timestamp))
-    .concat(sleeps.flatMap(s => [s.startTime, s.endTime]));
+    .concat(sleeps.flatMap(s => [s.startTime, s.endTime]))
+    .concat(events.map(e => e.timestamp));
   const minTime = Math.min(...allTimestamps);
   let maxTime = Math.max(...allTimestamps);
   if (hasEffectData) {
@@ -872,6 +873,27 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
     });
   }
 
+  // 事件竖线（始终显示）
+  if (events.length > 0) {
+    events.forEach(ev => {
+      const ex = xFor(ev.timestamp);
+      if (ex < PADDING.left || ex > width - PADDING.right) return;
+      const line = createSVGElement('line', {
+        x1: ex, y1: PADDING.top, x2: ex, y2: height - PADDING.bottom,
+        stroke: colors.accent, 'stroke-width': 2, class: 'event-line', 'data-event-id': ev.id
+      });
+      line.style.pointerEvents = 'none';
+      container.appendChild(line);
+
+      const dot = createSVGElement('circle', {
+        cx: ex, cy: PADDING.top, r: 4, fill: colors.accent, class: 'event-dot', 'data-event-id': ev.id
+      });
+      dot.style.pointerEvents = 'auto';
+      dot.style.cursor = 'pointer';
+      container.appendChild(dot);
+    });
+  }
+
   // 情绪图例
   if (hasMoodData && legendContainer) {
     const moodLegend = document.createElement('span');
@@ -883,6 +905,13 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
     moodLegend2.className = 'legend-item';
     moodLegend2.innerHTML = `<i class="dot" style="background:${colors.negative}"></i><span data-i18n="chart.legend.depressed">${t('chart.legend.depressed')}</span>`;
     legendContainer.appendChild(moodLegend2);
+  }
+
+  if (events.length > 0 && legendContainer) {
+    const eventLegend = document.createElement('span');
+    eventLegend.className = 'legend-item';
+    eventLegend.innerHTML = `<i class="dot" style="background:${colors.accent}; width: 2px; border-radius: 0;"></i><span data-i18n="chart.legend.event">${t('chart.legend.event')}</span>`;
+    legendContainer.appendChild(eventLegend);
   }
 
   // 十字线和交互
@@ -915,23 +944,39 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
       }
     }
 
-    // 仅当光标与情绪数据点足够接近时才显示情绪详情，并吸附到该点
+    // 附近的事件
     const NEAR_THRESHOLD_PX = 24;
+    let nearestEvent = null;
+    let nearestEventPxDist = Infinity;
+    events.forEach(ev => {
+      const dist = Math.abs(xFor(ev.timestamp) - xFor(ts));
+      if (dist < nearestEventPxDist) { nearestEventPxDist = dist; nearestEvent = ev; }
+    });
+    const showEventDetail = nearestEvent && (cursorX === null || nearestEventPxDist <= NEAR_THRESHOLD_PX);
+
+    // 仅当光标与情绪数据点足够接近时才显示情绪详情，并吸附到该点
     const snapToPoint = hasMoodData && nearest && (cursorX === null || nearestPxDist <= NEAR_THRESHOLD_PX);
     const showMoodDetail = snapToPoint;
-    const tooltipTs = snapToPoint ? nearest.timestamp : ts;
+    let tooltipTs = snapToPoint ? nearest.timestamp : ts;
+    if (showEventDetail && !snapToPoint) tooltipTs = nearestEvent.timestamp;
 
     crosshairGroup.setAttribute('display', 'block');
     const x = xFor(tooltipTs);
     vLine.setAttribute('x1', x);
     vLine.setAttribute('x2', x);
 
-    if (!showMoodDetail && !hasEffectData && !hasSleepData) {
+    if (!showMoodDetail && !hasEffectData && !hasSleepData && !showEventDetail) {
       hideTooltip();
       return;
     }
 
     let content = `<time>${formatDateTime(tooltipTs)}</time>`;
+
+    // 事件信息
+    if (showEventDetail) {
+      content += `<div style="color:${colors.accent}; font-weight:600;">${t('chart.tooltip.event')}: ${nearestEvent.title}</div>`;
+      if (nearestEvent.note) content += `<div class="note">${nearestEvent.note}</div>`;
+    }
 
     // 情绪信息
     if (showMoodDetail) {
