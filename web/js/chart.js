@@ -455,7 +455,7 @@ function medColor(index) {
 }
 
 export function renderCombinedChart(records, sleeps = [], events = [], container, tooltip, legendContainer, options = {}) {
-  const { showMood = true, showEffect = true, showSleep = true, pxPerHour } = options;
+  const { showMood = true, showEffect = true, showSleep = true, projectedDoses = [], pxPerHour } = options;
   const effectivePxPerHour = pxPerHour || PX_PER_HOUR;
   const theme = getTheme();
   const colors = {
@@ -471,7 +471,8 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   container.innerHTML = '';
   if (legendContainer) legendContainer.innerHTML = '';
 
-  const doses = extractDoses(records);
+  const actualDoses = extractDoses(records);
+  const doses = [...actualDoses, ...projectedDoses];
   const hasMoodData = records.length > 0 && showMood;
   const hasEffectData = doses.length > 0 && showEffect;
   const hasSleepData = sleeps.length > 0 && showSleep;
@@ -508,7 +509,6 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   const padTop = parseFloat(wrapStyle.paddingTop) || 0;
   const padBottom = parseFloat(wrapStyle.paddingBottom) || 0;
   const padLeft = parseFloat(wrapStyle.paddingLeft) || 0;
-  const padRight = parseFloat(wrapStyle.paddingRight) || 0;
   const containerChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
   const absoluteChartW = displaySpanHours * effectivePxPerHour;
   const chartW = Math.max(absoluteChartW, containerChartW);

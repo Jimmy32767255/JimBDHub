@@ -21,10 +21,15 @@ const menuToggle = document.getElementById('menu-toggle');
 const showMoodCheckbox = document.getElementById('show-mood');
 const showEffectCheckbox = document.getElementById('show-effect');
 const showSleepCheckbox = document.getElementById('show-sleep');
+const showForwardCheckbox = document.getElementById('show-forward');
 
 const BASE_PX_PER_HOUR = 12;
 let currentPxPerHour = BASE_PX_PER_HOUR;
 const ZOOM_FACTOR = 1.4;
+const FORWARD_DAYS = 7;
+const DAY_MS = 24 * 60 * 60 * 1000;
+const HOUR_MS = 60 * 60 * 1000;
+const SHOW_FORWARD_KEY = 'jimbdhub_show_forward';
 
 function setActiveView(name) {
   Object.entries(views).forEach(([key, el]) => {
@@ -53,14 +58,83 @@ function zoomOut() {
   if (currentPxPerHour < BASE_PX_PER_HOUR) currentPxPerHour = BASE_PX_PER_HOUR;
 }
 
+function loadShowForward() {
+  try {
+    return localStorage.getItem(SHOW_FORWARD_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveShowForward(value) {
+  try {
+    localStorage.setItem(SHOW_FORWARD_KEY, value ? 'true' : 'false');
+  } catch {}
+}
+
+function computeProjectedDoses(meds, startTs, endTs) {
+  const doses = [];
+  const now = Date.now();
+  const projectionStart = Math.max(startTs, now);
+  meds.forEach(med => {
+    if (!med.schedule || med.schedule.length === 0) return;
+    const startDay = new Date(projectionStart);
+    startDay.setHours(0, 0, 0, 0);
+    const endDay = new Date(endTs);
+    endDay.setHours(23, 59, 59, 999);
+    for (let d = startDay.getTime(); d <= endDay.getTime(); d += DAY_MS) {
+      med.schedule.forEach(time => {
+        const [h, min] = time.split(':').map(Number);
+        const ts = d + h * HOUR_MS + min * 60 * 1000;
+        if (ts >= projectionStart && ts <= endTs) {
+          doses.push({
+            medicationId: med.id,
+            name: med.name,
+            amount: 1,
+            unit: med.unit,
+            timestamp: ts,
+            onsetHours: med.onsetHours ?? 1,
+            peakHours: med.peakHours ?? 2,
+            halfLifeHours: med.halfLifeHours ?? 12,
+            projected: true
+          });
+        }
+      });
+    }
+  });
+  return doses;
+}
+
+function getChartTimeRange(records, sleeps, events) {
+  const doseTimestamps = records.flatMap(r => (r.doses || []).map(d => d.timestamp || r.timestamp));
+  const timestamps = [
+    ...records.map(r => r.timestamp),
+    ...sleeps.flatMap(s => [s.startTime, s.endTime]),
+    ...events.map(e => e.timestamp),
+    ...doseTimestamps
+  ].filter(Boolean);
+  const now = Date.now();
+  if (timestamps.length === 0) {
+    return { min: now - DAY_MS, max: now };
+  }
+  return { min: Math.min(...timestamps), max: Math.max(...timestamps, now) };
+}
+
 function drawChart() {
   const records = store.getRecordsInRange('all');
   const sleeps = store.getSleepsInRange('all');
   const events = store.getEventsInRange('all');
+  let projectedDoses = [];
+  if (showForwardCheckbox.checked) {
+    const range = getChartTimeRange(records, sleeps, events);
+    const forwardEnd = range.max + FORWARD_DAYS * DAY_MS;
+    projectedDoses = computeProjectedDoses(store.data.meds, range.min, forwardEnd);
+  }
   renderCombinedChart(records, sleeps, events, combinedChartSvg, combinedChartTooltip, combinedLegend, {
     showMood: showMoodCheckbox.checked,
     showEffect: showEffectCheckbox.checked,
     showSleep: showSleepCheckbox.checked,
+    projectedDoses,
     pxPerHour: currentPxPerHour
   });
 }
@@ -94,6 +168,10 @@ function initNavigation() {
   showMoodCheckbox.addEventListener('change', drawChart);
   showEffectCheckbox.addEventListener('change', drawChart);
   showSleepCheckbox.addEventListener('change', drawChart);
+  showForwardCheckbox.addEventListener('change', () => {
+    saveShowForward(showForwardCheckbox.checked);
+    drawChart();
+  });
 }
 
 function initRouting() {
@@ -125,6 +203,7 @@ async function init() {
   await initI18n();
   initTheme();
   store.init();
+  showForwardCheckbox.checked = loadShowForward();
   initNavigation();
   initRouting();
   initMeds();

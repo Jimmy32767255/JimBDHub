@@ -73,6 +73,10 @@
               <input type="checkbox" id="show-sleep" checked>
               <span data-i18n="chart.showSleep">睡眠条</span>
             </label>
+            <label class="chart-checkbox">
+              <input type="checkbox" id="show-forward">
+              <span data-i18n="chart.showForward">预测药效</span>
+            </label>
           </div>
         </div>
       </section>
@@ -374,6 +378,17 @@
             <label class="form-field"><span class="form-label" data-i18n="meds.form.onsetHours">起效时间（小时）</span><input type="number" id="med-onset" min="0" step="0.1" required></label>
           <label class="form-field"><span class="form-label" data-i18n="meds.form.peakHours">达峰时间（小时）</span><input type="number" id="med-peak" min="0" step="0.1" required></label>
           <label class="form-field"><span class="form-label" data-i18n="meds.form.halfLifeHours">半衰期（小时）</span><input type="number" id="med-half-life" min="0.1" step="0.1" required></label>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <span class="form-label" data-i18n="meds.form.schedule">固定每日服药时间</span>
+              <div class="schedule-list" id="med-schedule-list"></div>
+              <div class="schedule-add-row">
+                <input type="time" id="med-schedule-time">
+                <button type="button" class="btn btn-sm" id="med-add-schedule" data-i18n="meds.form.addSchedule">添加</button>
+              </div>
+              <small class="form-hint" data-i18n="meds.form.scheduleHint">用于预测未来药效，可添加多个时间点</small>
+            </div>
           </div>
           <div class="form-row">
             <label class="form-field"><span class="form-label" data-i18n="meds.form.note">备注</span><textarea id="med-note" rows="2"></textarea></label>

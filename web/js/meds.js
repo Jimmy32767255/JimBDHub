@@ -35,11 +35,15 @@ const medDbTags = document.getElementById('med-db-tags');
 const medDbResults = document.getElementById('med-db-results');
 const medToggleManual = document.getElementById('med-toggle-manual');
 const medManualFields = document.getElementById('med-manual-fields');
+const medScheduleList = document.getElementById('med-schedule-list');
+const medScheduleTimeInput = document.getElementById('med-schedule-time');
+const medAddScheduleBtn = document.getElementById('med-add-schedule');
 
 let medDbData = [];
 let medDbTagsList = [];
 let medDbSelectedTag = '';
 let manualFieldsVisible = false;
+let currentSchedule = [];
 
 async function loadMedDB() {
   try {
@@ -125,6 +129,7 @@ function fillMedForm(med) {
   medPeakInput.value = med.peakHours ?? 2;
   medHalfLifeInput.value = med.halfLifeHours ?? 12;
   medNoteInput.value = med.note || '';
+  resetSchedule();
   medDbSearch.value = '';
   medDbSelectedTag = '';
   renderTags();
@@ -192,6 +197,35 @@ function renderLogs() {
   });
 }
 
+function renderScheduleList() {
+  medScheduleList.innerHTML = '';
+  currentSchedule.forEach((time, idx) => {
+    const chip = document.createElement('span');
+    chip.className = 'schedule-chip';
+    chip.innerHTML = `<span>${time}</span><button type="button" data-idx="${idx}" aria-label="${t('common.delete')}">×</button>`;
+    chip.querySelector('button').addEventListener('click', () => {
+      currentSchedule.splice(idx, 1);
+      renderScheduleList();
+    });
+    medScheduleList.appendChild(chip);
+  });
+}
+
+function addScheduleTime() {
+  const time = medScheduleTimeInput.value;
+  if (!time || currentSchedule.includes(time)) return;
+  currentSchedule.push(time);
+  currentSchedule.sort();
+  medScheduleTimeInput.value = '';
+  renderScheduleList();
+}
+
+function resetSchedule() {
+  currentSchedule = [];
+  medScheduleTimeInput.value = '';
+  renderScheduleList();
+}
+
 function setManualFieldsVisible(visible) {
   manualFieldsVisible = visible;
   medManualFields.hidden = !visible;
@@ -229,6 +263,8 @@ function openModal(med = null) {
     medPeakInput.value = med.peakHours ?? 2;
     medHalfLifeInput.value = med.halfLifeHours ?? 12;
     medNoteInput.value = med.note;
+    currentSchedule = Array.isArray(med.schedule) ? [...med.schedule] : [];
+    renderScheduleList();
     setManualFieldsVisible(true);
   } else {
     medModalTitle.textContent = t('meds.modal.addTitle');
@@ -236,6 +272,7 @@ function openModal(med = null) {
     medOnsetInput.value = 1;
     medPeakInput.value = 2;
     medHalfLifeInput.value = 12;
+    resetSchedule();
     setManualFieldsVisible(false);
   }
   medModal.setAttribute('aria-hidden', 'false');
@@ -300,6 +337,7 @@ function handleFormSubmit(e) {
     onsetHours: Math.max(0, Number(medOnsetInput.value) || 0),
     peakHours: Math.max(0, Number(medPeakInput.value) || 0),
     halfLifeHours: Math.max(0.1, Number(medHalfLifeInput.value) || 0.1),
+    schedule: [...currentSchedule],
     note: medNoteInput.value.trim()
   };
   if (medIdInput.value) {
@@ -343,6 +381,13 @@ function initMeds() {
   medModal.querySelector('.modal-backdrop').addEventListener('click', closeModal);
   medForm.addEventListener('submit', handleFormSubmit);
   medToggleManual.addEventListener('click', toggleManualFields);
+  medAddScheduleBtn.addEventListener('click', addScheduleTime);
+  medScheduleTimeInput.addEventListener('keydown', e => {
+    if (e.key === 'Enter') {
+      e.preventDefault();
+      addScheduleTime();
+    }
+  });
 
   medDbSearch.addEventListener('input', () => {
     renderMedResults(filterMeds(medDbSearch.value.trim(), medDbSelectedTag));

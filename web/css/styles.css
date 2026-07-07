@@ -544,6 +544,50 @@ body {
   margin-top: 8px;
 }
 
+.form-hint {
+  display: block;
+  margin-top: 6px;
+  font-size: 12px;
+  color: var(--theme-text-muted);
+}
+
+.schedule-list {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 10px;
+}
+.schedule-chip {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 5px 10px;
+  background: rgba(var(--theme-accent-rgb), 0.15);
+  color: var(--theme-accent);
+  border-radius: 20px;
+  font-size: 13px;
+  font-weight: 600;
+}
+.schedule-chip button {
+  background: transparent;
+  border: none;
+  color: var(--theme-accent);
+  font-size: 16px;
+  line-height: 1;
+  cursor: pointer;
+  padding: 0 2px;
+}
+.schedule-chip button:hover { color: var(--theme-text); }
+.schedule-add-row {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+}
+.schedule-add-row input[type="time"] {
+  flex: 1;
+  min-width: 120px;
+}
+
 #language-select {
   appearance: none;
   -webkit-appearance: none;
