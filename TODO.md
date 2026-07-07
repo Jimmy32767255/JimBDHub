@@ -10,7 +10,7 @@
 
 内置药品数据库+添加时手动设置
 
-- [ ] 图标
+- [x] 图标
 
 SVG&ICO
 
@@ -31,7 +31,7 @@ SVG&ICO
 
 包括面向用户和面向开发者的
 
-- [ ] 桌面端打包脚本
+- [x] 桌面端打包脚本
 
 Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
