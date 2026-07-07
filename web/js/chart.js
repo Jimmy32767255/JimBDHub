@@ -915,12 +915,14 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
       }
     }
 
-    // 仅当光标与情绪数据点足够接近时才显示情绪详情
+    // 仅当光标与情绪数据点足够接近时才显示情绪详情，并吸附到该点
     const NEAR_THRESHOLD_PX = 24;
-    const showMoodDetail = hasMoodData && nearest && (cursorX === null || nearestPxDist <= NEAR_THRESHOLD_PX);
+    const snapToPoint = hasMoodData && nearest && (cursorX === null || nearestPxDist <= NEAR_THRESHOLD_PX);
+    const showMoodDetail = snapToPoint;
+    const tooltipTs = snapToPoint ? nearest.timestamp : ts;
 
     crosshairGroup.setAttribute('display', 'block');
-    const x = xFor(ts);
+    const x = xFor(tooltipTs);
     vLine.setAttribute('x1', x);
     vLine.setAttribute('x2', x);
 
@@ -929,7 +931,7 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
       return;
     }
 
-    let content = `<time>${formatDateTime(ts)}</time>`;
+    let content = `<time>${formatDateTime(tooltipTs)}</time>`;
 
     // 情绪信息
     if (showMoodDetail) {
@@ -947,7 +949,7 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
       groups.forEach((g, idx) => {
         let effect = 0;
         g.doses.forEach(d => {
-          const dt = (ts - d.timestamp) / HOUR_MS;
+          const dt = (tooltipTs - d.timestamp) / HOUR_MS;
           effect += d.amount * pkEffect(dt, d.onsetHours, d.peakHours, d.halfLifeHours);
         });
         if (effect > 0) {
@@ -958,9 +960,9 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
 
     // 睡眠信息
     if (hasSleepData) {
-      const overlapping = sleeps.filter(s => ts >= s.startTime && ts <= s.endTime);
+      const overlapping = sleeps.filter(s => tooltipTs >= s.startTime && tooltipTs <= s.endTime);
       overlapping.forEach(s => {
-        const inInterruption = (s.interruptions || []).some(i => ts >= i.awakeAt && ts <= i.asleepAt);
+        const inInterruption = (s.interruptions || []).some(i => tooltipTs >= i.awakeAt && tooltipTs <= i.asleepAt);
         const stateText = inInterruption ? t('records.history.awake') : t('records.history.asleep');
         content += `<div style="color:#8b5cf6">${t('records.history.sleep')}: ${stateText} (${formatDateTime(s.startTime)} ~ ${formatDateTime(s.endTime)})</div>`;
       });
