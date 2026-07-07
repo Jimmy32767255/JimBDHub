@@ -19,6 +19,7 @@
   "chart.legend.depressed": "Depressed / Low",
   "chart.legend.medication": "Medication range",
   "chart.zoomReset": "Reset",
+  "chart.now": "Now",
   "chart.empty": "No records",
   "chart.effectEmpty": "No medication doses",
   "chart.tooltip.value": "Mood",

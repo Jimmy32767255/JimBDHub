@@ -61,7 +61,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 一个简单的持久化文本输入框
 
-- [ ] 当前时间显示
+- [x] 当前时间显示
 
 在聚合视图上以灰色竖线显示当前时间
 

@@ -666,6 +666,26 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
   }
   container.appendChild(timeAxisGroup);
 
+  // 当前时间线
+  const now = Date.now();
+  if (now >= displayMinTime && now <= displayMaxTime) {
+    const nowX = xFor(now);
+    const nowGroup = createSVGElement('g', { class: 'current-time-line' });
+    nowGroup.appendChild(createSVGElement('line', {
+      x1: nowX, y1: PADDING.top, x2: nowX, y2: height - PADDING.bottom,
+      stroke: `rgba(${hexToRgb(colors.textMuted)}, 0.6)`,
+      'stroke-width': 1.5,
+      'stroke-dasharray': '5 3'
+    }));
+    const nowLabel = createSVGElement('text', {
+      x: nowX, y: PADDING.top - 8, 'text-anchor': 'middle',
+      fill: colors.textMuted, 'font-size': '10'
+    });
+    nowLabel.textContent = t('chart.now');
+    nowGroup.appendChild(nowLabel);
+    container.appendChild(nowGroup);
+  }
+
   // 绘制睡眠条（在零值基线上）
   if (hasSleepData) {
     const sleepBarHeight = 14;
