@@ -105,7 +105,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 默认只显示预设，点击“手动添加/修改”按钮后才弹出原来的手动修改选项
 
-- [ ] 使用图标
+- [x] 使用图标
 
 在网页左上角和Android软件图标中使用`./assets/JimBDHubIcon256.png`
 

@@ -76,17 +76,11 @@ body {
   gap: 12px;
   margin-bottom: 32px;
 }
-.brand-mark {
+.brand-icon {
   width: 40px;
   height: 40px;
   border-radius: 12px;
-  background: linear-gradient(135deg, var(--theme-positive), var(--theme-negative));
-  display: grid;
-  place-items: center;
-  font-family: var(--font-display);
-  font-size: 24px;
-  font-weight: 700;
-  color: white;
+  object-fit: cover;
   box-shadow: 0 4px 12px rgba(var(--theme-positive-rgb), 0.25);
 }
 .brand-title {
