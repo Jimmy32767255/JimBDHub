@@ -897,14 +897,10 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
 
   let activePoint = null;
 
-  function showCombinedTooltip(ts) {
-    crosshairGroup.setAttribute('display', 'block');
-    const x = xFor(ts);
-    vLine.setAttribute('x1', x);
-    vLine.setAttribute('x2', x);
-
+  function showCombinedTooltip(ts, cursorX = null) {
     let nearest = null;
     let nearestValue = null;
+    let nearestPxDist = Infinity;
     if (hasMoodData) {
       let minDiff = Infinity;
       records.forEach(r => {
@@ -915,13 +911,28 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
         nearestValue = nearest.mixed
           ? (Math.abs(nearest.value) >= Math.abs(nearest.mixedValue) ? nearest.value : nearest.mixedValue)
           : nearest.value;
+        nearestPxDist = Math.abs(xFor(nearest.timestamp) - xFor(ts));
       }
+    }
+
+    // 仅当光标与情绪数据点足够接近时才显示情绪详情
+    const NEAR_THRESHOLD_PX = 24;
+    const showMoodDetail = hasMoodData && nearest && (cursorX === null || nearestPxDist <= NEAR_THRESHOLD_PX);
+
+    crosshairGroup.setAttribute('display', 'block');
+    const x = xFor(ts);
+    vLine.setAttribute('x1', x);
+    vLine.setAttribute('x2', x);
+
+    if (!showMoodDetail && !hasEffectData && !hasSleepData) {
+      hideTooltip();
+      return;
     }
 
     let content = `<time>${formatDateTime(ts)}</time>`;
 
     // 情绪信息
-    if (nearest) {
+    if (showMoodDetail) {
       const mixedText = nearest.mixed ? ` / ${nearest.mixedValue > 0 ? '+' : ''}${nearest.mixedValue}` : '';
       const medText = (nearest.doses || []).length
         ? `<div class="med">${nearest.doses.map(d => `${d.name} ${d.amount}${d.unit}`).join('、')}</div>`
@@ -1014,7 +1025,7 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
       return;
     }
     const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / effectivePxPerHour;
-    showCombinedTooltip(ts);
+    showCombinedTooltip(ts, x);
   });
   container.addEventListener('mouseleave', hideTooltip);
 
@@ -1024,7 +1035,7 @@ export function renderCombinedChart(records, sleeps = [], container, tooltip, le
     const x = touch.clientX - rect.left;
     if (x < PADDING.left || x > width - PADDING.right) return;
     const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / effectivePxPerHour;
-    showCombinedTooltip(ts);
+    showCombinedTooltip(ts, x);
   }, { passive: true });
   container.addEventListener('touchend', hideTooltip, { passive: true });
 }
