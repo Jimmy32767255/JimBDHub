@@ -51,10 +51,6 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 界面中可看，可导出为PDF/CSV
 
-- [ ] 手动临时调整视图
-
-对于移动端，可以使用双指缩放、单指拖动，而对于桌面端，则使用Ctrl+鼠标滚轮缩放、鼠标滚轮上下移动、Shift+鼠标滚轮左右移动，点击上方的预设来重置视图
-
 - [x] 手动修改药品变更日志
 
 ## 修复：
