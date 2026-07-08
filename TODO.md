@@ -87,6 +87,10 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 - [x] 移动端点击导出/导入崩溃
 - [x] 翻译缺失（records.sleepForm.note）
 
+- [ ] 缩放视图时查看区域会改变
+
+缩放视图时当前查看区域会移动，应保持原地不动
+
 ## 修改：
 
 - [x] 药效绘图
@@ -132,6 +136,10 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 1. 允许比默认更小的缩放
 2. 添加最小/最大缩放限制和显示
 3. 长按+/-按钮持续调整
+
+- [ ] 限制最大显示范围
+
+限制视图的最大显示范围为一个月内，超出则截断，这是为了防止在数据量大时导致卡死
 
 ## 移除：
 
