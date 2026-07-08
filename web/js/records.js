@@ -1,5 +1,6 @@
 import { store, formatDateTime, nowHourFloor } from './store.js';
 import { t, subscribe } from './i18n.js';
+import { showAlert, showConfirm } from './dialog.js';
 
 const formTabs = document.querySelectorAll('.form-tab');
 
@@ -333,25 +334,25 @@ function adjustStockForEdit(oldRecord, newRecord) {
   });
 }
 
-function validateSleep(payload, interruptions) {
+async function validateSleep(payload, interruptions) {
   if (payload.endTime <= payload.startTime) {
-    alert(t('records.validation.endAfterStart'));
+    await showAlert(t('records.validation.endAfterStart'));
     return false;
   }
   for (const i of interruptions) {
     if (i.asleepAt <= i.awakeAt) {
-      alert(t('records.validation.interruptionOrder'));
+      await showAlert(t('records.validation.interruptionOrder'));
       return false;
     }
     if (i.awakeAt < payload.startTime || i.asleepAt > payload.endTime) {
-      alert(t('records.validation.interruptionRange'));
+      await showAlert(t('records.validation.interruptionRange'));
       return false;
     }
   }
   return true;
 }
 
-function handleSleepSubmit(e) {
+async function handleSleepSubmit(e) {
   e.preventDefault();
   const interruptions = collectInterruptions();
   const payload = {
@@ -361,7 +362,7 @@ function handleSleepSubmit(e) {
     interruptions,
     note: sleepNoteInput.value.trim()
   };
-  if (!validateSleep(payload, interruptions)) return;
+  if (!(await validateSleep(payload, interruptions))) return;
   if (sleepIdInput.value) {
     store.updateSleep(sleepIdInput.value, payload);
   } else {
@@ -452,7 +453,7 @@ function initRecords() {
   eventCancelBtn.addEventListener('click', resetEventForm);
   eventForm.addEventListener('submit', handleEventSubmit);
 
-  document.getElementById('records-list').addEventListener('click', e => {
+  document.getElementById('records-list').addEventListener('click', async e => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     const id = btn.dataset.id;
@@ -466,7 +467,7 @@ function initRecords() {
       if (action === 'edit') {
         editRecord(record);
       } else if (action === 'delete') {
-        if (confirm(t('records.confirm.deleteMood'))) {
+        if (await showConfirm(t('records.confirm.deleteMood'))) {
           adjustStockForDoses(record.doses || [], 'records.moodForm.doseDeleteLogNote', 1);
           store.deleteRecord(id);
         }
@@ -477,7 +478,7 @@ function initRecords() {
       if (action === 'edit') {
         editSleep(sleep);
       } else if (action === 'delete') {
-        if (confirm(t('records.confirm.deleteSleep'))) {
+        if (await showConfirm(t('records.confirm.deleteSleep'))) {
           store.deleteSleep(id);
         }
       }
@@ -487,7 +488,7 @@ function initRecords() {
       if (action === 'edit') {
         editEvent(event);
       } else if (action === 'delete') {
-        if (confirm(t('records.confirm.deleteEvent'))) {
+        if (await showConfirm(t('records.confirm.deleteEvent'))) {
           store.deleteEvent(id);
         }
       }

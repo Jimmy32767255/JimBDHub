@@ -978,6 +978,21 @@ body {
   font-family: var(--font-display);
 }
 
+.dialog-content {
+  max-width: 360px;
+  text-align: center;
+}
+.dialog-message {
+  margin: 0 0 20px;
+  line-height: 1.5;
+  color: var(--theme-text);
+  word-break: break-word;
+}
+.dialog-actions {
+  justify-content: center;
+  gap: 12px;
+}
+
 @media (max-width: 1023px) {
   .meds-layout { grid-template-columns: 1fr; }
   .records-layout { grid-template-columns: 1fr; }

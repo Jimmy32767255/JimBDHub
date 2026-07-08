@@ -1,5 +1,6 @@
 import { store, formatDateTime, formatQuantity } from './store.js';
 import { t, subscribe } from './i18n.js';
+import { showAlert, showConfirm } from './dialog.js';
 
 const medModal = document.getElementById('med-modal');
 const medForm = document.getElementById('med-form');
@@ -348,27 +349,27 @@ function handleFormSubmit(e) {
   closeModal();
 }
 
-function handleStockSubmit(e) {
+async function handleStockSubmit(e) {
   e.preventDefault();
   const id = stockMedIdInput.value;
   const delta = Number(stockDeltaInput.value) || 0;
   const note = stockNoteInput.value.trim();
   if (delta === 0) {
-    alert(t('meds.validation.stockZero'));
+    await showAlert(t('meds.validation.stockZero'));
     return;
   }
   store.changeMedStock(id, delta, note || t('meds.stock.defaultReason'));
   closeStockModal();
 }
 
-function handleLogSubmit(e) {
+async function handleLogSubmit(e) {
   e.preventDefault();
   const id = logIdInput.value;
   const timestamp = new Date(logTimeInput.value).getTime();
   const delta = Number(logDeltaInput.value) || 0;
   const note = logNoteInput.value.trim();
   if (Number.isNaN(timestamp)) {
-    alert(t('records.validation.endAfterStart'));
+    await showAlert(t('records.validation.endAfterStart'));
     return;
   }
   store.updateLog(id, { timestamp, delta, note });
@@ -401,7 +402,7 @@ function initMeds() {
   logModal.querySelector('.modal-backdrop').addEventListener('click', closeLogModal);
   logForm.addEventListener('submit', handleLogSubmit);
 
-  document.querySelector('#meds-table tbody').addEventListener('click', e => {
+  document.querySelector('#meds-table tbody').addEventListener('click', async e => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     const id = btn.dataset.id;
@@ -414,13 +415,13 @@ function initMeds() {
     } else if (action === 'edit') {
       openModal(med);
     } else if (action === 'delete') {
-      if (confirm(t('meds.confirm.delete', { name: med.name }))) {
+      if (await showConfirm(t('meds.confirm.delete', { name: med.name }))) {
         store.deleteMed(id);
       }
     }
   });
 
-  document.getElementById('logs-list').addEventListener('click', e => {
+  document.getElementById('logs-list').addEventListener('click', async e => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
     const id = btn.dataset.id;
@@ -431,7 +432,7 @@ function initMeds() {
     if (action === 'edit-log') {
       openLogModal(log);
     } else if (action === 'delete-log') {
-      if (confirm(t('meds.log.confirmDelete', { name: log.name }))) {
+      if (await showConfirm(t('meds.log.confirmDelete', { name: log.name }))) {
         store.deleteLog(id);
       }
     }

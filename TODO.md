@@ -127,7 +127,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 纵轴标尺应该始终可见，而不是只在将视图滚动到最左/最右边时才可见
 
-- [ ] 使用内置对话框
+- [x] 使用内置对话框
 
 制作并使用网页内置的对话框，而不是浏览器提供的
 

@@ -2,6 +2,7 @@ import { store } from './store.js';
 import { platform } from './platform.js';
 import { t, setLanguage, getLanguage, subscribe, updateDOM } from './i18n.js';
 import { getTheme, setTheme, resetTheme, applySystemTheme, subscribe as subscribeTheme } from './theme.js';
+import { showAlert, showConfirm } from './dialog.js';
 
 function defaultFileName() {
   const d = new Date();
@@ -15,7 +16,7 @@ async function exportBackup() {
     const json = JSON.stringify(data, null, 2);
     await platform.saveBackup(json, defaultFileName());
   } catch (err) {
-    alert(t('settings.backup.exportError', { message: err.message }));
+    await showAlert(t('settings.backup.exportError', { message: err.message }));
   }
 }
 
@@ -23,23 +24,23 @@ async function importBackup(text) {
   try {
     const data = JSON.parse(text);
     if (!store.validateBackup(data)) {
-      alert(t('settings.backup.invalidFormat'));
+      await showAlert(t('settings.backup.invalidFormat'));
       return;
     }
-    if (!confirm(t('settings.backup.importConfirm'))) {
+    if (!(await showConfirm(t('settings.backup.importConfirm')))) {
       return;
     }
     const restoredLang = store.restoreBackup(data);
     if (restoredLang) {
-      alert(t('settings.backup.importSuccess'));
+      await showAlert(t('settings.backup.importSuccess'));
       if (restoredLang !== getLanguage()) {
         await setLanguage(restoredLang);
       }
     } else {
-      alert(t('settings.backup.importFail'));
+      await showAlert(t('settings.backup.importFail'));
     }
   } catch (err) {
-    alert(t('settings.backup.exportError', { message: err.message }));
+    await showAlert(t('settings.backup.exportError', { message: err.message }));
   }
 }
 
@@ -50,7 +51,7 @@ async function onImportClick() {
       await importBackup(text);
     }
   } catch (err) {
-    alert(t('settings.backup.readError', { message: err.message }));
+    await showAlert(t('settings.backup.readError', { message: err.message }));
   }
 }
 
@@ -137,7 +138,7 @@ export function initSettings() {
       const text = await file.text();
       await importBackup(text);
     } catch (err) {
-      alert(t('settings.backup.readError', { message: err.message }));
+      await showAlert(t('settings.backup.readError', { message: err.message }));
     }
     e.target.value = '';
   });
