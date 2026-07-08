@@ -17,7 +17,10 @@ const combinedChartSvg = document.getElementById('combined-chart');
 const combinedChartTooltip = document.getElementById('combined-chart-tooltip');
 const combinedLegend = document.getElementById('combined-legend');
 const sidebar = document.getElementById('sidebar');
+const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
 const menuToggle = document.getElementById('menu-toggle');
+
+const SIDEBAR_COLLAPSED_KEY = 'jimbdhub_sidebar_collapsed';
 const showMoodCheckbox = document.getElementById('show-mood');
 const showEffectCheckbox = document.getElementById('show-effect');
 const showSleepCheckbox = document.getElementById('show-sleep');
@@ -31,6 +34,35 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const SHOW_FORWARD_KEY = 'jimbdhub_show_forward';
 
+function loadSidebarCollapsed() {
+  try {
+    const val = localStorage.getItem(SIDEBAR_COLLAPSED_KEY);
+    if (val === 'true') return true;
+    if (val === 'false') return false;
+    return null;
+  } catch { return null; }
+}
+
+function saveSidebarCollapsed(collapsed) {
+  try { localStorage.setItem(SIDEBAR_COLLAPSED_KEY, collapsed ? 'true' : 'false'); } catch {}
+}
+
+function applySidebarCollapsed(collapsed) {
+  if (window.innerWidth > 767) {
+    sidebar.classList.toggle('collapsed', collapsed);
+  }
+}
+
+function toggleSidebar() {
+  if (window.innerWidth <= 767) {
+    sidebar.classList.toggle('open');
+  } else {
+    const collapsed = !sidebar.classList.contains('collapsed');
+    sidebar.classList.toggle('collapsed', collapsed);
+    saveSidebarCollapsed(collapsed);
+  }
+}
+
 function setActiveView(name) {
   Object.entries(views).forEach(([key, el]) => {
     el.classList.toggle('view-active', key === name);
@@ -39,7 +71,9 @@ function setActiveView(name) {
     link.classList.toggle('active', link.dataset.view === name);
   });
   pageTitle.textContent = t('page.' + name);
-  sidebar.classList.remove('open');
+  if (window.innerWidth <= 767) {
+    sidebar.classList.remove('open');
+  }
   if (name === 'overview') {
     setTimeout(() => drawChart(), 50);
   }
@@ -147,9 +181,9 @@ function initNavigation() {
     });
   });
 
-  menuToggle.addEventListener('click', () => {
-    sidebar.classList.toggle('open');
-  });
+  menuToggle.addEventListener('click', toggleSidebar);
+
+  sidebarCloseBtn.addEventListener('click', toggleSidebar);
 
   document.getElementById('zoom-in')?.addEventListener('click', () => {
     zoomIn();
@@ -204,6 +238,13 @@ async function init() {
   initTheme();
   store.init();
   showForwardCheckbox.checked = loadShowForward();
+
+  // 恢复侧边栏状态
+  const savedCollapsed = loadSidebarCollapsed();
+  if (savedCollapsed !== null) {
+    applySidebarCollapsed(savedCollapsed);
+  }
+
   initNavigation();
   initRouting();
   initMeds();
