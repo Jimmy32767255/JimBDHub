@@ -77,6 +77,8 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 在设置中提供删除所有数据的按键（需二次确认）
 
+- [ ] 持久化视图当前查看位置
+
 ## 修复：
 
 - [x] 渲染问题（颜色）
@@ -131,7 +133,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 制作并使用网页内置的对话框，而不是浏览器提供的
 
-- [ ] 视图缩放
+- [x] 视图缩放
 
 1. 允许比默认更小的缩放
 2. 添加最小/最大缩放限制和显示

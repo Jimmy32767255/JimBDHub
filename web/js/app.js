@@ -27,6 +27,8 @@ const showSleepCheckbox = document.getElementById('show-sleep');
 const showForwardCheckbox = document.getElementById('show-forward');
 
 const BASE_PX_PER_HOUR = 12;
+const MIN_PX_PER_HOUR = 3;
+const MAX_PX_PER_HOUR = 60;
 let currentPxPerHour = BASE_PX_PER_HOUR;
 const ZOOM_FACTOR = 1.4;
 const FORWARD_DAYS = 7;
@@ -81,15 +83,31 @@ function setActiveView(name) {
 
 function resetZoom() {
   currentPxPerHour = BASE_PX_PER_HOUR;
+  updateZoomDisplay();
 }
 
 function zoomIn() {
-  currentPxPerHour *= ZOOM_FACTOR;
+  currentPxPerHour = Math.min(MAX_PX_PER_HOUR, currentPxPerHour * ZOOM_FACTOR);
+  updateZoomDisplay();
 }
 
 function zoomOut() {
-  currentPxPerHour /= ZOOM_FACTOR;
-  if (currentPxPerHour < BASE_PX_PER_HOUR) currentPxPerHour = BASE_PX_PER_HOUR;
+  currentPxPerHour = Math.max(MIN_PX_PER_HOUR, currentPxPerHour / ZOOM_FACTOR);
+  updateZoomDisplay();
+}
+
+function updateZoomDisplay() {
+  const infoEl = document.getElementById('zoom-info');
+  const rangeEl = document.getElementById('zoom-range');
+  if (infoEl) {
+    infoEl.textContent = `${Math.round(currentPxPerHour)}px/hr`;
+  }
+  if (rangeEl) {
+    const minPct = Math.round((MIN_PX_PER_HOUR / BASE_PX_PER_HOUR) * 100);
+    const curPct = Math.round((currentPxPerHour / BASE_PX_PER_HOUR) * 100);
+    const maxPct = Math.round((MAX_PX_PER_HOUR / BASE_PX_PER_HOUR) * 100);
+    rangeEl.textContent = `(${minPct}%/${curPct}%/${maxPct}%)`;
+  }
 }
 
 function loadShowForward() {
@@ -189,6 +207,34 @@ function drawChart() {
   }
 }
 
+function setupLongPress(el, action) {
+  if (!el) return;
+  let timer = null;
+  const start = (e) => {
+    e.preventDefault();
+    action();
+    timer = setInterval(action, 120);
+  };
+  const stop = () => {
+    if (timer !== null) {
+      clearInterval(timer);
+      timer = null;
+    }
+  };
+  el.addEventListener('mousedown', start);
+  el.addEventListener('mouseup', stop);
+  el.addEventListener('mouseleave', stop);
+  el.addEventListener('touchstart', start, { passive: false });
+  el.addEventListener('touchend', stop);
+  el.addEventListener('touchcancel', stop);
+  el.addEventListener('keydown', (e) => {
+    if (e.key === 'Enter' || e.key === ' ') {
+      e.preventDefault();
+      action();
+    }
+  });
+}
+
 function initNavigation() {
   document.querySelectorAll('.nav-link[data-view]').forEach(link => {
     link.addEventListener('click', e => {
@@ -201,18 +247,15 @@ function initNavigation() {
 
   sidebarCloseBtn.addEventListener('click', toggleSidebar);
 
-  document.getElementById('zoom-in')?.addEventListener('click', () => {
-    zoomIn();
-    drawChart();
-  });
-  document.getElementById('zoom-out')?.addEventListener('click', () => {
-    zoomOut();
-    drawChart();
-  });
   document.getElementById('zoom-reset')?.addEventListener('click', () => {
     resetZoom();
     drawChart();
   });
+
+  setupLongPress(document.getElementById('zoom-in'), () => { zoomIn(); drawChart(); });
+  setupLongPress(document.getElementById('zoom-out'), () => { zoomOut(); drawChart(); });
+
+  updateZoomDisplay();
 
   // 复选框控制图表显示
   showMoodCheckbox.addEventListener('change', drawChart);
