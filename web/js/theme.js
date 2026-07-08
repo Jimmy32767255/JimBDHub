@@ -12,7 +12,9 @@ const DEFAULT_THEME = {
   textColor: '#f8fafc',
   textMutedColor: '#94a3b8',
   accentColor: '#ef4444',
-  useSystemTheme: false
+  useSystemTheme: false,
+  uiScale: 100,
+  edgeMargin: 0
 };
 
 const SYSTEM_PRESETS = {
@@ -97,6 +99,8 @@ function applyCSS(theme) {
   root.style.setProperty('--theme-text-rgb', hexToRgb(theme.textColor));
   root.style.setProperty('--theme-text-muted', theme.textMutedColor);
   root.style.setProperty('--theme-text-muted-rgb', hexToRgb(theme.textMutedColor));
+  root.style.setProperty('--ui-scale-ratio', theme.uiScale / 100);
+  root.style.setProperty('--edge-margin', `${theme.edgeMargin}px`);
 }
 
 export function getTheme() {

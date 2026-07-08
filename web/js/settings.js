@@ -109,6 +109,26 @@ function bindThemeControls() {
   subscribeTheme(updateUIFromTheme);
 }
 
+function bindDisplayControls() {
+  const scaleSelect = document.getElementById('ui-scale-select');
+  const marginSelect = document.getElementById('edge-margin-select');
+
+  function updateUIFromTheme(theme) {
+    if (scaleSelect) scaleSelect.value = String(theme.uiScale);
+    if (marginSelect) marginSelect.value = String(theme.edgeMargin);
+  }
+
+  scaleSelect?.addEventListener('change', () => {
+    setTheme({ uiScale: Number(scaleSelect.value) });
+  });
+  marginSelect?.addEventListener('change', () => {
+    setTheme({ edgeMargin: Number(marginSelect.value) });
+  });
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
 export function initSettings() {
   const exportBtn = document.getElementById('export-backup-btn');
   const importBtn = document.getElementById('import-backup-btn');
@@ -144,6 +164,7 @@ export function initSettings() {
   });
 
   bindThemeControls();
+  bindDisplayControls();
 
   subscribe(() => {
     updateDOM();

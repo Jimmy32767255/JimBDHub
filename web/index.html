@@ -8,7 +8,8 @@
   <link rel="icon" href="JimBDHubIcon256.png">
 </head>
 <body>
-  <div class="app-shell">
+  <div id="ui-scale-root">
+    <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
         <img class="brand-icon" src="JimBDHubIcon256.png" alt="JimBDHub">
@@ -324,6 +325,38 @@
         </div>
         <div class="card">
           <div class="card-header">
+            <h3 data-i18n="settings.display.title">显示</h3>
+          </div>
+          <div class="settings-section">
+            <div class="setting-group">
+              <h4 data-i18n="settings.display.uiScale">界面缩放</h4>
+              <select id="ui-scale-select" class="form-field">
+                <option value="50">50%</option>
+                <option value="75">75%</option>
+                <option value="100">100%</option>
+                <option value="125">125%</option>
+                <option value="150">150%</option>
+              </select>
+            </div>
+            <div class="setting-group">
+              <h4 data-i18n="settings.display.edgeMargin">屏幕边距</h4>
+              <select id="edge-margin-select" class="form-field">
+                <option value="0">0 px</option>
+                <option value="4">4 px</option>
+                <option value="8">8 px</option>
+                <option value="12">12 px</option>
+                <option value="16">16 px</option>
+                <option value="20">20 px</option>
+                <option value="24">24 px</option>
+                <option value="28">28 px</option>
+                <option value="32">32 px</option>
+              </select>
+              <small class="form-hint" data-i18n="settings.display.edgeMarginHint">在移动端增加屏幕两侧留白，避免边缘控件难以点击</small>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
             <h3 data-i18n="settings.backup.title">数据备份</h3>
           </div>
           <div class="settings-actions">
@@ -485,6 +518,7 @@
     </div>
   </div>
 
+  </div>
   <script type="module" src="js/app.js"></script>
 </body>
 </html>
