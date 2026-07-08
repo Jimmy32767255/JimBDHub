@@ -395,7 +395,31 @@ function switchForm(name) {
   eventForm.hidden = name !== 'event';
 }
 
+const MEMO_KEY = 'jimbdhub_memo';
+
+function loadMemo() {
+  try {
+    return localStorage.getItem(MEMO_KEY) || '';
+  } catch { return ''; }
+}
+
+function saveMemo(text) {
+  try { localStorage.setItem(MEMO_KEY, text); } catch {}
+}
+
+function initMemo() {
+  const textarea = document.getElementById('memo-text');
+  if (!textarea) return;
+  textarea.value = loadMemo();
+  let saveTimer;
+  textarea.addEventListener('input', () => {
+    clearTimeout(saveTimer);
+    saveTimer = setTimeout(() => saveMemo(textarea.value), 300);
+  });
+}
+
 function initRecords() {
+  initMemo();
   timeInput.value = toDatetimeLocal(nowHourFloor());
   updateRangeOutputs();
 

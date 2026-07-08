@@ -526,6 +526,28 @@ body {
   grid-template-columns: 1fr 1fr;
   gap: 24px;
 }
+.memo-card { min-height: 180px; }
+.memo-body {
+  padding: 16px 20px;
+}
+.memo-body textarea {
+  width: 100%;
+  min-height: 120px;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  padding: 12px;
+  color: var(--theme-text);
+  font-family: inherit;
+  font-size: 14px;
+  line-height: 1.6;
+  outline: none;
+  resize: vertical;
+  box-sizing: border-box;
+}
+.memo-body textarea:focus {
+  border-color: var(--theme-accent);
+}
 .record-form { padding: 20px; }
 .form-row { margin-bottom: 18px; }
 .form-row.two-col {

@@ -57,7 +57,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 可以在记录中添加重要事件，该事件会在聚合视图上显示为一条始终显示的实心竖线，鼠标悬停以查看详细信息
 
-- [ ] 备忘录
+- [x] 备忘录
 
 一个简单的持久化文本输入框（在记录页）
 

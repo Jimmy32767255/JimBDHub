@@ -33,6 +33,8 @@
   "common.confirm": "Confirm",
   "common.edit": "Edit",
   "common.delete": "Delete",
+  "records.memo.title": "Memo",
+  "records.memo.placeholder": "Write down any thoughts here...",
   "records.sectionTitle": "Records",
   "records.formTabs.mood": "Mood",
   "records.formTabs.sleep": "Sleep",
