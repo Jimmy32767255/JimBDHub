@@ -62,6 +62,10 @@ cp -r "$SCRIPT_DIR/web" "$APPDIR/usr/share/jimbdhub/"
 echo "[安装 Python 依赖...]"
 pip3 install --prefix="$APPDIR/usr" --ignore-installed -r "$SCRIPT_DIR/desktop/requirements.txt"
 
+# 确保 QtWebEngineProcess 可执行
+echo "[确保 QtWebEngineProcess 可执行...]"
+find "$APPDIR/usr" -name "QtWebEngineProcess" -exec chmod +x {} \; 2>/dev/null || true
+
 # 复制图标
 cp "$SCRIPT_DIR/assets/JimBDHubIcon256.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/JimBDHubIcon256.png"
 cp "$SCRIPT_DIR/assets/JimBDHubIcon256.png" "$APPDIR/usr/share/pixmaps/JimBDHubIcon256.png"
@@ -94,6 +98,13 @@ export QT_API=pyqt6
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"python{sys.version_info.major}.{sys.version_info.minor}")')
 export PYTHONPATH="$APPDIR/usr/share/jimbdhub:$APPDIR/usr/lib/$PYTHON_VERSION/site-packages:$PYTHONPATH"
 
+# 查找并设置 QtWebEngineProcess 路径
+WEBENGINE_PROCESS=$(find "$APPDIR/usr/lib/$PYTHON_VERSION/site-packages" -name "QtWebEngineProcess" -type f 2>/dev/null | head -1)
+if [[ -n "$WEBENGINE_PROCESS" ]]; then
+    chmod +x "$WEBENGINE_PROCESS" 2>/dev/null || true
+    export QTWEBENGINEPROCESS_PATH="$WEBENGINE_PROCESS"
+fi
+
 exec python3 "$APPDIR/usr/share/jimbdhub/desktop/main.py" "$@"
 EOF
 chmod +x "$APPDIR/usr/bin/jimbdhub"
@@ -116,6 +127,13 @@ export PATH="$HERE/usr/bin:$PATH"
 # 查找 Python site-packages 目录
 PYTHON_VERSION=$(python3 -c 'import sys; print(f"python{sys.version_info.major}.{sys.version_info.minor}")')
 export PYTHONPATH="$HERE/usr/share/jimbdhub:$HERE/usr/lib/$PYTHON_VERSION/site-packages:$PYTHONPATH"
+
+# 查找并设置 QtWebEngineProcess 路径
+WEBENGINE_PROCESS=$(find "$HERE/usr/lib/$PYTHON_VERSION/site-packages" -name "QtWebEngineProcess" -type f 2>/dev/null | head -1)
+if [[ -n "$WEBENGINE_PROCESS" ]]; then
+    chmod +x "$WEBENGINE_PROCESS" 2>/dev/null || true
+    export QTWEBENGINEPROCESS_PATH="$WEBENGINE_PROCESS"
+fi
 
 # 启动程序
 exec python3 "$HERE/usr/share/jimbdhub/desktop/main.py" "$@"

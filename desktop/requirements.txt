@@ -1,5 +1,6 @@
 pywebview>=5.0
 PyQt6
+PyQt6-WebEngine
 qtpy
 
 # GNU/Linux 用户如果使用系统包管理器，Arch Linux 上可能还需要：
