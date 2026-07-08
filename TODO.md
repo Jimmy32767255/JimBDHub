@@ -87,7 +87,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 - [x] 移动端点击导出/导入崩溃
 - [x] 翻译缺失（records.sleepForm.note）
 
-- [ ] 缩放视图时查看区域会改变
+- [x] 缩放视图时查看区域会改变
 
 缩放视图时当前查看区域会移动，应保持原地不动
 

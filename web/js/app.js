@@ -164,6 +164,15 @@ function drawChart() {
     const forwardEnd = range.max + FORWARD_DAYS * DAY_MS;
     projectedDoses = computeProjectedDoses(store.data.meds, range.min, forwardEnd);
   }
+
+  // 保存缩放前的视口中心比例，使缩放后相同时间点保持在视口中心
+  const wrap = combinedChartSvg.parentElement;
+  const oldScrollable = wrap.scrollWidth - wrap.clientWidth;
+  // scrollLeft 实际范围是 [0, oldScrollable]
+  const centerFraction = oldScrollable > 0
+    ? (wrap.scrollLeft + wrap.clientWidth / 2) / wrap.scrollWidth
+    : 0.5;
+
   renderCombinedChart(records, sleeps, events, combinedChartSvg, combinedChartTooltip, combinedLegend, {
     showMood: showMoodCheckbox.checked,
     showEffect: showEffectCheckbox.checked,
@@ -171,6 +180,13 @@ function drawChart() {
     projectedDoses,
     pxPerHour: currentPxPerHour
   });
+
+  // 恢复视口中心到相同比例位置
+  const newScrollable = wrap.scrollWidth - wrap.clientWidth;
+  if (newScrollable > 0) {
+    wrap.scrollLeft = Math.max(0, Math.min(newScrollable,
+      centerFraction * wrap.scrollWidth - wrap.clientWidth / 2));
+  }
 }
 
 function initNavigation() {
