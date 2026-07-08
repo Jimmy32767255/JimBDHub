@@ -109,6 +109,11 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 在网页左上角和Android软件图标中使用`./assets/JimBDHubIcon256.png`
 
+- [ ] 在宽屏下也允许收起侧边栏
+- [x] 更详细的时间轴
+
+现在聚合视图下方的时间轴只显示每天八点，应该按照视图缩放自动调整为合适的细节等级
+
 ## 移除：
 
 - [x] 示例数据

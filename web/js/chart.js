@@ -7,19 +7,39 @@ const PX_PER_HOUR = 12;
 const HOUR_MS = 60 * 60 * 1000;
 const PAD_HOURS = 6;
 
-function formatAxisTime(ts, spanHours) {
+function formatAxisTime(ts, spanHours, timeStepHours = 24) {
   const d = new Date(ts);
   const pad = n => String(n).padStart(2, '0');
-  const hour = `${pad(d.getHours())}:00`;
-  if (spanHours <= 24) return hour;
-  return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${hour}`;
+
+  // 跨度超过24小时时显示日期
+  const showDate = spanHours > 24;
+  // 步长小于24小时时显示小时（否则小时不重要）
+  const showHour = timeStepHours < 24;
+
+  if (showDate && showHour) {
+    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:00`;
+  } else if (showDate) {
+    return `${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+  } else {
+    return `${pad(d.getHours())}:00`;
+  }
 }
 
-function getTimeStepHours(spanHours) {
-  if (spanHours <= 24) return 6;
-  if (spanHours <= 72) return 12;
-  if (spanHours <= 168) return 24;
-  return 24 * Math.ceil(spanHours / 168);
+function getTimeStepHours(spanHours, pxPerHour = PX_PER_HOUR) {
+  // 目标：每个时间标签之间至少有80像素间距，避免重叠
+  const minLabelSpacingPx = 80;
+  const minSpacingHours = minLabelSpacingPx / pxPerHour;
+
+  // 选择合适的步长，大于等于最小间距
+  const candidates = [1, 2, 3, 4, 6, 8, 12, 24, 48, 72, 168];
+  for (const c of candidates) {
+    if (c >= minSpacingHours) {
+      return c;
+    }
+  }
+
+  // 如果跨度太大，使用更大的步长
+  return Math.ceil(spanHours / 10);
 }
 
 function createSVGElement(tag, attrs = {}) {
@@ -155,11 +175,19 @@ export function renderChart(records, container, tooltip) {
 
   const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
   const timeStepHours = getTimeStepHours(displaySpanHours);
-  const startHour = Math.ceil(displayMinTime / HOUR_MS / timeStepHours) * timeStepHours;
-  const endHour = Math.floor(displayMaxTime / HOUR_MS / timeStepHours) * timeStepHours;
-  for (let h = startHour; h <= endHour; h += timeStepHours) {
-    const t = h * HOUR_MS;
-    const x = xFor(t);
+
+  // 对齐到本地时间的午夜，而不是UTC午夜
+  const refDate = new Date(displayMinTime);
+  refDate.setHours(0, 0, 0, 0);
+  const refTime = refDate.getTime();
+  const hoursSinceRef = (displayMinTime - refTime) / HOUR_MS;
+  const startHours = Math.ceil(hoursSinceRef / timeStepHours) * timeStepHours;
+  const startTs = refTime + startHours * HOUR_MS;
+  const endHours = Math.floor((displayMaxTime - refTime) / HOUR_MS / timeStepHours) * timeStepHours;
+  const endTs = refTime + endHours * HOUR_MS;
+
+  for (let ts = startTs; ts <= endTs; ts += timeStepHours * HOUR_MS) {
+    const x = xFor(ts);
     const gridLine = createSVGElement('line', {
       x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
       stroke: `rgba(${hexToRgb(theme.surface2Color)}, 0.5)`, 'stroke-width': 1, 'stroke-dasharray': '3 3'
@@ -169,7 +197,7 @@ export function renderChart(records, container, tooltip) {
       x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
       fill: colors.textMuted, 'font-size': '10'
     });
-    label.textContent = formatAxisTime(t, displaySpanHours);
+    label.textContent = formatAxisTime(ts, displaySpanHours, timeStepHours);
     timeAxisGroup.appendChild(label);
   }
   container.appendChild(timeAxisGroup);
@@ -647,11 +675,19 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
   // 时间轴
   const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
-  const timeStepHours = getTimeStepHours(displaySpanHours);
-  const startHour = Math.ceil(displayMinTime / HOUR_MS / timeStepHours) * timeStepHours;
-  const endHour = Math.floor(displayMaxTime / HOUR_MS / timeStepHours) * timeStepHours;
-  for (let h = startHour; h <= endHour; h += timeStepHours) {
-    const ts = h * HOUR_MS;
+  const timeStepHours = getTimeStepHours(displaySpanHours, effectivePxPerHour);
+
+  // 对齐到本地时间的午夜，而不是UTC午夜
+  const refDate = new Date(displayMinTime);
+  refDate.setHours(0, 0, 0, 0);
+  const refTime = refDate.getTime();
+  const hoursSinceRef = (displayMinTime - refTime) / HOUR_MS;
+  const startHours = Math.ceil(hoursSinceRef / timeStepHours) * timeStepHours;
+  const startTs = refTime + startHours * HOUR_MS;
+  const endHours = Math.floor((displayMaxTime - refTime) / HOUR_MS / timeStepHours) * timeStepHours;
+  const endTs = refTime + endHours * HOUR_MS;
+
+  for (let ts = startTs; ts <= endTs; ts += timeStepHours * HOUR_MS) {
     const x = xFor(ts);
     const gridLine = createSVGElement('line', {
       x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
@@ -662,7 +698,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
       fill: colors.textMuted, 'font-size': '10'
     });
-    label.textContent = formatAxisTime(ts, displaySpanHours);
+    label.textContent = formatAxisTime(ts, displaySpanHours, timeStepHours);
     timeAxisGroup.appendChild(label);
   }
   container.appendChild(timeAxisGroup);
@@ -1182,11 +1218,19 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
 
   const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
   const timeStepHours = getTimeStepHours(displaySpanHours);
-  const startHour = Math.ceil(displayMinTime / HOUR_MS / timeStepHours) * timeStepHours;
-  const endHour = Math.floor(displayMaxTime / HOUR_MS / timeStepHours) * timeStepHours;
-  for (let h = startHour; h <= endHour; h += timeStepHours) {
-    const t = h * HOUR_MS;
-    const x = xFor(t);
+
+  // 对齐到本地时间的午夜，而不是UTC午夜
+  const refDate = new Date(displayMinTime);
+  refDate.setHours(0, 0, 0, 0);
+  const refTime = refDate.getTime();
+  const hoursSinceRef = (displayMinTime - refTime) / HOUR_MS;
+  const startHours = Math.ceil(hoursSinceRef / timeStepHours) * timeStepHours;
+  const startTs = refTime + startHours * HOUR_MS;
+  const endHours = Math.floor((displayMaxTime - refTime) / HOUR_MS / timeStepHours) * timeStepHours;
+  const endTs = refTime + endHours * HOUR_MS;
+
+  for (let ts = startTs; ts <= endTs; ts += timeStepHours * HOUR_MS) {
+    const x = xFor(ts);
     const gridLine = createSVGElement('line', {
       x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
       stroke: `rgba(${hexToRgb(theme.surface2Color)}, 0.5)`, 'stroke-width': 1, 'stroke-dasharray': '3 3'
@@ -1196,7 +1240,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
       x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
       fill: textMuted, 'font-size': '10'
     });
-    label.textContent = formatAxisTime(t, displaySpanHours);
+    label.textContent = formatAxisTime(ts, displaySpanHours, timeStepHours);
     timeAxisGroup.appendChild(label);
   }
   container.appendChild(timeAxisGroup);
