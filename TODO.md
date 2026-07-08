@@ -123,7 +123,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 现在聚合视图下方的时间轴只显示每天八点，应该按照视图缩放自动调整为合适的细节等级
 
-- [ ] 纵轴标尺
+- [x] 纵轴标尺
 
 纵轴标尺应该始终可见，而不是只在将视图滚动到最左/最右边时才可见
 

@@ -81,6 +81,55 @@ function colorForValue(v, theme, alpha = 1) {
   return interpolateColor(base, v, alpha);
 }
 
+function clearYAxisOverlays(wrap) {
+  wrap.querySelectorAll('.y-axis-overlay').forEach(el => {
+    if (el._scrollHandler) wrap.removeEventListener('scroll', el._scrollHandler);
+    el.remove();
+  });
+}
+
+function renderYAxisOverlay(wrap, side, labels, textColor, height) {
+  const isLeft = side === 'left';
+  const width = isLeft ? PADDING.left : PADDING.right;
+  const cls = `y-axis-overlay ${side}`;
+  let overlay = wrap.querySelector(`.y-axis-overlay.${side}`);
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = cls;
+    wrap.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+  overlay.style.height = `${height}px`;
+
+  const svg = createSVGElement('svg', {
+    width: '100%',
+    height: '100%',
+    viewBox: `0 0 ${width} ${height}`
+  });
+
+  labels.forEach(({ value, y }) => {
+    const label = createSVGElement('text', {
+      x: isLeft ? width - 10 : 10,
+      y: y + 4,
+      'text-anchor': isLeft ? 'end' : 'start',
+      fill: textColor,
+      'font-size': '11'
+    });
+    label.textContent = value;
+    svg.appendChild(label);
+  });
+
+  overlay.appendChild(svg);
+
+  function update() {
+    overlay.style.transform = `translateX(${wrap.scrollLeft}px)`;
+  }
+  update();
+  if (overlay._scrollHandler) wrap.removeEventListener('scroll', overlay._scrollHandler);
+  overlay._scrollHandler = update;
+  wrap.addEventListener('scroll', update);
+}
+
 export function renderChart(records, container, tooltip) {
   const theme = getTheme();
   const colors = {
@@ -93,7 +142,9 @@ export function renderChart(records, container, tooltip) {
   };
   const useCurve = theme.curveLine !== 'line';
 
+  const wrap = container.parentElement;
   container.innerHTML = '';
+  clearYAxisOverlays(wrap);
   if (records.length === 0) {
     const empty = createSVGElement('text', {
       x: '50%', y: '50%', 'text-anchor': 'middle', fill: colors.textMuted, 'font-size': '14'
@@ -103,7 +154,6 @@ export function renderChart(records, container, tooltip) {
     return;
   }
 
-  const wrap = container.parentElement;
   const rect = wrap.getBoundingClientRect();
   const wrapStyle = getComputedStyle(wrap);
   const padTop = parseFloat(wrapStyle.paddingTop) || 0;
@@ -156,6 +206,7 @@ export function renderChart(records, container, tooltip) {
   container.appendChild(defs);
 
   const gridGroup = createSVGElement('g', { class: 'grid' });
+  const yLabels = [];
   for (let v = -10; v <= 10; v += 2) {
     const y = yFor(v);
     const line = createSVGElement('line', {
@@ -165,13 +216,10 @@ export function renderChart(records, container, tooltip) {
       'stroke-dasharray': v === 0 ? '' : '4 4'
     });
     gridGroup.appendChild(line);
-    const label = createSVGElement('text', {
-      x: PADDING.left - 10, y: y + 4, 'text-anchor': 'end', fill: colors.textMuted, 'font-size': '11'
-    });
-    label.textContent = v > 0 ? `+${v}` : String(v);
-    gridGroup.appendChild(label);
+    yLabels.push({ value: v > 0 ? `+${v}` : String(v), y });
   }
   container.appendChild(gridGroup);
+  renderYAxisOverlay(wrap, 'left', yLabels, colors.textMuted, height);
 
   const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
   const timeStepHours = getTimeStepHours(displaySpanHours);
@@ -496,7 +544,9 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   };
   const useCurve = theme.curveLine !== 'line';
 
+  const wrap = container.parentElement;
   container.innerHTML = '';
+  clearYAxisOverlays(wrap);
   if (legendContainer) legendContainer.innerHTML = '';
 
   const actualDoses = extractDoses(records);
@@ -531,7 +581,6 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
   const displaySpanHours = displaySpan / HOUR_MS;
 
-  const wrap = container.parentElement;
   const rect = wrap.getBoundingClientRect();
   const wrapStyle = getComputedStyle(wrap);
   const padTop = parseFloat(wrapStyle.paddingTop) || 0;
@@ -584,6 +633,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
   // 绘制网格（情绪 Y 轴）
   const gridGroup = createSVGElement('g', { class: 'grid' });
+  const moodYLabels = [];
   for (let v = -10; v <= 10; v += 2) {
     const y = yMoodFor(v);
     const line = createSVGElement('line', {
@@ -594,14 +644,13 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     });
     gridGroup.appendChild(line);
     if (hasMoodData) {
-      const label = createSVGElement('text', {
-        x: PADDING.left - 10, y: y + 4, 'text-anchor': 'end', fill: colors.textMuted, 'font-size': '11'
-      });
-      label.textContent = v > 0 ? `+${v}` : String(v);
-      gridGroup.appendChild(label);
+      moodYLabels.push({ value: v > 0 ? `+${v}` : String(v), y });
     }
   }
   container.appendChild(gridGroup);
+  if (hasMoodData) {
+    renderYAxisOverlay(wrap, 'left', moodYLabels, colors.textMuted, height);
+  }
 
   // 药效 Y 轴（右侧）
   if (hasEffectData) {
@@ -632,14 +681,12 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     const yEffectFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
 
     // 右侧 Y 轴标签
+    const effectYLabels = [];
     for (let v = 0; v <= yMax; v += Math.max(1, Math.round(yMax / 4))) {
       const y = yEffectFor(v);
-      const label = createSVGElement('text', {
-        x: width - PADDING.right + 10, y: y + 4, 'text-anchor': 'start', fill: colors.textMuted, 'font-size': '11'
-      });
-      label.textContent = String(v);
-      gridGroup.appendChild(label);
+      effectYLabels.push({ value: String(v), y });
     }
+    renderYAxisOverlay(wrap, 'right', effectYLabels, colors.textMuted, height);
 
     // 绘制药效曲线
     series.forEach(s => {
@@ -1126,7 +1173,9 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 export function renderEffectChart(records, container, tooltip, legendContainer) {
   const theme = getTheme();
   const textMuted = theme.textMutedColor;
+  const wrap = container.parentElement;
   container.innerHTML = '';
+  clearYAxisOverlays(wrap);
   if (legendContainer) legendContainer.innerHTML = '';
 
   const doses = extractDoses(records);
@@ -1148,7 +1197,6 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
   const displaySpanHours = displaySpan / HOUR_MS;
 
-  const wrap = container.parentElement;
   const rect = wrap.getBoundingClientRect();
   const wrapStyle = getComputedStyle(wrap);
   const padTop = parseFloat(wrapStyle.paddingTop) || 0;
@@ -1199,6 +1247,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   container.appendChild(defs);
 
   const gridGroup = createSVGElement('g', { class: 'grid' });
+  const yLabels = [];
   for (let v = 0; v <= yMax; v += Math.max(1, Math.round(yMax / 4))) {
     const y = yFor(v);
     const line = createSVGElement('line', {
@@ -1208,13 +1257,10 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
       'stroke-dasharray': v === 0 ? '' : '4 4'
     });
     gridGroup.appendChild(line);
-    const label = createSVGElement('text', {
-      x: PADDING.left - 10, y: y + 4, 'text-anchor': 'end', fill: textMuted, 'font-size': '11'
-    });
-    label.textContent = String(v);
-    gridGroup.appendChild(label);
+    yLabels.push({ value: String(v), y });
   }
   container.appendChild(gridGroup);
+  renderYAxisOverlay(wrap, 'left', yLabels, textMuted, height);
 
   const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
   const timeStepHours = getTimeStepHours(displaySpanHours);

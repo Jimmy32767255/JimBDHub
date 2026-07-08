@@ -280,6 +280,15 @@ body {
   overflow-x: auto;
   overflow-y: hidden;
 }
+.y-axis-overlay {
+  position: absolute;
+  top: 0;
+  pointer-events: none;
+  z-index: 5;
+  background: var(--theme-surface);
+}
+.y-axis-overlay.left { left: 0; width: 44px; }
+.y-axis-overlay.right { right: 0; width: 40px; }
 #mood-chart {
   display: block;
   min-width: 100%;
