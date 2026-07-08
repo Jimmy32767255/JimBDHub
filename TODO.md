@@ -52,7 +52,6 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 界面中可看，可导出为PDF/CSV
 
 - [x] 手动修改药品变更日志
-
 - [x] 重要事件
 
 可以在记录中添加重要事件，该事件会在聚合视图上显示为一条始终显示的实心竖线，鼠标悬停以查看详细信息
@@ -77,7 +76,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 在设置中提供删除所有数据的按键（需二次确认）
 
-- [ ] 持久化视图当前查看位置
+- [x] 持久化视图当前查看位置
 
 ## 修复：
 
@@ -88,7 +87,6 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 - [x] 移动端界面无法滑动问题
 - [x] 移动端点击导出/导入崩溃
 - [x] 翻译缺失（records.sleepForm.note）
-
 - [x] 缩放视图时查看区域会改变
 
 缩放视图时当前查看区域会移动，应保持原地不动
@@ -141,7 +139,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 - [ ] 限制最大显示范围
 
-限制视图的最大显示范围为一个月内，超出则截断，这是为了防止在数据量大时导致卡死
+限制视图的最大显示范围为一个月/星期内，超出则截断，这是为了防止在数据量大时导致卡死
 
 ## 移除：
 

@@ -110,6 +110,28 @@ function updateZoomDisplay() {
   }
 }
 
+const VIEW_KEY = 'jimbdhub_chart_view';
+
+function saveViewPosition() {
+  const wrap = combinedChartSvg.parentElement;
+  try {
+    const centerFraction = wrap.scrollWidth > 0
+      ? (wrap.scrollLeft + wrap.clientWidth / 2) / wrap.scrollWidth
+      : 0.5;
+    localStorage.setItem(VIEW_KEY, JSON.stringify({
+      pxPerHour: Math.round(currentPxPerHour * 100) / 100,
+      centerFraction
+    }));
+  } catch {}
+}
+
+function loadViewPosition() {
+  try {
+    const raw = localStorage.getItem(VIEW_KEY);
+    return raw ? JSON.parse(raw) : null;
+  } catch { return null; }
+}
+
 function loadShowForward() {
   try {
     return localStorage.getItem(SHOW_FORWARD_KEY) === 'true';
@@ -172,6 +194,8 @@ function getChartTimeRange(records, sleeps, events) {
   return { min: Math.min(...timestamps), max: Math.max(...timestamps, now) };
 }
 
+let _viewRestored = false;
+
 function drawChart() {
   const records = store.getRecordsInRange('all');
   const sleeps = store.getSleepsInRange('all');
@@ -183,13 +207,27 @@ function drawChart() {
     projectedDoses = computeProjectedDoses(store.data.meds, range.min, forwardEnd);
   }
 
-  // 保存缩放前的视口中心比例，使缩放后相同时间点保持在视口中心
   const wrap = combinedChartSvg.parentElement;
-  const oldScrollable = wrap.scrollWidth - wrap.clientWidth;
-  // scrollLeft 实际范围是 [0, oldScrollable]
-  const centerFraction = oldScrollable > 0
-    ? (wrap.scrollLeft + wrap.clientWidth / 2) / wrap.scrollWidth
-    : 0.5;
+
+  // 首次绘表：尝试恢复保存的视图位置
+  let centerFraction;
+  if (!_viewRestored) {
+    const saved = loadViewPosition();
+    if (saved) {
+      currentPxPerHour = saved.pxPerHour;
+      updateZoomDisplay();
+      centerFraction = saved.centerFraction;
+    } else {
+      centerFraction = 0.5;
+    }
+    _viewRestored = true;
+  } else {
+    // 非首次：从当前滚动位置计算，使缩放后视口中心不变
+    const oldScrollable = wrap.scrollWidth - wrap.clientWidth;
+    centerFraction = oldScrollable > 0
+      ? (wrap.scrollLeft + wrap.clientWidth / 2) / wrap.scrollWidth
+      : 0.5;
+  }
 
   renderCombinedChart(records, sleeps, events, combinedChartSvg, combinedChartTooltip, combinedLegend, {
     showMood: showMoodCheckbox.checked,
@@ -205,6 +243,9 @@ function drawChart() {
     wrap.scrollLeft = Math.max(0, Math.min(newScrollable,
       centerFraction * wrap.scrollWidth - wrap.clientWidth / 2));
   }
+
+  // 保存当前视图位置
+  saveViewPosition();
 }
 
 function setupLongPress(el, action) {
@@ -311,6 +352,20 @@ async function init() {
   initSettings();
   initResize();
   drawChart();
+
+  // 滚动时保存视图位置（防抖）
+  const chartWrap = document.getElementById('combined-chart-wrap');
+  if (chartWrap) {
+    let scrollTimer;
+    chartWrap.addEventListener('scroll', () => {
+      clearTimeout(scrollTimer);
+      scrollTimer = setTimeout(saveViewPosition, 300);
+    });
+  }
+
+  // 页面关闭/刷新前保存
+  window.addEventListener('beforeunload', saveViewPosition);
+
   store.subscribe(() => {
     if (views.overview.classList.contains('view-active')) {
       drawChart();
