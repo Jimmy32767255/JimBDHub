@@ -85,7 +85,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 - [x] 移动端界面无法滑动问题
 - [x] 移动端点击导出/导入崩溃
-- [ ] 翻译缺失（records.sleepForm.note）
+- [x] 翻译缺失（records.sleepForm.note）
 
 ## 修改：
 

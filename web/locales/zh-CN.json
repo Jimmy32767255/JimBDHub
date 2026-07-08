@@ -59,6 +59,7 @@
   "records.sleepForm.addInterruption": "添加中断",
   "records.sleepForm.awakeTime": "醒来时间",
   "records.sleepForm.asleepTime": "再次入睡",
+  "records.sleepForm.note": "备注",
   "records.sleepForm.notePlaceholder": "如梦多、环境嘈杂等",
   "records.sleepForm.save": "保存睡眠记录",
   "records.eventForm.time": "时间",

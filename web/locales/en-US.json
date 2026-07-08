@@ -59,6 +59,7 @@
   "records.sleepForm.addInterruption": "Add interruption",
   "records.sleepForm.awakeTime": "Awake at",
   "records.sleepForm.asleepTime": "Asleep again",
+  "records.sleepForm.note": "Note",
   "records.sleepForm.notePlaceholder": "e.g. vivid dreams, noisy environment",
   "records.sleepForm.save": "Save sleep record",
   "records.eventForm.time": "Time",
