@@ -1,5 +1,5 @@
 import { store } from './store.js';
-import { renderCombinedChart } from './chart.js';
+import { renderCombinedChart, MAX_MOOD_RANGE_MS, extractDoses, effectEndTime } from './chart.js';
 import { initMeds } from './meds.js';
 import { initRecords } from './records.js';
 import { initSettings } from './settings.js';
@@ -35,6 +35,11 @@ const FORWARD_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const SHOW_FORWARD_KEY = 'jimbdhub_show_forward';
+const PAGE_KEY = 'jimbdhub_chart_page';
+const PAGE_SIZE_MS = MAX_MOOD_RANGE_MS;
+let currentPage = null;
+let totalPages = 1;
+let _resetScrollOnNextDraw = false;
 
 function loadSidebarCollapsed() {
   try {
@@ -146,12 +151,107 @@ function saveShowForward(value) {
   } catch {}
 }
 
-function computeProjectedDoses(meds, startTs, endTs) {
+function loadPage() {
+  try {
+    const raw = localStorage.getItem(PAGE_KEY);
+    if (raw === null) return null;
+    const parsed = parseInt(raw, 10);
+    return Number.isFinite(parsed) && parsed >= 0 ? parsed : null;
+  } catch { return null; }
+}
+
+function savePage(page) {
+  try { localStorage.setItem(PAGE_KEY, String(page)); } catch {}
+}
+
+function getPaginationBounds(records, sleeps, events) {
+  const range = getChartTimeRange(records, sleeps, events);
+  const totalSpan = range.max - range.min;
+  const pages = Math.max(1, Math.ceil(totalSpan / PAGE_SIZE_MS));
+  return { ...range, totalPages: pages };
+}
+
+function filterDataForPage(records, sleeps, events, page, globalRange) {
+  const pageStart = globalRange.min + page * PAGE_SIZE_MS;
+  const pageEnd = Math.min(globalRange.max, pageStart + PAGE_SIZE_MS);
+
+  const pageRecords = records.filter(r => r.timestamp >= pageStart && r.timestamp <= pageEnd);
+
+  // Boundary records from adjacent pages to keep the curve slope continuous
+  const prevRecord = records
+    .filter(r => r.timestamp < pageStart)
+    .sort((a, b) => b.timestamp - a.timestamp)[0] || null;
+  const nextRecord = records
+    .filter(r => r.timestamp > pageEnd)
+    .sort((a, b) => a.timestamp - b.timestamp)[0] || null;
+
+  // Include doses whose pharmacological effect reaches into this page
+  const allDoses = extractDoses(records);
+  const affectingDoses = allDoses.filter(d => d.timestamp <= pageEnd && effectEndTime(d, 0.01) >= pageStart);
+
+  return {
+    records: pageRecords,
+    boundaryRecords: [prevRecord, nextRecord].filter(Boolean),
+    sleeps: sleeps.filter(s => s.endTime >= pageStart && s.startTime <= pageEnd),
+    events: events.filter(e => e.timestamp >= pageStart && e.timestamp <= pageEnd),
+    doses: affectingDoses,
+    pageStart,
+    pageEnd,
+    padStart: page === 0,
+    padEnd: page >= globalRange.totalPages - 1
+  };
+}
+
+function updatePageControls() {
+  const controls = document.getElementById('page-controls');
+  const prevBtn = document.getElementById('chart-prev-page');
+  const nextBtn = document.getElementById('chart-next-page');
+  const info = document.getElementById('page-info');
+  if (!controls || !prevBtn || !nextBtn || !info) return;
+
+  const visible = totalPages > 1;
+  controls.classList.toggle('hidden', !visible);
+  prevBtn.disabled = currentPage <= 0;
+  nextBtn.disabled = currentPage >= totalPages - 1;
+  info.textContent = t('chart.pageInfo').replace('{current}', String(currentPage + 1)).replace('{total}', String(totalPages));
+}
+
+function goToPage(delta) {
+  const newPage = Math.max(0, Math.min(totalPages - 1, currentPage + delta));
+  if (newPage === currentPage) return;
+  currentPage = newPage;
+  savePage(currentPage);
+  _resetScrollOnNextDraw = true;
+  drawChart();
+}
+
+function computeProjectedDoses(meds, records, endTs) {
   const doses = [];
   const now = Date.now();
-  const projectionStart = Math.max(startTs, now);
+
+  // 每种药物的实际摄入时间集合，用于去重和确定起始点
+  const firstIntakeByMed = {};
+  const actualDoseTimesByMed = {};
+  records.forEach(r => {
+    (r.doses || []).forEach(d => {
+      const medId = d.medicationId || d.name;
+      const ts = d.timestamp || r.timestamp;
+      if (!ts) return;
+      if (!firstIntakeByMed[medId] || ts < firstIntakeByMed[medId]) {
+        firstIntakeByMed[medId] = ts;
+      }
+      if (!actualDoseTimesByMed[medId]) actualDoseTimesByMed[medId] = [];
+      actualDoseTimesByMed[medId].push(ts);
+    });
+  });
+
   meds.forEach(med => {
     if (!med.schedule || med.schedule.length === 0) return;
+    const medId = med.id || med.name;
+    const firstIntake = firstIntakeByMed[medId];
+    const projectionStart = firstIntake !== undefined ? Math.max(firstIntake, now) : now;
+    if (projectionStart > endTs) return;
+    const actualTimes = actualDoseTimesByMed[medId] || [];
     const startDay = new Date(projectionStart);
     startDay.setHours(0, 0, 0, 0);
     const endDay = new Date(endTs);
@@ -160,19 +260,21 @@ function computeProjectedDoses(meds, startTs, endTs) {
       med.schedule.forEach(time => {
         const [h, min] = time.split(':').map(Number);
         const ts = d + h * HOUR_MS + min * 60 * 1000;
-        if (ts >= projectionStart && ts <= endTs) {
-          doses.push({
-            medicationId: med.id,
-            name: med.name,
-            amount: 1,
-            unit: med.unit,
-            timestamp: ts,
-            onsetHours: med.onsetHours ?? 1,
-            peakHours: med.peakHours ?? 2,
-            halfLifeHours: med.halfLifeHours ?? 12,
-            projected: true
-          });
-        }
+        if (ts < projectionStart || ts > endTs) return;
+        // 如果该药物在预计时间前后已有实际摄入记录，则不再追加预测剂量，避免重叠
+        const hasNearbyActual = actualTimes.some(actualTs => Math.abs(actualTs - ts) <= HOUR_MS);
+        if (hasNearbyActual) return;
+        doses.push({
+          medicationId: med.id,
+          name: med.name,
+          amount: 1,
+          unit: med.unit,
+          timestamp: ts,
+          onsetHours: med.onsetHours ?? 1,
+          peakHours: med.peakHours ?? 2,
+          halfLifeHours: med.halfLifeHours ?? 12,
+          projected: true
+        });
       });
     }
   });
@@ -200,12 +302,24 @@ function drawChart() {
   const records = store.getRecordsInRange('all');
   const sleeps = store.getSleepsInRange('all');
   const events = store.getEventsInRange('all');
-  let projectedDoses = [];
-  if (showForwardCheckbox.checked) {
-    const range = getChartTimeRange(records, sleeps, events);
-    const forwardEnd = range.max + FORWARD_DAYS * DAY_MS;
-    projectedDoses = computeProjectedDoses(store.data.meds, range.min, forwardEnd);
+
+  // 计算分页边界并校正当前页（默认打开最新一页）
+  const globalRange = getPaginationBounds(records, sleeps, events);
+  totalPages = globalRange.totalPages;
+  if (currentPage === null) {
+    currentPage = totalPages - 1;
   }
+  currentPage = Math.max(0, Math.min(currentPage, totalPages - 1));
+
+  // 仅最新页显示未来预测
+  let projectedDoses = [];
+  if (showForwardCheckbox.checked && currentPage === totalPages - 1) {
+    const forwardEnd = globalRange.max + FORWARD_DAYS * DAY_MS;
+    projectedDoses = computeProjectedDoses(store.data.meds, records, forwardEnd);
+  }
+
+  // 过滤当前页数据
+  const pageData = filterDataForPage(records, sleeps, events, currentPage, globalRange);
 
   const wrap = combinedChartSvg.parentElement;
 
@@ -221,6 +335,9 @@ function drawChart() {
       centerFraction = 0.5;
     }
     _viewRestored = true;
+  } else if (_resetScrollOnNextDraw) {
+    centerFraction = 0.5;
+    _resetScrollOnNextDraw = false;
   } else {
     // 非首次：从当前滚动位置计算，使缩放后视口中心不变
     const oldScrollable = wrap.scrollWidth - wrap.clientWidth;
@@ -229,12 +346,15 @@ function drawChart() {
       : 0.5;
   }
 
-  renderCombinedChart(records, sleeps, events, combinedChartSvg, combinedChartTooltip, combinedLegend, {
+  renderCombinedChart(pageData.records, pageData.sleeps, pageData.events, combinedChartSvg, combinedChartTooltip, combinedLegend, {
     showMood: showMoodCheckbox.checked,
     showEffect: showEffectCheckbox.checked,
     showSleep: showSleepCheckbox.checked,
     projectedDoses,
-    pxPerHour: currentPxPerHour
+    pxPerHour: currentPxPerHour,
+    displayRange: { min: pageData.pageStart, max: pageData.pageEnd, padStart: pageData.padStart, padEnd: pageData.padEnd },
+    boundaryRecords: pageData.boundaryRecords,
+    doses: pageData.doses
   });
 
   // 恢复视口中心到相同比例位置
@@ -244,8 +364,10 @@ function drawChart() {
       centerFraction * wrap.scrollWidth - wrap.clientWidth / 2));
   }
 
-  // 保存当前视图位置
+  // 保存当前视图位置与页码
   saveViewPosition();
+  savePage(currentPage);
+  updatePageControls();
 }
 
 function setupLongPress(el, action) {
@@ -296,6 +418,15 @@ function initNavigation() {
   setupLongPress(document.getElementById('zoom-in'), () => { zoomIn(); drawChart(); });
   setupLongPress(document.getElementById('zoom-out'), () => { zoomOut(); drawChart(); });
 
+  const prevPageBtn = document.getElementById('chart-prev-page');
+  const nextPageBtn = document.getElementById('chart-next-page');
+  if (prevPageBtn) {
+    setupLongPress(prevPageBtn, () => goToPage(-1));
+  }
+  if (nextPageBtn) {
+    setupLongPress(nextPageBtn, () => goToPage(1));
+  }
+
   updateZoomDisplay();
 
   // 复选框控制图表显示
@@ -338,6 +469,7 @@ async function init() {
   initTheme();
   store.init();
   showForwardCheckbox.checked = loadShowForward();
+  currentPage = loadPage();
 
   // 恢复侧边栏状态
   const savedCollapsed = loadSidebarCollapsed();

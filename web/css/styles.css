@@ -265,6 +265,49 @@ body {
   padding: 4px;
   gap: 4px;
 }
+.page-controls {
+  display: inline-flex;
+  align-items: center;
+  background: var(--theme-bg);
+  border-radius: 10px;
+  padding: 4px;
+  gap: 4px;
+  margin-right: 8px;
+}
+.page-controls.hidden {
+  display: none;
+}
+.page-btn {
+  background: transparent;
+  border: none;
+  color: var(--theme-text-muted);
+  padding: 6px 12px;
+  border-radius: 8px;
+  font-size: 18px;
+  line-height: 1;
+  cursor: pointer;
+  min-width: 34px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+}
+.page-btn:disabled {
+  opacity: 0.35;
+  cursor: not-allowed;
+}
+.page-btn:hover:not(:disabled) {
+  background: var(--theme-surface-2);
+  color: var(--theme-text);
+}
+.page-info {
+  font-size: 13px;
+  color: var(--theme-text);
+  font-weight: 600;
+  font-variant-numeric: tabular-nums;
+  min-width: 48px;
+  text-align: center;
+  user-select: none;
+}
 .zoom-btn {
   background: transparent;
   border: none;

@@ -5,7 +5,11 @@ import { getTheme } from './theme.js';
 const PADDING = { top: 30, right: 40, bottom: 40, left: 44 };
 const PX_PER_HOUR = 12;
 const HOUR_MS = 60 * 60 * 1000;
+const DAY_MS = 24 * HOUR_MS;
 const PAD_HOURS = 6;
+export const MAX_MOOD_RANGE_MS = 30 * DAY_MS;
+const MAX_EFFECT_RANGE_MS = 7 * DAY_MS;
+const MAX_EFFECT_FUTURE_MS = 7 * DAY_MS;
 
 function formatAxisTime(ts, spanHours, timeStepHours = 24) {
   const d = new Date(ts);
@@ -79,6 +83,14 @@ function colorForValue(v, theme, alpha = 1) {
   }
   const base = hexToInt(v > 0 ? theme.positiveColor : theme.negativeColor);
   return interpolateColor(base, v, alpha);
+}
+
+function clampDisplayRange(displayMinTime, displayMaxTime, maxRangeMs) {
+  const range = displayMaxTime - displayMinTime;
+  if (range <= maxRangeMs) {
+    return { displayMinTime, displayMaxTime, truncated: false };
+  }
+  return { displayMinTime: displayMaxTime - maxRangeMs, displayMaxTime, truncated: true };
 }
 
 function clearYAxisOverlays(wrap) {
@@ -163,8 +175,12 @@ export function renderChart(records, container, tooltip) {
   const minTime = records[0].timestamp;
   const maxTime = records[records.length - 1].timestamp;
   const padMs = PAD_HOURS * HOUR_MS;
-  const displayMinTime = minTime - padMs;
-  const displayMaxTime = maxTime + padMs;
+  let displayMinTime = minTime - padMs;
+  let displayMaxTime = maxTime + padMs;
+  const clamped = clampDisplayRange(displayMinTime, displayMaxTime, MAX_MOOD_RANGE_MS);
+  displayMinTime = clamped.displayMinTime;
+  displayMaxTime = clamped.displayMaxTime;
+  records = records.filter(r => r.timestamp >= displayMinTime);
   const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
   const displaySpanHours = displaySpan / HOUR_MS;
 
@@ -481,7 +497,7 @@ export function renderChart(records, container, tooltip) {
 
 const MED_COLORS = ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'];
 
-function extractDoses(records) {
+export function extractDoses(records) {
   const doses = [];
   records.forEach(r => {
     (r.doses || []).forEach(d => {
@@ -500,7 +516,7 @@ function pkEffect(dtHours, onsetHours, peakHours, halfLifeHours) {
   return Math.exp(-(dtHours - peakHours) * Math.LN2 / halfLifeHours);
 }
 
-function effectEndTime(dose, threshold = 0.01) {
+export function effectEndTime(dose, threshold = 0.01) {
   const { timestamp, amount, peakHours, halfLifeHours } = dose;
   if (!amount || amount <= threshold || !halfLifeHours || halfLifeHours <= 0) {
     return timestamp + Math.max(0, peakHours || 0) * HOUR_MS;
@@ -531,7 +547,7 @@ function medColor(index) {
 }
 
 export function renderCombinedChart(records, sleeps = [], events = [], container, tooltip, legendContainer, options = {}) {
-  const { showMood = true, showEffect = true, showSleep = true, projectedDoses = [], pxPerHour } = options;
+  const { showMood = true, showEffect = true, showSleep = true, projectedDoses = [], pxPerHour, displayRange, boundaryRecords = [], doses: explicitDoses = null } = options;
   const effectivePxPerHour = pxPerHour || PX_PER_HOUR;
   const theme = getTheme();
   const colors = {
@@ -549,13 +565,14 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   clearYAxisOverlays(wrap);
   if (legendContainer) legendContainer.innerHTML = '';
 
-  const actualDoses = extractDoses(records);
-  const doses = [...actualDoses, ...projectedDoses];
-  const hasMoodData = records.length > 0 && showMood;
-  const hasEffectData = doses.length > 0 && showEffect;
-  const hasSleepData = sleeps.length > 0 && showSleep;
+  let actualDoses = explicitDoses !== null ? explicitDoses : extractDoses(records);
+  let doses = [...actualDoses, ...projectedDoses];
+  let hasMoodData = records.length > 0 && showMood;
+  let hasEffectData = doses.length > 0 && showEffect;
+  let hasSleepData = sleeps.length > 0 && showSleep;
+  let hasEventData = events.length > 0;
 
-  if (!hasMoodData && !hasEffectData && !hasSleepData) {
+  if (!hasMoodData && !hasEffectData && !hasSleepData && !hasEventData) {
     const empty = createSVGElement('text', {
       x: '50%', y: '50%', 'text-anchor': 'middle', fill: colors.textMuted, 'font-size': '14'
     });
@@ -564,20 +581,59 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     return;
   }
 
-  // 计算时间范围
-  const allTimestamps = records.map(r => r.timestamp)
-    .concat(doses.map(d => d.timestamp))
-    .concat(sleeps.flatMap(s => [s.startTime, s.endTime]))
-    .concat(events.map(e => e.timestamp));
-  const minTime = Math.min(...allTimestamps);
-  let maxTime = Math.max(...allTimestamps);
+  // 确定数据时间窗
+  let dataMinTime;
+  let dataMaxTime;
+  if (displayRange) {
+    dataMinTime = displayRange.min;
+    dataMaxTime = displayRange.max;
+  } else {
+    const allTimestamps = records.map(r => r.timestamp)
+      .concat(doses.map(d => d.timestamp))
+      .concat(sleeps.flatMap(s => [s.startTime, s.endTime]))
+      .concat(events.map(e => e.timestamp));
+    dataMinTime = Math.min(...allTimestamps);
+    dataMaxTime = Math.max(...allTimestamps);
+  }
+
+  // 过滤掉超出范围的数据
+  records = records.filter(r => r.timestamp >= dataMinTime && r.timestamp <= dataMaxTime);
+  sleeps = sleeps.filter(s => s.endTime >= dataMinTime && s.startTime <= dataMaxTime);
+  events = events.filter(e => e.timestamp >= dataMinTime && e.timestamp <= dataMaxTime);
+  if (explicitDoses === null) {
+    actualDoses = extractDoses(records);
+    doses = [...actualDoses, ...projectedDoses];
+  }
+  hasMoodData = records.length > 0 && showMood;
+  hasEffectData = doses.length > 0 && showEffect;
+  hasSleepData = sleeps.length > 0 && showSleep;
+  hasEventData = events.length > 0;
+
+  if (!hasMoodData && !hasEffectData && !hasSleepData && !hasEventData) {
+    const empty = createSVGElement('text', {
+      x: '50%', y: '50%', 'text-anchor': 'middle', fill: colors.textMuted, 'font-size': '14'
+    });
+    empty.textContent = t('chart.empty');
+    container.appendChild(empty);
+    return;
+  }
+
+  // 计算显示范围（含药效衰减延伸）
+  const padMs = PAD_HOURS * HOUR_MS;
+  const padStart = !(displayRange && displayRange.padStart === false);
+  const padEnd = !(displayRange && displayRange.padEnd === false);
+  let displayMinTime = dataMinTime - (padStart ? padMs : 0);
+  let displayMaxTime = dataMaxTime + (padEnd ? padMs : 0);
   if (hasEffectData) {
     const maxEffectEnd = Math.max(...doses.map(d => effectEndTime(d, 0.01)));
-    maxTime = Math.max(maxTime, maxEffectEnd);
+    displayMaxTime = Math.max(displayMaxTime, Math.min(maxEffectEnd, dataMaxTime + (padEnd ? MAX_EFFECT_FUTURE_MS : 0)));
   }
-  const padMs = PAD_HOURS * HOUR_MS;
-  const displayMinTime = minTime - padMs;
-  const displayMaxTime = maxTime + padMs;
+  if (!displayRange) {
+    const clamped = clampDisplayRange(displayMinTime, displayMaxTime, MAX_MOOD_RANGE_MS);
+    displayMinTime = clamped.displayMinTime;
+    displayMaxTime = clamped.displayMaxTime;
+  }
+
   const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
   const displaySpanHours = displaySpan / HOUR_MS;
 
@@ -605,6 +661,15 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
   const defs = createSVGElement('defs');
   container.appendChild(defs);
+
+  // Clip mood/effect curves to the visible chart area so boundary helper points
+  // do not draw outside the page.
+  const chartClipId = 'chart-area-clip';
+  const chartClip = createSVGElement('clipPath', { id: chartClipId });
+  chartClip.appendChild(createSVGElement('rect', {
+    x: PADDING.left, y: PADDING.top, width: chartW, height: chartH
+  }));
+  defs.appendChild(chartClip);
 
   // 情绪渐变
   if (hasMoodData) {
@@ -886,9 +951,14 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       return d;
     }
 
-    const hasMixed = records.some(r => r.mixed);
+    // Include adjacent-page records when drawing the curve so the slope at the
+    // page boundary stays continuous; the actual points are still only rendered
+    // for records inside the page.
+    const curveRecords = [...records, ...boundaryRecords].sort((a, b) => a.timestamp - b.timestamp);
+
+    const hasMixed = curveRecords.some(r => r.mixed);
     if (hasMixed) {
-      const mixedRecords = records.map(r => ({
+      const mixedRecords = curveRecords.map(r => ({
         ...r,
         upper: r.mixed ? Math.max(r.value, r.mixedValue) : r.value,
         lower: r.mixed ? Math.min(r.value, r.mixedValue) : r.value
@@ -913,31 +983,34 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         }
       }
       areaD += ' Z';
-      container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-mixed)', stroke: 'none' }));
+      container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-mixed)', stroke: 'none', 'clip-path': `url(#${chartClipId})` }));
 
       container.appendChild(createSVGElement('path', {
         d: makeCurveD(mixedRecords, r => r.upper),
-        fill: 'none', stroke: colors.positive, 'stroke-width': 2.5
+        fill: 'none', stroke: colors.positive, 'stroke-width': 2.5,
+        'clip-path': `url(#${chartClipId})`
       }));
       container.appendChild(createSVGElement('path', {
         d: makeCurveD(mixedRecords, r => r.lower),
-        fill: 'none', stroke: colors.negative, 'stroke-width': 2.5
+        fill: 'none', stroke: colors.negative, 'stroke-width': 2.5,
+        'clip-path': `url(#${chartClipId})`
       }));
     } else {
       container.appendChild(createSVGElement('path', {
-        d: makeCurveD(records, r => r.value),
+        d: makeCurveD(curveRecords, r => r.value),
         fill: 'none', stroke: 'url(#grad-main)', 'stroke-width': 3,
-        'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+        'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+        'clip-path': `url(#${chartClipId})`
       }));
 
       const zeroY = yMoodFor(0);
-      const areaD = makeAreaUnderCurveD(records, r => r.value, zeroY);
+      const areaD = makeAreaUnderCurveD(curveRecords, r => r.value, zeroY);
       if (areaD) {
-        container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-main)', stroke: 'none', opacity: '0.12' }));
+        container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-main)', stroke: 'none', opacity: '0.12', 'clip-path': `url(#${chartClipId})` }));
       }
     }
 
-    // 情绪数据点
+    // 情绪数据点（仅渲染当前页内的记录）
     records.forEach(r => {
       const x = xFor(r.timestamp);
       const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
@@ -1178,7 +1251,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   clearYAxisOverlays(wrap);
   if (legendContainer) legendContainer.innerHTML = '';
 
-  const doses = extractDoses(records);
+  let doses = extractDoses(records);
   if (doses.length === 0) {
     const empty = createSVGElement('text', {
       x: '50%', y: '50%', 'text-anchor': 'middle', fill: textMuted, 'font-size': '14'
@@ -1192,8 +1265,12 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   const minTime = Math.min(...allTimestamps);
   const maxTime = Math.max(...allTimestamps);
   const padMs = PAD_HOURS * HOUR_MS;
-  const displayMinTime = minTime - padMs;
-  const displayMaxTime = maxTime + padMs;
+  let displayMinTime = minTime - padMs;
+  let displayMaxTime = maxTime + padMs;
+  const clamped = clampDisplayRange(displayMinTime, displayMaxTime, MAX_EFFECT_RANGE_MS);
+  displayMinTime = clamped.displayMinTime;
+  displayMaxTime = clamped.displayMaxTime;
+  doses = doses.filter(d => d.timestamp >= displayMinTime);
   const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
   const displaySpanHours = displaySpan / HOUR_MS;
 
