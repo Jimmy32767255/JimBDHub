@@ -52,6 +52,17 @@ function createSVGElement(tag, attrs = {}) {
   return el;
 }
 
+function getUIScaleRatio() {
+  const raw = getComputedStyle(document.documentElement).getPropertyValue('--ui-scale-ratio');
+  const ratio = parseFloat(raw);
+  return ratio > 0 ? ratio : 1;
+}
+
+function clientXToChartX(container, clientX) {
+  const rect = container.getBoundingClientRect();
+  return (clientX - rect.left) / getUIScaleRatio();
+}
+
 function interpolateColor(base, v, alpha = 1) {
   const t = Math.min(1, Math.abs(v) / 10);
   const factor = 1 - t;
@@ -459,8 +470,7 @@ export function renderChart(records, container, tooltip) {
   });
 
   container.addEventListener('mousemove', e => {
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const x = clientXToChartX(container, e.clientX);
     if (x < PADDING.left || x > width - PADDING.right) {
       hideTooltip();
       return;
@@ -478,9 +488,8 @@ export function renderChart(records, container, tooltip) {
   container.addEventListener('mouseleave', hideTooltip);
 
   container.addEventListener('touchstart', e => {
-    const rect = container.getBoundingClientRect();
     const touch = e.touches[0];
-    const x = touch.clientX - rect.left;
+    const x = clientXToChartX(container, touch.clientX);
     if (x < PADDING.left || x > width - PADDING.right) return;
     const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
     let nearest = records[0];
@@ -1221,8 +1230,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   }
 
   container.addEventListener('mousemove', e => {
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const x = clientXToChartX(container, e.clientX);
     if (x < PADDING.left || x > width - PADDING.right) {
       hideTooltip();
       return;
@@ -1233,9 +1241,8 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   container.addEventListener('mouseleave', hideTooltip);
 
   container.addEventListener('touchstart', e => {
-    const rect = container.getBoundingClientRect();
     const touch = e.touches[0];
-    const x = touch.clientX - rect.left;
+    const x = clientXToChartX(container, touch.clientX);
     if (x < PADDING.left || x > width - PADDING.right) return;
     const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / effectivePxPerHour;
     showCombinedTooltip(ts, x);
@@ -1446,8 +1453,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   }
 
   container.addEventListener('mousemove', e => {
-    const rect = container.getBoundingClientRect();
-    const x = e.clientX - rect.left;
+    const x = clientXToChartX(container, e.clientX);
     if (x < PADDING.left || x > width - PADDING.right) {
       hideEffectTooltip();
       return;
@@ -1458,9 +1464,8 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   container.addEventListener('mouseleave', hideEffectTooltip);
 
   container.addEventListener('touchstart', e => {
-    const rect = container.getBoundingClientRect();
     const touch = e.touches[0];
-    const x = touch.clientX - rect.left;
+    const x = clientXToChartX(container, touch.clientX);
     if (x < PADDING.left || x > width - PADDING.right) return;
     const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
     showEffectTooltip(t);

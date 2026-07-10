@@ -95,6 +95,10 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 缩放视图时当前查看区域会移动，应保持原地不动
 
+- [x] 悬停位置检测与鼠标实际位置不一致
+
+检测位置偏后且随视图滚动进度而加大
+
 ## 修改：
 
 - [x] 药效绘图
