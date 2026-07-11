@@ -125,6 +125,7 @@
   "meds.form.dbSearchPlaceholder": "输入药品名称或分类...",
   "meds.form.dbTagAll": "全部",
   "meds.form.dbNoResults": "无匹配药品",
+  "meds.form.dbSelected": "已选择「{name}」，表单已自动填写",
   "meds.form.boxCount": "盒数",
   "meds.form.boardPerBox": "每盒板/瓶数",
   "meds.form.pillsPerBoard": "每板/瓶粒数",

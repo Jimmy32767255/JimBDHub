@@ -564,6 +564,28 @@ body {
   color: var(--theme-text-muted);
   padding: 10px 4px;
 }
+.med-db-selected {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  font-size: 13px;
+  color: var(--theme-text);
+  padding: 10px 12px;
+  background: var(--theme-surface-2);
+  border: 1px solid var(--theme-accent);
+  border-radius: 8px;
+}
+.med-db-selected-icon {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 18px;
+  height: 18px;
+  border-radius: 50%;
+  background: var(--theme-accent);
+  color: white;
+  font-size: 11px;
+}
 
 #med-manual-fields {
   display: flex;

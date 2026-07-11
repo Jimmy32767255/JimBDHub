@@ -125,6 +125,7 @@
   "meds.form.dbSearchPlaceholder": "Enter medication name or category...",
   "meds.form.dbTagAll": "All",
   "meds.form.dbNoResults": "No matching medications",
+  "meds.form.dbSelected": "Selected {name}; form auto-filled",
   "meds.form.boxCount": "Boxes",
   "meds.form.boardPerBox": "Boards/bottles per box",
   "meds.form.pillsPerBoard": "Pills per board/bottle",

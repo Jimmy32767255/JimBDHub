@@ -46,6 +46,7 @@ const medAddScheduleBtn = document.getElementById('med-add-schedule');
 let medDbData = [];
 let medDbTagsList = [];
 let medDbSelectedTag = '';
+let selectedDbMed = null;
 let manualFieldsVisible = false;
 let currentSchedule = [];
 
@@ -71,6 +72,7 @@ function renderTags() {
   allBtn.textContent = t('meds.form.dbTagAll');
   allBtn.addEventListener('click', () => {
     medDbSelectedTag = '';
+    selectedDbMed = null;
     renderTags();
     renderMedResults(filterMeds(medDbSearch.value.trim(), medDbSelectedTag));
   });
@@ -83,6 +85,7 @@ function renderTags() {
     btn.textContent = tag;
     btn.addEventListener('click', () => {
       medDbSelectedTag = medDbSelectedTag === tag ? '' : tag;
+      selectedDbMed = null;
       renderTags();
       renderMedResults(filterMeds(medDbSearch.value.trim(), medDbSelectedTag));
     });
@@ -104,6 +107,15 @@ function filterMeds(query, tag) {
 
 function renderMedResults(results) {
   medDbResults.innerHTML = '';
+  if (selectedDbMed && !medDbSearch.value.trim() && !medDbSelectedTag) {
+    medDbResults.innerHTML = `
+      <div class="med-db-selected">
+        <span class="med-db-selected-icon">✓</span>
+        <span>${t('meds.form.dbSelected', { name: selectedDbMed.name })}</span>
+      </div>
+    `;
+    return;
+  }
   if (!results.length) {
     medDbResults.innerHTML = `<div class="med-db-empty">${t('meds.form.dbNoResults')}</div>`;
     return;
@@ -134,6 +146,7 @@ function fillMedForm(med) {
   medHalfLifeInput.value = med.halfLifeHours ?? 12;
   medNoteInput.value = med.note || '';
   resetSchedule();
+  selectedDbMed = med;
   medDbSearch.value = '';
   medDbSelectedTag = '';
   renderTags();
@@ -249,6 +262,7 @@ function toggleManualFields() {
 
 function openModal(med = null) {
   medForm.reset();
+  selectedDbMed = null;
   medDbSearch.value = '';
   medDbSelectedTag = '';
   renderTags();
@@ -436,6 +450,7 @@ function initMeds() {
   });
 
   medDbSearch.addEventListener('input', () => {
+    selectedDbMed = null;
     renderMedResults(filterMeds(medDbSearch.value.trim(), medDbSelectedTag));
   });
 
