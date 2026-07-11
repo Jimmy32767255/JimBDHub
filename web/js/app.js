@@ -5,6 +5,7 @@ import { initRecords } from './records.js';
 import { initSettings } from './settings.js';
 import { initI18n, t, subscribe, updateDOM } from './i18n.js';
 import { initTheme, subscribe as subscribeTheme } from './theme.js';
+import { initSync } from './sync.js';
 
 const views = {
   overview: document.getElementById('overview-view'),
@@ -482,6 +483,7 @@ async function init() {
   initMeds();
   initRecords();
   initSettings();
+  initSync();
   initResize();
   drawChart();
 

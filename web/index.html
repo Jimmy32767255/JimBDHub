@@ -371,6 +371,24 @@
             <input type="file" id="import-backup-input" accept=".json,application/json" hidden>
           </div>
         </div>
+        <div class="card" id="syncthing-card">
+          <div class="card-header">
+            <h3 data-i18n="settings.sync.title">Syncthing 同步</h3>
+          </div>
+          <div class="settings-section">
+            <div class="setting-group">
+              <label class="checkbox-field">
+                <input type="checkbox" id="syncthing-enable">
+                <span data-i18n="settings.sync.enable">启用 Syncthing 同步</span>
+              </label>
+              <button type="button" class="btn btn-ghost" id="syncthing-choose-folder" hidden>
+                <span data-i18n="settings.sync.chooseFolder">选择同步文件夹</span>
+              </button>
+              <p id="syncthing-path" class="form-hint"></p>
+              <p id="syncthing-status" class="form-hint"></p>
+            </div>
+          </div>
+        </div>
       </section>
 
       <div class="bottom-nav" id="bottom-nav">

@@ -3,6 +3,7 @@ import { platform } from './platform.js';
 import { t, setLanguage, getLanguage, subscribe, updateDOM } from './i18n.js';
 import { getTheme, setTheme, resetTheme, applySystemTheme, subscribe as subscribeTheme } from './theme.js';
 import { showAlert, showConfirm } from './dialog.js';
+import { enable as enableSync, disable as disableSync, subscribeStatus, getStatus } from './sync.js';
 
 function defaultFileName() {
   const d = new Date();
@@ -129,6 +130,75 @@ function bindDisplayControls() {
   subscribeTheme(updateUIFromTheme);
 }
 
+function bindSyncControls() {
+  const enableCheckbox = document.getElementById('syncthing-enable');
+  const chooseBtn = document.getElementById('syncthing-choose-folder');
+  const pathText = document.getElementById('syncthing-path');
+  const statusText = document.getElementById('syncthing-status');
+  const card = document.getElementById('syncthing-card');
+
+  if (!card) return;
+
+  function updateUI(status) {
+    if (enableCheckbox) {
+      enableCheckbox.checked = status.enabled;
+      enableCheckbox.disabled = !platform.isSyncSupported();
+    }
+    if (chooseBtn) {
+      chooseBtn.hidden = !platform.isAndroid() || !status.enabled;
+    }
+    if (pathText) {
+      if (!platform.isSyncSupported()) {
+        pathText.textContent = t('settings.sync.webHint');
+      } else if (status.path) {
+        pathText.textContent = t('settings.sync.desktopPath', { path: status.path });
+      } else if (status.folderName) {
+        pathText.textContent = t('settings.sync.androidFolder', { name: status.folderName });
+      } else {
+        pathText.textContent = '';
+      }
+    }
+    if (statusText) {
+      if (status.error) {
+        statusText.textContent = t('settings.sync.error', { message: status.error });
+        statusText.classList.add('sync-error');
+      } else if (status.enabled) {
+        statusText.textContent = t('settings.sync.enabled');
+        statusText.classList.remove('sync-error');
+      } else {
+        statusText.textContent = t('settings.sync.disabled');
+        statusText.classList.remove('sync-error');
+      }
+    }
+  }
+
+  enableCheckbox?.addEventListener('change', async () => {
+    if (enableCheckbox.checked) {
+      await enableSync();
+    } else {
+      await disableSync();
+    }
+  });
+
+  chooseBtn?.addEventListener('click', async () => {
+    await disableSync();
+    await enableSync();
+  });
+
+  updateUI(getStatus());
+  subscribeStatus(updateUI);
+
+  // 在打包后的桌面端（如 AppImage）中，pywebview 对象可能晚于页面脚本注入
+  let checks = 0;
+  const platformTimer = setInterval(() => {
+    checks++;
+    updateUI(getStatus());
+    if (platform.isSyncSupported() || checks >= 30) {
+      clearInterval(platformTimer);
+    }
+  }, 100);
+}
+
 export function initSettings() {
   const exportBtn = document.getElementById('export-backup-btn');
   const importBtn = document.getElementById('import-backup-btn');
@@ -165,6 +235,7 @@ export function initSettings() {
 
   bindThemeControls();
   bindDisplayControls();
+  bindSyncControls();
 
   subscribe(() => {
     updateDOM();

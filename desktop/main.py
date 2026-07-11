@@ -14,9 +14,11 @@
 - 通过本地 HTTP 服务器加载页面，避免 file:// 协议的 ES Module CORS 限制。
 """
 
+import json
 import os
 import sys
 import threading
+import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
@@ -45,13 +47,101 @@ def start_http_server(root: Path, port: int = 8765) -> HTTPServer:
     return server
 
 
+class SyncManager:
+    """轮询同步文件并在变更时通知前端。"""
+
+    def __init__(self, window, sync_path: Path):
+        self.window = window
+        self.sync_path = sync_path
+        self.last_mtime = 0.0
+        self.running = False
+        self.thread = None
+        self.interval = 2.0
+
+    def start(self):
+        if self.running:
+            return
+        self.running = True
+        self.sync_path.parent.mkdir(parents=True, exist_ok=True)
+        if self.sync_path.exists():
+            self.last_mtime = self.sync_path.stat().st_mtime
+        self.thread = threading.Thread(target=self._poll, daemon=True)
+        self.thread.start()
+
+    def stop(self):
+        self.running = False
+
+    def _poll(self):
+        while self.running:
+            try:
+                if self.sync_path.exists():
+                    mtime = self.sync_path.stat().st_mtime
+                    if mtime > self.last_mtime + 0.001:
+                        self.last_mtime = mtime
+                        self._notify()
+            except Exception as e:
+                print(f"同步文件轮询失败: {e}", file=sys.stderr)
+            time.sleep(self.interval)
+
+    def _notify(self):
+        try:
+            with open(self.sync_path, "r", encoding="utf-8") as f:
+                text = f.read()
+            js = f"if (window.__syncthingCallback) window.__syncthingCallback({json.dumps(text)});"
+            self.window.evaluate_js(js)
+        except Exception as e:
+            print(f"通知前端同步变更失败: {e}", file=sys.stderr)
+
+    def write(self, json_string: str) -> bool:
+        try:
+            self.sync_path.parent.mkdir(parents=True, exist_ok=True)
+            with open(self.sync_path, "w", encoding="utf-8") as f:
+                f.write(json_string)
+            self.last_mtime = self.sync_path.stat().st_mtime
+            return True
+        except Exception as e:
+            print(f"写入同步文件失败: {e}", file=sys.stderr)
+            return False
+
+
 class DesktopBridge:
-    """暴露给前端 JS 的桌面端能力（备份导出/导入）。"""
+    """暴露给前端 JS 的桌面端能力（备份导出/导入、Syncthing 同步）。"""
 
     window = None
+    sync_manager = None
 
     def isDesktop(self):
         return True
+
+    def _default_sync_path(self) -> Path:
+        return Path.home() / ".JimBDHub" / "sync" / "JimBDHub.sync.json"
+
+    def enableSync(self, path: str = None):
+        if self.sync_manager:
+            self.sync_manager.stop()
+        sync_path = Path(path) if path else self._default_sync_path()
+        self.sync_manager = SyncManager(self.window, sync_path)
+        self.sync_manager.start()
+        content = None
+        if sync_path.exists():
+            try:
+                with open(sync_path, "r", encoding="utf-8") as f:
+                    content = f.read()
+            except Exception as e:
+                print(f"读取已有同步文件失败: {e}", file=sys.stderr)
+        return {"ok": True, "path": str(sync_path), "content": content}
+
+    def disableSync(self):
+        if self.sync_manager:
+            self.sync_manager.stop()
+            self.sync_manager = None
+        return True
+
+    def writeSyncFile(self, json_string: str):
+        if not self.sync_manager:
+            return {"ok": False, "error": "Sync not enabled"}
+        ok = self.sync_manager.write(json_string)
+        return {"ok": ok}
 
     def saveBackup(self, json_string: str, file_name: str):
         if not self.window:

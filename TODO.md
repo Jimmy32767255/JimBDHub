@@ -95,7 +95,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 在 药品库→药品库存→剩余 中，除了百分比和总数，还可以显示该药品将在多少时间后耗尽（如果已设置固定服药时间）
 
-- [ ] Syncthing 模式
+- [x] Syncthing 模式
 
 当内置数据存储有变动时，自动写出到一个特定文件，当检测到该文件有变更时，自动导入并覆盖内置数据存储，从而实现使用 Syncthing 的跨设备同步。
 

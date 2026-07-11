@@ -747,6 +747,9 @@ body {
   font-size: 12px;
   color: var(--theme-text-muted);
 }
+.form-hint.sync-error {
+  color: var(--theme-accent);
+}
 
 .schedule-list {
   display: flex;

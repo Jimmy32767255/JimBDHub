@@ -96,6 +96,37 @@ function waitForAndroidCallback() {
   });
 }
 
+function waitForAndroidSyncCallback() {
+  return new Promise((resolve, reject) => {
+    const previousCallback = window.__androidSyncCallback;
+    const previousError = window.__androidSyncError;
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(t('platform.androidTimeout')));
+    }, 60000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      window.__androidSyncCallback = previousCallback;
+      window.__androidSyncError = previousError;
+    };
+
+    window.__androidSyncCallback = (json) => {
+      cleanup();
+      try {
+        resolve(JSON.parse(json));
+      } catch {
+        resolve({ ok: false, error: t('platform.androidError') });
+      }
+    };
+
+    window.__androidSyncError = (message) => {
+      cleanup();
+      reject(new Error(message || t('platform.androidError')));
+    };
+  });
+}
+
 export const platform = {
   isAndroid() {
     return typeof window.AndroidBridge !== 'undefined';
@@ -128,5 +159,47 @@ export const platform = {
       return text || null;
     }
     return pickFileWithInput();
+  },
+
+  isSyncSupported() {
+    return this.isAndroid() || this.isDesktop();
+  },
+
+  async enableSync() {
+    if (this.isAndroid()) {
+      window.AndroidBridge.enableSync();
+      return waitForAndroidSyncCallback();
+    }
+    if (this.isDesktop()) {
+      return window.pywebview.api.enableSync() || { ok: false, error: t('platform.desktopError') };
+    }
+    return { ok: false, error: t('platform.syncUnsupported') };
+  },
+
+  async disableSync() {
+    if (this.isAndroid()) {
+      window.AndroidBridge.disableSync();
+      return { ok: true };
+    }
+    if (this.isDesktop()) {
+      await window.pywebview.api.disableSync();
+      return { ok: true };
+    }
+    return { ok: false, error: t('platform.syncUnsupported') };
+  },
+
+  async writeSyncFile(jsonString) {
+    if (this.isAndroid()) {
+      window.AndroidBridge.writeSyncFile(jsonString);
+      return waitForAndroidSyncCallback();
+    }
+    if (this.isDesktop()) {
+      return window.pywebview.api.writeSyncFile(jsonString) || { ok: false, error: t('platform.desktopError') };
+    }
+    return { ok: false, error: t('platform.syncUnsupported') };
+  },
+
+  onSyncFileChanged(callback) {
+    window.__syncthingCallback = callback;
   }
 };
