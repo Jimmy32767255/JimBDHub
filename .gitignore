@@ -212,3 +212,4 @@ __marimo__/
 # This project
 .trae
 .vscode
+android/app/release/
