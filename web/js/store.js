@@ -298,6 +298,26 @@ export const store = {
     this.notify();
   },
 
+  addHistoricalLog(medId, { timestamp, delta, note = '' }) {
+    const med = this.data.meds.find(m => m.id === medId);
+    if (!med) return;
+    const log = {
+      id: generateId(),
+      medicationId: medId,
+      name: med.name,
+      timestamp: timestamp || Date.now(),
+      delta,
+      note,
+      remainingAfter: 0
+    };
+    this.data.logs.unshift(log);
+    this.data.logs.sort((a, b) => b.timestamp - a.timestamp);
+    recalcLogRemainingAfter(medId);
+    this.persist();
+    this.notify();
+    return log;
+  },
+
   buildBackup() {
     return {
       version: 1,

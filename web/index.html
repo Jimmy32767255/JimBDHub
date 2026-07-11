@@ -119,6 +119,7 @@
           <div class="card logs-card">
             <div class="card-header">
               <h3 data-i18n="meds.logs.title">变更日志</h3>
+              <button class="btn btn-primary btn-sm" id="add-log-btn" data-i18n="meds.logs.add">添加变更日志</button>
             </div>
             <div class="logs-list" id="logs-list"></div>
           </div>
@@ -483,9 +484,15 @@
   <div class="modal" id="log-modal" aria-hidden="true">
     <div class="modal-backdrop"></div>
     <div class="modal-content">
-      <h3 data-i18n="meds.log.modalTitle">编辑变更日志</h3>
+      <h3 id="log-modal-title" data-i18n="meds.log.modalTitle">编辑变更日志</h3>
       <form id="log-form">
         <input type="hidden" id="log-id">
+        <div class="form-row" id="log-med-row" hidden>
+          <label class="form-field">
+            <span class="form-label" data-i18n="meds.log.medication">药品</span>
+            <select id="log-med-id"></select>
+          </label>
+        </div>
         <div class="form-row">
           <label class="form-field">
             <span class="form-label" data-i18n="meds.log.time">时间</span>

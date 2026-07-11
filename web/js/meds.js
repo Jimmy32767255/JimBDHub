@@ -26,7 +26,10 @@ const stockNoteInput = document.getElementById('stock-note');
 
 const logModal = document.getElementById('log-modal');
 const logForm = document.getElementById('log-form');
+const logModalTitle = document.getElementById('log-modal-title');
 const logIdInput = document.getElementById('log-id');
+const logMedRow = document.getElementById('log-med-row');
+const logMedSelect = document.getElementById('log-med-id');
 const logTimeInput = document.getElementById('log-time');
 const logDeltaInput = document.getElementById('log-delta');
 const logNoteInput = document.getElementById('log-note');
@@ -300,14 +303,47 @@ function formatDateTimeLocal(ts) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function renderLogMedOptions(selectedId = '') {
+  logMedSelect.innerHTML = '';
+  if (store.data.meds.length === 0) {
+    const option = document.createElement('option');
+    option.value = '';
+    option.textContent = t('records.moodForm.noMeds');
+    logMedSelect.appendChild(option);
+    return;
+  }
+  store.data.meds.forEach(med => {
+    const option = document.createElement('option');
+    option.value = med.id;
+    option.textContent = med.name;
+    if (med.id === selectedId) option.selected = true;
+    logMedSelect.appendChild(option);
+  });
+}
+
 function openLogModal(log) {
   logForm.reset();
   logIdInput.value = log.id;
+  logMedRow.hidden = true;
+  logModalTitle.textContent = t('meds.log.modalTitle');
   logTimeInput.value = formatDateTimeLocal(log.timestamp);
   logDeltaInput.value = log.delta;
   logNoteInput.value = log.note || '';
   logModal.setAttribute('aria-hidden', 'false');
   logTimeInput.focus();
+}
+
+function openAddLogModal() {
+  logForm.reset();
+  logIdInput.value = '';
+  logMedRow.hidden = false;
+  logModalTitle.textContent = t('meds.log.addModalTitle');
+  renderLogMedOptions();
+  logTimeInput.value = formatDateTimeLocal(Date.now());
+  logDeltaInput.value = '';
+  logNoteInput.value = '';
+  logModal.setAttribute('aria-hidden', 'false');
+  logMedSelect.focus();
 }
 
 function closeLogModal() {
@@ -372,7 +408,16 @@ async function handleLogSubmit(e) {
     await showAlert(t('records.validation.endAfterStart'));
     return;
   }
-  store.updateLog(id, { timestamp, delta, note });
+  if (id) {
+    store.updateLog(id, { timestamp, delta, note });
+  } else {
+    const medId = logMedSelect.value;
+    if (!medId) {
+      await showAlert(t('records.moodForm.noMeds'));
+      return;
+    }
+    store.addHistoricalLog(medId, { timestamp, delta, note });
+  }
   closeLogModal();
 }
 
@@ -401,6 +446,7 @@ function initMeds() {
   document.getElementById('log-cancel').addEventListener('click', closeLogModal);
   logModal.querySelector('.modal-backdrop').addEventListener('click', closeLogModal);
   logForm.addEventListener('submit', handleLogSubmit);
+  document.getElementById('add-log-btn').addEventListener('click', () => openAddLogModal());
 
   document.querySelector('#meds-table tbody').addEventListener('click', async e => {
     const btn = e.target.closest('button[data-action]');
