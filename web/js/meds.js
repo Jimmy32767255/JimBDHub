@@ -158,18 +158,67 @@ function percent(med) {
   return med.totalPills > 0 ? Math.round((med.remainingPills / med.totalPills) * 100) : 0;
 }
 
+function predictDepletion(med) {
+  if (!Array.isArray(med.schedule) || med.schedule.length === 0) return null;
+  if (med.remainingPills <= 0) return -1;
+  const now = Date.now();
+  const sortedSchedule = [...med.schedule].sort();
+  const today = new Date(now);
+  today.setHours(0, 0, 0, 0);
+  const todayStart = today.getTime();
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const todayFutureTimes = sortedSchedule
+    .map(time => {
+      const [h, min] = time.split(':').map(Number);
+      return todayStart + h * 3600000 + min * 60000;
+    })
+    .filter(ts => ts > now);
+  let remaining = med.remainingPills;
+  for (const ts of todayFutureTimes) {
+    remaining--;
+    if (remaining <= 0) return ts;
+  }
+  const dailyCount = sortedSchedule.length;
+  const fullDays = Math.floor((remaining - 1) / dailyCount);
+  const remainder = (remaining - 1) % dailyCount;
+  const [h, min] = sortedSchedule[remainder].split(':').map(Number);
+  return todayStart + (fullDays + 1) * DAY_MS + h * 3600000 + min * 60000;
+}
+
+function formatDepletion(depletionTs) {
+  if (depletionTs === -1) return t('meds.depletion.exhausted');
+  const diff = depletionTs - Date.now();
+  if (diff <= 0) return t('meds.depletion.exhausted');
+  const totalMinutes = Math.floor(diff / 60000);
+  const totalHours = Math.floor(diff / 3600000);
+  const days = Math.floor(totalHours / 24);
+  const hours = totalHours % 24;
+  if (days >= 1 && hours > 0) {
+    return t('meds.depletion.daysHours', { d: days, h: hours });
+  } else if (days >= 1) {
+    return t('meds.depletion.days', { d: days });
+  } else if (totalHours >= 1) {
+    return t('meds.depletion.hours', { h: totalHours });
+  } else {
+    return t('meds.depletion.minutes', { m: totalMinutes });
+  }
+}
+
 function renderMeds() {
   const tbody = document.querySelector('#meds-table tbody');
   tbody.innerHTML = '';
   store.data.meds.forEach(med => {
     const tr = document.createElement('tr');
     const pct = percent(med);
+    const depletionTs = predictDepletion(med);
+    const depletionLine = depletionTs === null ? '' : formatDepletion(depletionTs);
     tr.innerHTML = `
       <td><strong>${med.name}</strong></td>
       <td>${med.category || t('meds.table.emptyNote')}</td>
       <td>
         <div class="progress-bar"><div class="progress-fill" style="width: ${pct}%"></div></div>
         <small style="color: var(--text-muted)">${pct}% · ${med.remainingPills}${med.unit}</small>
+        ${depletionLine ? `<small style="color: var(--text-muted); display: block">${depletionLine}</small>` : ''}
       </td>
       <td>${formatQuantity(med)}</td>
       <td>${med.note || t('meds.table.emptyNote')}</td>
