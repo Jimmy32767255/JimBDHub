@@ -101,6 +101,10 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 > "Everything is a File."（“万物皆文件。”）——Unix哲学语录
 
+- [ ] Syncthing 配置教程
+
+编写图文指南，帮助用户配置 Syncthing 以实现自动跨设备同步，作为软件文档的一部分。
+
 ## 修复：
 
 - [x] 渲染问题（颜色）
@@ -121,6 +125,10 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 - [ ] 变更日志的记录用药和库存调整没有翻译
 
 在药品库>变更日志中，记录用药、库存调整，两项在 English 的模式下，没有被成功翻译
+
+- [x] Microsoft® Windows™ 操作系统端无法使用
+
+使用 PyInstaller 打包后的 Microsoft® Windows™ 操作系统端无法正常使用，报错 404 资源找不到
 
 ## 修改：
 
@@ -147,7 +155,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 - [x] 使用图标
 
-在网页左上角和Android软件图标中使用`./assets/JimBDHubIcon256.png`
+在网页左上角和 Google® Android™ 操作系统端启动图标中使用`./assets/JimBDHubIcon256.png`
 
 - [x] 在宽屏下也允许收起侧边栏
 - [x] 更详细的时间轴
@@ -184,6 +192,21 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 - [x] 用户友好的药品添加
 
 现在通过内置药品数据库添加药品时，点选药品后列表直接变为“无匹配药品”，虽然此时数据已正确自动填入表单，但由于缺乏反馈导致用户疑惑，应添加明确的提示
+
+- [ ] 默认关闭情绪数据点连线
+
+默认关闭情绪记录点之间的连线，仅显示离散数据点，并添加声明，以诚实反映数据未知区域的实际情况，避免视觉误导
+
+在设置中添加开关，允许用户手动启用连线功能
+
+添加声明提示，说明连线仅为视觉辅助，不代表实际未知数据
+
+- [ ] 药品数据和视图相关改动
+
+1. 时间数据从单一确定值改成时间范围（x~y），避免现在这种只能取平均值的不严谨情况，同时在聚合视图中渲染两条药效曲线，分别是最高和最低
+2. 新增字段：每片的剂量（mg等），这样就能在聚合视图中显示更具参考意义的浓度（mmol/L等），而不是现在的以片为单位（如1.23）
+
+添加免责声明：这是经过简化后的预测，不能作为医疗建议
 
 ## 移除：
 

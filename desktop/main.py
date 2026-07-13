@@ -22,6 +22,17 @@ import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
+def resource_path(relative_path):
+    """获取资源的绝对路径，支持 PyInstaller 打包后的环境。"""
+    try:
+        # PyInstaller 会将资源解压到 _MEIPASS 临时目录
+        base_path = sys._MEIPASS
+    except AttributeError:
+        # 开发环境：使用当前文件所在目录
+        base_path = os.path.dirname(os.path.dirname(os.path.abspath(__file__)))
+    return os.path.join(base_path, relative_path)
+
+
 # 强制 qtpy / pywebview 使用 PyQt6，避免系统上残缺的 PyQt5 被优先选中。
 os.environ.setdefault("QT_API", "pyqt6")
 
@@ -29,7 +40,7 @@ import webview
 
 
 def get_web_root() -> Path:
-    return Path(__file__).resolve().parent.parent / "web"
+    return Path(resource_path("web"))
 
 
 def start_http_server(root: Path, port: int = 8765) -> HTTPServer:
