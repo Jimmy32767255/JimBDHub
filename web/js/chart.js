@@ -1,4 +1,4 @@
-import { formatDateTime } from './store.js';
+import { formatDateTime, formatDuration } from './store.js';
 import { t } from './i18n.js';
 import { getTheme } from './theme.js';
 
@@ -1146,6 +1146,12 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     // 事件信息
     if (showEventDetail) {
       content += `<div style="color:${colors.accent}; font-weight:600;">${t('chart.tooltip.event')}: ${nearestEvent.title}</div>`;
+      if (nearestEvent.showElapsedTime) {
+        const diff = Date.now() - nearestEvent.timestamp;
+        const suffix = diff >= 0 ? 'past' : 'future';
+        const elapsed = formatDuration(Math.abs(diff));
+        content += `<div class="note">${t(`chart.tooltip.eventElapsed.${suffix}`, { duration: elapsed })}</div>`;
+      }
       if (nearestEvent.note) content += `<div class="note">${nearestEvent.note}</div>`;
     }
 

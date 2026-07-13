@@ -931,6 +931,7 @@ body {
 }
 .record-item time { font-size: 12px; color: var(--theme-text-muted); }
 .record-item .note { font-size: 13px; color: var(--theme-text-muted); margin: 8px 0; }
+.record-item .elapsed-time { font-size: 12px; color: var(--theme-text-muted); margin: 4px 0 8px; }
 .record-item footer { display: flex; gap: 8px; justify-content: flex-end; }
 .event-line, .event-dot { pointer-events: none; }
 .event-dot { pointer-events: auto; }

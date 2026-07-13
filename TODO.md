@@ -82,7 +82,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 - [x] 持久化视图当前查看位置
 
-- [ ] 事件距离现在的时间
+- [x] 事件距离现在的时间
 
 在 记录→事件 （以及 记录→历史记录→编辑） 中添加一个复选框来选择是否为事件启用此功能，启用后在以下位置显示：
 

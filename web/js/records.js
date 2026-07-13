@@ -1,4 +1,4 @@
-import { store, formatDateTime, nowHourFloor } from './store.js';
+import { store, formatDateTime, formatDuration, nowHourFloor } from './store.js';
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 
@@ -35,6 +35,7 @@ const eventIdInput = document.getElementById('event-id');
 const eventTimeInput = document.getElementById('event-time');
 const eventTitleInput = document.getElementById('event-title');
 const eventNoteInput = document.getElementById('event-note');
+const eventShowElapsedInput = document.getElementById('event-show-elapsed');
 const eventCancelBtn = document.getElementById('event-cancel');
 
 function toDatetimeLocal(ts) {
@@ -193,16 +194,6 @@ function editSleep(sleep) {
   switchForm('sleep');
 }
 
-function formatDuration(ms) {
-  if (ms <= 0) return t('duration.minutes', { m: 0 });
-  const minutes = Math.round(ms / (60 * 1000));
-  const h = Math.floor(minutes / 60);
-  const m = minutes % 60;
-  if (h === 0) return t('duration.minutes', { m });
-  if (m === 0) return t('duration.hours', { h });
-  return t('duration.hoursMinutes', { h, m });
-}
-
 function calcSleepDuration(sleep) {
   const total = Math.max(0, sleep.endTime - sleep.startTime);
   const awakeTotal = (sleep.interruptions || []).reduce((sum, i) => {
@@ -267,12 +258,19 @@ function renderRecords() {
       `;
     } else {
       const ev = item.data;
+      let elapsedText = '';
+      if (ev.showElapsedTime) {
+        const diff = Date.now() - ev.timestamp;
+        const suffix = diff >= 0 ? 'past' : 'future';
+        elapsedText = t(`records.history.elapsedTime.${suffix}`, { duration: formatDuration(Math.abs(diff)) });
+      }
       el.innerHTML = `
         <header>
           <span class="event-badge">${t('records.history.event')}</span>
           <time>${formatDateTime(ev.timestamp)}</time>
         </header>
         <h4 style="margin: 8px 0 4px; font-size: 15px; font-weight: 600;">${ev.title}</h4>
+        ${elapsedText ? `<div class="elapsed-time">${elapsedText}</div>` : ''}
         ${ev.note ? `<p class="note">${ev.note}</p>` : ''}
         <footer>
           <button class="btn btn-icon" data-action="edit" data-id="${ev.id}">${t('common.edit')}</button>
@@ -377,6 +375,7 @@ function resetEventForm() {
   eventTimeInput.value = toDatetimeLocal(nowHourFloor());
   eventTitleInput.value = '';
   eventNoteInput.value = '';
+  eventShowElapsedInput.checked = false;
 }
 
 function editEvent(event) {
@@ -384,6 +383,7 @@ function editEvent(event) {
   eventTimeInput.value = toDatetimeLocal(event.timestamp);
   eventTitleInput.value = event.title || '';
   eventNoteInput.value = event.note || '';
+  eventShowElapsedInput.checked = event.showElapsedTime === true;
   switchForm('event');
 }
 
@@ -505,7 +505,8 @@ function handleEventSubmit(e) {
   const payload = {
     timestamp: new Date(eventTimeInput.value).getTime(),
     title: eventTitleInput.value.trim(),
-    note: eventNoteInput.value.trim()
+    note: eventNoteInput.value.trim(),
+    showElapsedTime: eventShowElapsedInput.checked
   };
   if (eventIdInput.value) {
     store.updateEvent(eventIdInput.value, payload);

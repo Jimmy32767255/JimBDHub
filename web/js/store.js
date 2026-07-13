@@ -367,6 +367,16 @@ export function formatDateTime(ts) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+export function formatDuration(ms) {
+  if (ms <= 0) return t('duration.minutes', { m: 0 });
+  const minutes = Math.round(ms / (60 * 1000));
+  const h = Math.floor(minutes / 60);
+  const m = minutes % 60;
+  if (h === 0) return t('duration.minutes', { m });
+  if (m === 0) return t('duration.hours', { h });
+  return t('duration.hoursMinutes', { h, m });
+}
+
 export function formatDate(ts) {
   const d = new Date(ts);
   const pad = n => String(n).padStart(2, '0');
