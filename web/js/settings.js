@@ -130,6 +130,22 @@ function bindDisplayControls() {
   subscribeTheme(updateUIFromTheme);
 }
 
+function bindConnectMoodDotsControl() {
+  const checkbox = document.getElementById('connect-mood-dots');
+  if (!checkbox) return;
+
+  function updateUIFromTheme(theme) {
+    checkbox.checked = theme.connectMoodDots !== false;
+  }
+
+  checkbox.addEventListener('change', () => {
+    setTheme({ connectMoodDots: checkbox.checked });
+  });
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
 function bindSyncControls() {
   const enableCheckbox = document.getElementById('syncthing-enable');
   const chooseBtn = document.getElementById('syncthing-choose-folder');
@@ -235,6 +251,7 @@ export function initSettings() {
 
   bindThemeControls();
   bindDisplayControls();
+  bindConnectMoodDotsControl();
   bindSyncControls();
 
   subscribe(() => {

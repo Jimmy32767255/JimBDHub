@@ -164,6 +164,7 @@ export function renderChart(records, container, tooltip) {
     textMuted: theme.textMutedColor
   };
   const useCurve = theme.curveLine !== 'line';
+  const connectMoodDots = theme.connectMoodDots !== false;
 
   const wrap = container.parentElement;
   container.innerHTML = '';
@@ -310,60 +311,62 @@ export function renderChart(records, container, tooltip) {
     return d;
   }
 
-  const hasMixed = records.some(r => r.mixed);
-  if (hasMixed) {
-    const mixedRecords = records.map(r => ({
-      ...r,
-      upper: r.mixed ? Math.max(r.value, r.mixedValue) : r.value,
-      lower: r.mixed ? Math.min(r.value, r.mixedValue) : r.value
-    }));
+  if (connectMoodDots) {
+    const hasMixed = records.some(r => r.mixed);
+    if (hasMixed) {
+      const mixedRecords = records.map(r => ({
+        ...r,
+        upper: r.mixed ? Math.max(r.value, r.mixedValue) : r.value,
+        lower: r.mixed ? Math.min(r.value, r.mixedValue) : r.value
+      }));
 
-    let areaD = `M ${xFor(mixedRecords[0].timestamp)} ${yFor(mixedRecords[0].upper)}`;
-    for (let i = 1; i < mixedRecords.length; i++) {
-      const prev = mixedRecords[i - 1], curr = mixedRecords[i];
-      const x1 = xFor(prev.timestamp), y1u = yFor(prev.upper);
-      const x2 = xFor(curr.timestamp), y2u = yFor(curr.upper);
-      areaD += curveSegment(x1, y1u, x2, y2u);
-    }
-    for (let i = mixedRecords.length - 1; i >= 0; i--) {
-      const curr = mixedRecords[i];
-      const x2 = xFor(curr.timestamp), y2l = yFor(curr.lower);
-      if (i === mixedRecords.length - 1) {
-        areaD += ` L ${x2} ${y2l}`;
-      } else {
-        const next = mixedRecords[i + 1];
-        const x1 = xFor(next.timestamp), y1l = yFor(next.lower);
-        areaD += curveSegment(x1, y1l, x2, y2l);
+      let areaD = `M ${xFor(mixedRecords[0].timestamp)} ${yFor(mixedRecords[0].upper)}`;
+      for (let i = 1; i < mixedRecords.length; i++) {
+        const prev = mixedRecords[i - 1], curr = mixedRecords[i];
+        const x1 = xFor(prev.timestamp), y1u = yFor(prev.upper);
+        const x2 = xFor(curr.timestamp), y2u = yFor(curr.upper);
+        areaD += curveSegment(x1, y1u, x2, y2u);
       }
-    }
-    areaD += ' Z';
-    container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-mixed)', stroke: 'none' }));
+      for (let i = mixedRecords.length - 1; i >= 0; i--) {
+        const curr = mixedRecords[i];
+        const x2 = xFor(curr.timestamp), y2l = yFor(curr.lower);
+        if (i === mixedRecords.length - 1) {
+          areaD += ` L ${x2} ${y2l}`;
+        } else {
+          const next = mixedRecords[i + 1];
+          const x1 = xFor(next.timestamp), y1l = yFor(next.lower);
+          areaD += curveSegment(x1, y1l, x2, y2l);
+        }
+      }
+      areaD += ' Z';
+      container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-mixed)', stroke: 'none' }));
 
-    container.appendChild(createSVGElement('path', {
-      d: makeCurveD(mixedRecords, r => r.upper),
-      fill: 'none', stroke: colors.positive, 'stroke-width': 2.5
-    }));
-    container.appendChild(createSVGElement('path', {
-      d: makeCurveD(mixedRecords, r => r.lower),
-      fill: 'none', stroke: colors.negative, 'stroke-width': 2.5
-    }));
-  } else {
-    const mainGradient = createSVGElement('linearGradient', { id: 'grad-main', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-    mainGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
-    mainGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': colors.neutral }));
-    mainGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
-    defs.appendChild(mainGradient);
+      container.appendChild(createSVGElement('path', {
+        d: makeCurveD(mixedRecords, r => r.upper),
+        fill: 'none', stroke: colors.positive, 'stroke-width': 2.5
+      }));
+      container.appendChild(createSVGElement('path', {
+        d: makeCurveD(mixedRecords, r => r.lower),
+        fill: 'none', stroke: colors.negative, 'stroke-width': 2.5
+      }));
+    } else {
+      const mainGradient = createSVGElement('linearGradient', { id: 'grad-main', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+      mainGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
+      mainGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': colors.neutral }));
+      mainGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
+      defs.appendChild(mainGradient);
 
-    container.appendChild(createSVGElement('path', {
-      d: makeCurveD(records, r => r.value),
-      fill: 'none', stroke: 'url(#grad-main)', 'stroke-width': 3,
-      'stroke-linecap': 'round', 'stroke-linejoin': 'round'
-    }));
+      container.appendChild(createSVGElement('path', {
+        d: makeCurveD(records, r => r.value),
+        fill: 'none', stroke: 'url(#grad-main)', 'stroke-width': 3,
+        'stroke-linecap': 'round', 'stroke-linejoin': 'round'
+      }));
 
-    const zeroY = yFor(0);
-    const areaD = makeAreaUnderCurveD(records, r => r.value, zeroY);
-    if (areaD) {
-      container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-main)', stroke: 'none', opacity: '0.12' }));
+      const zeroY = yFor(0);
+      const areaD = makeAreaUnderCurveD(records, r => r.value, zeroY);
+      if (areaD) {
+        container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-main)', stroke: 'none', opacity: '0.12' }));
+      }
     }
   }
 
@@ -568,6 +571,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     textMuted: theme.textMutedColor
   };
   const useCurve = theme.curveLine !== 'line';
+  const connectMoodDots = theme.connectMoodDots !== false;
 
   const wrap = container.parentElement;
   container.innerHTML = '';
@@ -960,62 +964,64 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       return d;
     }
 
-    // Include adjacent-page records when drawing the curve so the slope at the
-    // page boundary stays continuous; the actual points are still only rendered
-    // for records inside the page.
-    const curveRecords = [...records, ...boundaryRecords].sort((a, b) => a.timestamp - b.timestamp);
+    if (connectMoodDots) {
+      // Include adjacent-page records when drawing the curve so the slope at the
+      // page boundary stays continuous; the actual points are still only rendered
+      // for records inside the page.
+      const curveRecords = [...records, ...boundaryRecords].sort((a, b) => a.timestamp - b.timestamp);
 
-    const hasMixed = curveRecords.some(r => r.mixed);
-    if (hasMixed) {
-      const mixedRecords = curveRecords.map(r => ({
-        ...r,
-        upper: r.mixed ? Math.max(r.value, r.mixedValue) : r.value,
-        lower: r.mixed ? Math.min(r.value, r.mixedValue) : r.value
-      }));
+      const hasMixed = curveRecords.some(r => r.mixed);
+      if (hasMixed) {
+        const mixedRecords = curveRecords.map(r => ({
+          ...r,
+          upper: r.mixed ? Math.max(r.value, r.mixedValue) : r.value,
+          lower: r.mixed ? Math.min(r.value, r.mixedValue) : r.value
+        }));
 
-      let areaD = `M ${xFor(mixedRecords[0].timestamp)} ${yMoodFor(mixedRecords[0].upper)}`;
-      for (let i = 1; i < mixedRecords.length; i++) {
-        const prev = mixedRecords[i - 1], curr = mixedRecords[i];
-        const x1 = xFor(prev.timestamp), y1u = yMoodFor(prev.upper);
-        const x2 = xFor(curr.timestamp), y2u = yMoodFor(curr.upper);
-        areaD += curveSegment(x1, y1u, x2, y2u);
-      }
-      for (let i = mixedRecords.length - 1; i >= 0; i--) {
-        const curr = mixedRecords[i];
-        const x2 = xFor(curr.timestamp), y2l = yMoodFor(curr.lower);
-        if (i === mixedRecords.length - 1) {
-          areaD += ` L ${x2} ${y2l}`;
-        } else {
-          const next = mixedRecords[i + 1];
-          const x1 = xFor(next.timestamp), y1l = yMoodFor(next.lower);
-          areaD += curveSegment(x1, y1l, x2, y2l);
+        let areaD = `M ${xFor(mixedRecords[0].timestamp)} ${yMoodFor(mixedRecords[0].upper)}`;
+        for (let i = 1; i < mixedRecords.length; i++) {
+          const prev = mixedRecords[i - 1], curr = mixedRecords[i];
+          const x1 = xFor(prev.timestamp), y1u = yMoodFor(prev.upper);
+          const x2 = xFor(curr.timestamp), y2u = yMoodFor(curr.upper);
+          areaD += curveSegment(x1, y1u, x2, y2u);
         }
-      }
-      areaD += ' Z';
-      container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-mixed)', stroke: 'none', 'clip-path': `url(#${chartClipId})` }));
+        for (let i = mixedRecords.length - 1; i >= 0; i--) {
+          const curr = mixedRecords[i];
+          const x2 = xFor(curr.timestamp), y2l = yMoodFor(curr.lower);
+          if (i === mixedRecords.length - 1) {
+            areaD += ` L ${x2} ${y2l}`;
+          } else {
+            const next = mixedRecords[i + 1];
+            const x1 = xFor(next.timestamp), y1l = yMoodFor(next.lower);
+            areaD += curveSegment(x1, y1l, x2, y2l);
+          }
+        }
+        areaD += ' Z';
+        container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-mixed)', stroke: 'none', 'clip-path': `url(#${chartClipId})` }));
 
-      container.appendChild(createSVGElement('path', {
-        d: makeCurveD(mixedRecords, r => r.upper),
-        fill: 'none', stroke: colors.positive, 'stroke-width': 2.5,
-        'clip-path': `url(#${chartClipId})`
-      }));
-      container.appendChild(createSVGElement('path', {
-        d: makeCurveD(mixedRecords, r => r.lower),
-        fill: 'none', stroke: colors.negative, 'stroke-width': 2.5,
-        'clip-path': `url(#${chartClipId})`
-      }));
-    } else {
-      container.appendChild(createSVGElement('path', {
-        d: makeCurveD(curveRecords, r => r.value),
-        fill: 'none', stroke: 'url(#grad-main)', 'stroke-width': 3,
-        'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-        'clip-path': `url(#${chartClipId})`
-      }));
+        container.appendChild(createSVGElement('path', {
+          d: makeCurveD(mixedRecords, r => r.upper),
+          fill: 'none', stroke: colors.positive, 'stroke-width': 2.5,
+          'clip-path': `url(#${chartClipId})`
+        }));
+        container.appendChild(createSVGElement('path', {
+          d: makeCurveD(mixedRecords, r => r.lower),
+          fill: 'none', stroke: colors.negative, 'stroke-width': 2.5,
+          'clip-path': `url(#${chartClipId})`
+        }));
+      } else {
+        container.appendChild(createSVGElement('path', {
+          d: makeCurveD(curveRecords, r => r.value),
+          fill: 'none', stroke: 'url(#grad-main)', 'stroke-width': 3,
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+          'clip-path': `url(#${chartClipId})`
+        }));
 
-      const zeroY = yMoodFor(0);
-      const areaD = makeAreaUnderCurveD(curveRecords, r => r.value, zeroY);
-      if (areaD) {
-        container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-main)', stroke: 'none', opacity: '0.12', 'clip-path': `url(#${chartClipId})` }));
+        const zeroY = yMoodFor(0);
+        const areaD = makeAreaUnderCurveD(curveRecords, r => r.value, zeroY);
+        if (areaD) {
+          container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-main)', stroke: 'none', opacity: '0.12', 'clip-path': `url(#${chartClipId})` }));
+        }
       }
     }
 

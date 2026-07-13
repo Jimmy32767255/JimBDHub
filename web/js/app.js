@@ -17,6 +17,7 @@ const pageTitle = document.getElementById('page-title');
 const combinedChartSvg = document.getElementById('combined-chart');
 const combinedChartTooltip = document.getElementById('combined-chart-tooltip');
 const combinedLegend = document.getElementById('combined-legend');
+const chartDisclaimer = document.getElementById('chart-disclaimer');
 const sidebar = document.getElementById('sidebar');
 const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
 const menuToggle = document.getElementById('menu-toggle');
@@ -299,6 +300,13 @@ function getChartTimeRange(records, sleeps, events) {
 
 let _viewRestored = false;
 
+function updateChartDisclaimer() {
+  if (!chartDisclaimer) return;
+  const { connectMoodDots } = getTheme();
+  const key = connectMoodDots !== false ? 'chart.disclaimer.connected' : 'chart.disclaimer.dotsOnly';
+  chartDisclaimer.textContent = t(key);
+}
+
 function drawChart() {
   const records = store.getRecordsInRange('all');
   const sleeps = store.getSleepsInRange('all');
@@ -369,6 +377,7 @@ function drawChart() {
   saveViewPosition();
   savePage(currentPage);
   updatePageControls();
+  updateChartDisclaimer();
 }
 
 function setupLongPress(el, action) {
@@ -513,6 +522,7 @@ async function init() {
     }
   });
   subscribeTheme(() => {
+    updateChartDisclaimer();
     if (views.overview.classList.contains('view-active')) {
       drawChart();
     }
