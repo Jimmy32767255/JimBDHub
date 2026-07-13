@@ -118,6 +118,10 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 检测位置偏后且随视图滚动进度而加大
 
+- [ ] 变更日志的记录用药和库存调整没有翻译
+
+在药品库>变更日志中，记录用药、库存调整，两项在 English 的模式下，没有被成功翻译
+
 ## 修改：
 
 - [x] 药效绘图
