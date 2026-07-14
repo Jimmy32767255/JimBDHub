@@ -62,6 +62,8 @@
   "records.moodForm.save": "保存记录",
   "records.sleepForm.start": "入睡时间",
   "records.sleepForm.end": "清醒时间",
+  "records.sleepForm.bedTime": "上床时间",
+  "records.sleepForm.eyeOpenTime": "睁眼时间",
   "records.sleepForm.quality": "睡眠质量",
   "records.sleepForm.qualityHint": "0 最差，5 最好",
   "records.sleepForm.interruptions": "中断记录",

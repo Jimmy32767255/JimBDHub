@@ -62,6 +62,8 @@
   "records.moodForm.save": "Save mood record",
   "records.sleepForm.start": "Fell asleep",
   "records.sleepForm.end": "Woke up",
+  "records.sleepForm.bedTime": "Bedtime",
+  "records.sleepForm.eyeOpenTime": "Eyes open",
   "records.sleepForm.quality": "Sleep quality",
   "records.sleepForm.qualityHint": "0 = worst, 5 = best",
   "records.sleepForm.interruptions": "Interruptions",
