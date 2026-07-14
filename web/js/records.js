@@ -23,6 +23,8 @@ const sleepForm = document.getElementById('sleep-form');
 const sleepIdInput = document.getElementById('sleep-id');
 const sleepStartInput = document.getElementById('sleep-start');
 const sleepEndInput = document.getElementById('sleep-end');
+const sleepBedTimeInput = document.getElementById('sleep-bed-time');
+const sleepGetOutOfBedTimeInput = document.getElementById('sleep-get-out-of-bed-time');
 const sleepQualityInput = document.getElementById('sleep-quality');
 const sleepQualityOut = document.getElementById('sleep-quality-out');
 const sleepInterruptions = document.getElementById('sleep-interruptions');
@@ -143,6 +145,8 @@ function resetSleepForm() {
   const defaults = defaultSleepTimes();
   sleepStartInput.value = toDatetimeLocal(defaults.start);
   sleepEndInput.value = toDatetimeLocal(defaults.end);
+  sleepBedTimeInput.value = '';
+  sleepEyeOpenTimeInput.value = '';
   sleepQualityInput.value = 3;
   sleepInterruptions.innerHTML = '';
   sleepNoteInput.value = '';
@@ -186,6 +190,8 @@ function editSleep(sleep) {
   sleepIdInput.value = sleep.id;
   sleepStartInput.value = toDatetimeLocal(sleep.startTime);
   sleepEndInput.value = toDatetimeLocal(sleep.endTime);
+  sleepBedTimeInput.value = sleep.bedTime ? toDatetimeLocal(sleep.bedTime) : '';
+  sleepGetOutOfBedTimeInput.value = sleep.getOutOfBedTime ? toDatetimeLocal(sleep.getOutOfBedTime) : '';
   sleepQualityInput.value = sleep.quality;
   sleepNoteInput.value = sleep.note || '';
   sleepInterruptions.innerHTML = '';
@@ -356,6 +362,8 @@ async function handleSleepSubmit(e) {
   const payload = {
     startTime: new Date(sleepStartInput.value).getTime(),
     endTime: new Date(sleepEndInput.value).getTime(),
+    bedTime: sleepBedTimeInput.value ? new Date(sleepBedTimeInput.value).getTime() : null,
+    getOutOfBedTime: sleepGetOutOfBedTimeInput.value ? new Date(sleepGetOutOfBedTimeInput.value).getTime() : null,
     quality: Number(sleepQualityInput.value),
     interruptions,
     note: sleepNoteInput.value.trim()
