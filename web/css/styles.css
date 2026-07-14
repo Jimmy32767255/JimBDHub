@@ -758,6 +758,9 @@ body {
 .form-hint.sync-error {
   color: var(--theme-accent);
 }
+.form-hint.warning {
+  color: var(--theme-accent);
+}
 
 .schedule-list {
   display: flex;

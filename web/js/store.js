@@ -361,6 +361,19 @@ export const store = {
   }
 };
 
+window.__widgetAddSleep = (sleep) => {
+  store.addSleep({
+    ...sleep,
+    quality: sleep.quality ?? 0,
+    interruptions: sleep.interruptions ?? [],
+    note: sleep.note || t('records.widgetNote') || 'Widget'
+  });
+};
+
+if (window.AndroidBridge && typeof window.AndroidBridge.onWidgetReady === 'function') {
+  window.AndroidBridge.onWidgetReady();
+}
+
 export function formatDateTime(ts) {
   const d = new Date(ts);
   const pad = n => String(n).padStart(2, '0');

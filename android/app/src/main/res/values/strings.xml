@@ -1,3 +1,12 @@
 <resources>
     <string name="app_name">JimBDHub</string>
+    <string name="widget_icon_desc">睡眠</string>
+    <string name="widget_title_record">记录睡眠</string>
+    <string name="widget_title_stop">结束睡眠</string>
+    <string name="widget_subtitle_start">点击开始</string>
+    <string name="widget_subtitle_started">进行中</string>
+    <string name="widget_time_ago_minutes">%1$d分钟前</string>
+    <string name="widget_time_ago_hours">%1$d小时前</string>
+    <string name="widget_toast_started">已开始睡眠记录</string>
+    <string name="widget_toast_recorded">已记录睡眠</string>
 </resources>

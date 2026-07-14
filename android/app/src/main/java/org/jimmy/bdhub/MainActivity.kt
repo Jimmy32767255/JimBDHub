@@ -1,6 +1,7 @@
 package org.jimmy.bdhub
 
 import android.annotation.SuppressLint
+import android.content.Intent
 import android.net.Uri
 import android.os.Bundle
 import android.webkit.JavascriptInterface
@@ -38,6 +39,13 @@ class MainActivity : AppCompatActivity() {
     private var pendingEnableSync = false
     private val syncExecutor = Executors.newSingleThreadScheduledExecutor()
     private var syncFuture: ScheduledFuture<*>? = null
+
+    private var pageLoaded = false
+    private var widgetRecordsReady = false
+
+    companion object {
+        const val EXTRA_FROM_WIDGET = "from_widget"
+    }
 
     private val createBackupLauncher = registerForActivityResult(
         ActivityResultContracts.CreateDocument("application/json")
@@ -99,8 +107,8 @@ class MainActivity : AppCompatActivity() {
         try {
             contentResolver.takePersistableUriPermission(
                 uri,
-                android.content.Intent.FLAG_GRANT_READ_URI_PERMISSION or
-                        android.content.Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
             )
             getSharedPreferences(PREFS_NAME, MODE_PRIVATE)
                 .edit {
@@ -130,6 +138,21 @@ class MainActivity : AppCompatActivity() {
         configureWebView(webView)
 
         webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
+
+        if (intent?.getBooleanExtra(EXTRA_FROM_WIDGET, false) == true) {
+            widgetRecordsReady = true
+        }
+    }
+
+    override fun onNewIntent(intent: Intent) {
+        super.onNewIntent(intent)
+        setIntent(intent)
+        if (intent.getBooleanExtra(EXTRA_FROM_WIDGET, false)) {
+            widgetRecordsReady = true
+            if (pageLoaded) {
+                syncWidgetRecords()
+            }
+        }
     }
 
     @SuppressLint("SetJavaScriptEnabled")
@@ -145,6 +168,14 @@ class MainActivity : AppCompatActivity() {
             ): android.webkit.WebResourceResponse? {
                 return assetLoader.shouldInterceptRequest(request!!.url)
                     ?: super.shouldInterceptRequest(view, request)
+            }
+
+            override fun onPageFinished(view: WebView?, url: String?) {
+                super.onPageFinished(view, url)
+                pageLoaded = true
+                if (widgetRecordsReady) {
+                    syncWidgetRecords()
+                }
             }
         }
 
@@ -373,6 +404,9 @@ class MainActivity : AppCompatActivity() {
         if (syncFolderUri != null && syncFuture == null) {
             startSyncPolling()
         }
+        if (pageLoaded && widgetRecordsReady) {
+            syncWidgetRecords()
+        }
     }
 
     override fun onPause() {
@@ -389,6 +423,31 @@ class MainActivity : AppCompatActivity() {
             webView.destroy()
         }
         super.onDestroy()
+    }
+
+    fun syncWidgetRecords() {
+        if (!::webView.isInitialized) return
+        val records = SleepWidgetHelper.consumePendingRecords(this)
+        if (records.isEmpty()) {
+            widgetRecordsReady = false
+            return
+        }
+        for (record in records) {
+            val js = """
+                (function() {
+                    if (typeof window.__widgetAddSleep === 'function') {
+                        window.__widgetAddSleep({
+                            startTime: ${record.startMs},
+                            endTime: ${record.endMs},
+                            quality: 0,
+                            interruptions: [],
+                            note: "Widget"
+                        });
+                    }
+                })();
+            """.trimIndent()
+            webView.evaluateJavascript(js, null)
+        }
     }
 
     inner class AndroidBridge {
@@ -419,6 +478,16 @@ class MainActivity : AppCompatActivity() {
         @JavascriptInterface
         fun writeSyncFile(json: String) {
             this@MainActivity.writeSyncFile(json)
+        }
+
+        @JavascriptInterface
+        fun onWidgetReady() {
+            runOnUiThread {
+                widgetRecordsReady = true
+                if (pageLoaded) {
+                    syncWidgetRecords()
+                }
+            }
         }
     }
 }

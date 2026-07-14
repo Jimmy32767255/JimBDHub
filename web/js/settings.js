@@ -215,6 +215,26 @@ function bindSyncControls() {
   }, 100);
 }
 
+function bindWidgetControls() {
+  const unsupportedText = document.getElementById('widget-unsupported');
+  if (!unsupportedText) return;
+
+  function updateUI() {
+    unsupportedText.hidden = platform.isWidgetSupported();
+  }
+
+  updateUI();
+
+  let checks = 0;
+  const platformTimer = setInterval(() => {
+    checks++;
+    updateUI();
+    if (platform.isWidgetSupported() || checks >= 30) {
+      clearInterval(platformTimer);
+    }
+  }, 100);
+}
+
 export function initSettings() {
   const exportBtn = document.getElementById('export-backup-btn');
   const importBtn = document.getElementById('import-backup-btn');
@@ -253,6 +273,7 @@ export function initSettings() {
   bindDisplayControls();
   bindConnectMoodDotsControl();
   bindSyncControls();
+  bindWidgetControls();
 
   subscribe(() => {
     updateDOM();

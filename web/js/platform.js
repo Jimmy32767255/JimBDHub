@@ -165,6 +165,10 @@ export const platform = {
     return this.isAndroid() || this.isDesktop();
   },
 
+  isWidgetSupported() {
+    return this.isAndroid();
+  },
+
   async enableSync() {
     if (this.isAndroid()) {
       window.AndroidBridge.enableSync();
