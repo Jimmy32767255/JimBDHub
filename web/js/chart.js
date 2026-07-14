@@ -603,7 +603,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   } else {
     const allTimestamps = records.map(r => r.timestamp)
       .concat(doses.map(d => d.timestamp))
-      .concat(sleeps.flatMap(s => [s.startTime, s.endTime]))
+      .concat(sleeps.flatMap(s => [s.startTime, s.endTime, ...(s.bedTime ? [s.bedTime] : [])]))
       .concat(events.map(e => e.timestamp));
     dataMinTime = Math.min(...allTimestamps);
     dataMaxTime = Math.max(...allTimestamps);
@@ -611,7 +611,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
   // 过滤掉超出范围的数据
   records = records.filter(r => r.timestamp >= dataMinTime && r.timestamp <= dataMaxTime);
-  sleeps = sleeps.filter(s => s.endTime >= dataMinTime && s.startTime <= dataMaxTime);
+  sleeps = sleeps.filter(s => s.endTime >= dataMinTime && (s.bedTime || s.startTime) <= dataMaxTime);
   events = events.filter(e => e.timestamp >= dataMinTime && e.timestamp <= dataMaxTime);
   if (explicitDoses === null) {
     actualDoses = extractDoses(records);
@@ -857,8 +857,9 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     sleeps.forEach((sleep, sleepIdx) => {
       const xStart = xFor(sleep.startTime);
       const xEnd = xFor(sleep.endTime);
-      const totalWidth = xEnd - xStart;
-      if (totalWidth <= 0) return;
+      const clipX = sleep.bedTime && sleep.bedTime < sleep.startTime ? xFor(sleep.bedTime) : xStart;
+      const clipWidth = xEnd - clipX;
+      if (clipWidth <= 0) return;
 
       const interruptions = [...(sleep.interruptions || [])].sort((a, b) => a.awakeAt - b.awakeAt);
       const segments = [];
@@ -878,13 +879,25 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       const clipId = `${sleepClipId}-${sleepIdx}`;
       const clipPath = createSVGElement('clipPath', { id: clipId });
       clipPath.appendChild(createSVGElement('rect', {
-        x: xStart, y: sleepY, width: totalWidth, height: sleepBarHeight,
+        x: clipX, y: sleepY, width: clipWidth, height: sleepBarHeight,
         rx: sleepBarHeight / 2, ry: sleepBarHeight / 2
       }));
       defs.appendChild(clipPath);
 
       const group = createSVGElement('g', { class: 'sleep-bar-group', 'clip-path': `url(#${clipId})` });
       const overlayGroup = createSVGElement('g', { class: 'sleep-bar-overlay' });
+
+      if (sleep.bedTime && sleep.bedTime < sleep.startTime) {
+        const bedX = xFor(sleep.bedTime);
+        const bedWidth = xStart - bedX;
+        if (bedWidth > 0) {
+          const bedRect = createSVGElement('rect', {
+            x: bedX, y: sleepY, width: bedWidth, height: sleepBarHeight,
+            fill: '#c4b5fd'
+          });
+          group.appendChild(bedRect);
+        }
+      }
 
       segments.forEach(seg => {
         const sx = xFor(seg.start);
@@ -1078,6 +1091,18 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     legendContainer.appendChild(moodLegend2);
   }
 
+  if (hasSleepData && legendContainer) {
+    const sleepLegend = document.createElement('span');
+    sleepLegend.className = 'legend-item';
+    sleepLegend.innerHTML = `<i class="dot" style="background:#8b5cf6"></i><span data-i18n="chart.legend.sleep">${t('chart.legend.sleep')}</span>`;
+    legendContainer.appendChild(sleepLegend);
+
+    const bedLegend = document.createElement('span');
+    bedLegend.className = 'legend-item';
+    bedLegend.innerHTML = `<i class="dot" style="background:#c4b5fd"></i><span data-i18n="chart.legend.bed">${t('chart.legend.bed')}</span>`;
+    legendContainer.appendChild(bedLegend);
+  }
+
   if (events.length > 0 && legendContainer) {
     const eventLegend = document.createElement('span');
     eventLegend.className = 'legend-item';
@@ -1182,11 +1207,17 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
     // 睡眠信息
     if (hasSleepData) {
-      const overlapping = sleeps.filter(s => tooltipTs >= s.startTime && tooltipTs <= s.endTime);
+      const overlapping = sleeps.filter(s => tooltipTs >= (s.bedTime || s.startTime) && tooltipTs <= s.endTime);
       overlapping.forEach(s => {
-        const inInterruption = (s.interruptions || []).some(i => tooltipTs >= i.awakeAt && tooltipTs <= i.asleepAt);
-        const stateText = inInterruption ? t('records.history.awake') : t('records.history.asleep');
-        content += `<div style="color:#8b5cf6">${t('records.history.sleep')}: ${stateText} (${formatDateTime(s.startTime)} ~ ${formatDateTime(s.endTime)})</div>`;
+        let stateText;
+        if (s.bedTime && tooltipTs >= s.bedTime && tooltipTs < s.startTime) {
+          stateText = t('records.history.bed');
+        } else {
+          const inInterruption = (s.interruptions || []).some(i => tooltipTs >= i.awakeAt && tooltipTs <= i.asleepAt);
+          stateText = inInterruption ? t('records.history.awake') : t('records.history.asleep');
+        }
+        const bedText = s.bedTime ? `${formatDateTime(s.bedTime)} ~ ` : '';
+        content += `<div style="color:#8b5cf6">${t('records.history.sleep')}: ${stateText} (${bedText}${formatDateTime(s.startTime)} ~ ${formatDateTime(s.endTime)})</div>`;
       });
     }
 
