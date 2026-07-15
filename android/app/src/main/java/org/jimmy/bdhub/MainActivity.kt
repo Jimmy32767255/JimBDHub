@@ -1,8 +1,11 @@
 package org.jimmy.bdhub
 
 import android.annotation.SuppressLint
+import android.appwidget.AppWidgetManager
+import android.content.ComponentName
 import android.content.Intent
 import android.net.Uri
+import android.os.Build
 import android.os.Bundle
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
@@ -486,6 +489,31 @@ class MainActivity : AppCompatActivity() {
                 widgetRecordsReady = true
                 if (pageLoaded) {
                     syncWidgetRecords()
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun addWidget() {
+            runOnUiThread {
+                val appWidgetManager = AppWidgetManager.getInstance(this@MainActivity)
+                val componentName = ComponentName(this@MainActivity, SleepWidgetProvider::class.java)
+                if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+                    if (appWidgetManager.isRequestPinAppWidgetSupported) {
+                        appWidgetManager.requestPinAppWidget(componentName, null, null)
+                    } else {
+                        Toast.makeText(
+                            this@MainActivity,
+                            "当前启动器不支持自动添加小部件，请手动添加",
+                            Toast.LENGTH_LONG
+                        ).show()
+                    }
+                } else {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "请手动添加小部件",
+                        Toast.LENGTH_LONG
+                    ).show()
                 }
             }
         }

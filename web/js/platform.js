@@ -166,7 +166,18 @@ export const platform = {
   },
 
   isWidgetSupported() {
-    return this.isAndroid();
+    return this.isAndroid() || this.isDesktop();
+  },
+
+  async addWidget() {
+    if (this.isAndroid()) {
+      window.AndroidBridge.addWidget();
+      return { ok: true };
+    }
+    if (this.isDesktop()) {
+      return window.pywebview.api.addWidgetShortcut() || { ok: false, error: t('platform.desktopError') };
+    }
+    return { ok: false, error: t('platform.widgetUnsupported') };
   },
 
   async enableSync() {

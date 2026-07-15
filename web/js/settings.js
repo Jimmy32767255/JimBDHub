@@ -216,23 +216,26 @@ function bindSyncControls() {
 }
 
 function bindWidgetControls() {
-  const unsupportedText = document.getElementById('widget-unsupported');
-  if (!unsupportedText) return;
+  const addBtn = document.getElementById('widget-add-btn');
+  if (!addBtn) return;
 
-  function updateUI() {
-    unsupportedText.hidden = platform.isWidgetSupported();
+  async function onAddClick() {
+    addBtn.disabled = true;
+    try {
+      const result = await platform.addWidget();
+      if (result?.ok) {
+        await showAlert(t('settings.widget.addSuccess'));
+      } else {
+        await showAlert(t('settings.widget.addError', { message: result?.error || t('platform.widgetUnsupported') }));
+      }
+    } catch (err) {
+      await showAlert(t('settings.widget.addError', { message: err.message }));
+    } finally {
+      addBtn.disabled = false;
+    }
   }
 
-  updateUI();
-
-  let checks = 0;
-  const platformTimer = setInterval(() => {
-    checks++;
-    updateUI();
-    if (platform.isWidgetSupported() || checks >= 30) {
-      clearInterval(platformTimer);
-    }
-  }, 100);
+  addBtn.addEventListener('click', onAddClick);
 }
 
 export function initSettings() {

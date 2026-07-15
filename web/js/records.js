@@ -470,6 +470,12 @@ function initRecords() {
   eventCancelBtn.addEventListener('click', resetEventForm);
   eventForm.addEventListener('submit', handleEventSubmit);
 
+  window.addEventListener('hashchange', () => {
+    if (location.hash.slice(1) === 'records') {
+      refreshCurrentTimes();
+    }
+  });
+
   document.getElementById('records-list').addEventListener('click', async e => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;

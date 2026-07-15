@@ -380,6 +380,10 @@ if (window.AndroidBridge && typeof window.AndroidBridge.onWidgetReady === 'funct
   window.AndroidBridge.onWidgetReady();
 }
 
+if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.onWidgetReady === 'function') {
+  window.pywebview.api.onWidgetReady();
+}
+
 export function formatDateTime(ts) {
   const d = new Date(ts);
   const pad = n => String(n).padStart(2, '0');

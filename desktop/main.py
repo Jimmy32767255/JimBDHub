@@ -16,7 +16,11 @@
 
 import json
 import os
+import shlex
+import shutil
+import subprocess
 import sys
+import tempfile
 import threading
 import time
 from http.server import HTTPServer, SimpleHTTPRequestHandler
@@ -36,7 +40,212 @@ def resource_path(relative_path):
 # 强制 qtpy / pywebview 使用 PyQt6，避免系统上残缺的 PyQt5 被优先选中。
 os.environ.setdefault("QT_API", "pyqt6")
 
+import argparse
+
+
+WIDGET_STATE_FILE = "widget_sleep_state.json"
+WIDGET_PENDING_FILE = "widget_pending_sleeps.json"
+WIDGET_MIN_DURATION_MS = 60_000
+
+
+def widget_data_dir() -> Path:
+    return Path.home() / ".JimBDHub"
+
+
+def load_json_file(path: Path, default):
+    if not path.exists():
+        return default
+    try:
+        with open(path, "r", encoding="utf-8") as f:
+            return json.load(f)
+    except Exception as e:
+        print(f"读取 {path} 失败: {e}", file=sys.stderr)
+        return default
+
+
+def save_json_file(path: Path, data) -> bool:
+    try:
+        path.parent.mkdir(parents=True, exist_ok=True)
+        with open(path, "w", encoding="utf-8") as f:
+            json.dump(data, f, ensure_ascii=False)
+        return True
+    except Exception as e:
+        print(f"写入 {path} 失败: {e}", file=sys.stderr)
+        return False
+
+
+def _is_frozen() -> bool:
+    return getattr(sys, "_MEIPASS", None) is not None
+
+
+def _widget_launch_command() -> list:
+    """返回用于切换睡眠计时的启动命令列表。"""
+    executable = sys.executable
+    if _is_frozen():
+        return [executable, "--sleep-log-toggle"]
+    script = Path(__file__).resolve()
+    return [executable, str(script), "--sleep-log-toggle"]
+
+
+def _persistent_icon_path():
+    """将图标复制到持久化目录并返回路径，便于快捷方式引用。"""
+    data_dir = widget_data_dir()
+    data_dir.mkdir(parents=True, exist_ok=True)
+    dest = data_dir / "JimBDHubIcon256.png"
+    if not dest.exists():
+        src = Path(resource_path("web/JimBDHubIcon256.png"))
+        if src.exists():
+            try:
+                shutil.copy2(src, dest)
+            except Exception as e:
+                print(f"复制图标失败: {e}", file=sys.stderr)
+                return None
+    return dest if dest.exists() else None
+
+
+def _create_windows_shortcut() -> dict:
+    desktop = Path.home() / "Desktop"
+    desktop.mkdir(exist_ok=True)
+    shortcut_path = desktop / "JimBDHub Sleep.lnk"
+    command = _widget_launch_command()
+    target = command[0]
+    args = " ".join(command[1:])
+    workdir = str(Path.home())
+
+    vbs_code = """Set WshShell = WScript.CreateObject("WScript.Shell")
+Set Shortcut = WshShell.CreateShortcut(WScript.Arguments(0))
+Shortcut.TargetPath = WScript.Arguments(1)
+Shortcut.Arguments = WScript.Arguments(2)
+Shortcut.WorkingDirectory = WScript.Arguments(3)
+Shortcut.Save
+"""
+    vbs_path = ""
+    try:
+        with tempfile.NamedTemporaryFile("w", suffix=".vbs", delete=False, encoding="utf-8") as f:
+            f.write(vbs_code)
+            vbs_path = f.name
+        subprocess.run(
+            ["cscript", "//Nologo", vbs_path, str(shortcut_path), target, args, workdir],
+            check=True,
+            capture_output=True,
+            text=True,
+        )
+        return {"ok": True, "path": str(shortcut_path)}
+    except Exception as e:
+        return {"ok": False, "error": f"创建快捷方式失败: {e}"}
+    finally:
+        if vbs_path:
+            try:
+                Path(vbs_path).unlink(missing_ok=True)
+            except Exception:
+                pass
+
+
+def _create_linux_desktop_entry() -> dict:
+    desktop = Path.home() / "Desktop"
+    desktop.mkdir(exist_ok=True)
+    desktop_file = desktop / "JimBDHub-Sleep.desktop"
+    command = _widget_launch_command()
+    exec_line = " ".join(shlex.quote(arg) for arg in command)
+    icon = _persistent_icon_path()
+    icon_line = f"Icon={icon}" if icon else ""
+
+    content = f"""[Desktop Entry]
+Name=JimBDHub Sleep
+Comment=一键记录睡眠
+Exec={exec_line}
+Type=Application
+Terminal=false
+{icon_line}
+Categories=Utility;
+""".strip() + "\n"
+    try:
+        desktop_file.write_text(content, encoding="utf-8")
+        desktop_file.chmod(0o755)
+        return {"ok": True, "path": str(desktop_file)}
+    except Exception as e:
+        return {"ok": False, "error": f"创建 .desktop 失败: {e}"}
+
+
+def add_widget_shortcut() -> dict:
+    """在 Windows 创建 .lnk，在 GNU/Linux 创建 .desktop 快捷方式。"""
+    if sys.platform.startswith("win"):
+        return _create_windows_shortcut()
+    if sys.platform.startswith("linux"):
+        return _create_linux_desktop_entry()
+    return {"ok": False, "error": "不支持的操作系统"}
+
+
+def handle_sleep_toggle() -> bool:
+    """处理 --sleep-log-toggle：双态切换睡眠计时，不启动 GUI。"""
+    data_dir = widget_data_dir()
+    state_path = data_dir / WIDGET_STATE_FILE
+    pending_path = data_dir / WIDGET_PENDING_FILE
+
+    state = load_json_file(state_path, {})
+    now = int(time.time() * 1000)
+    active_start = state.get("active_start_ms", 0)
+
+    if active_start:
+        end_ms = max(now, active_start + WIDGET_MIN_DURATION_MS)
+        records = load_json_file(pending_path, [])
+        records.append({"startMs": active_start, "endMs": end_ms})
+        if save_json_file(pending_path, records) and save_json_file(state_path, {}):
+            duration_min = (end_ms - active_start) // 60_000
+            print(f"已记录睡眠：{duration_min} 分钟")
+            return True
+        return False
+    else:
+        if save_json_file(state_path, {"active_start_ms": now}):
+            print("睡眠计时已开始")
+            return True
+        return False
+
+
+parser = argparse.ArgumentParser(description="JimBDHub 桌面端")
+parser.add_argument(
+    "--sleep-log-toggle",
+    action="store_true",
+    dest="sleep_log_toggle",
+    help="切换睡眠计时（不启动 GUI，适合桌面快捷方式）",
+)
+args, _ = parser.parse_known_args()
+
+if args.sleep_log_toggle:
+    sys.exit(0 if handle_sleep_toggle() else 1)
+
 import webview
+
+
+def inject_pending_sleeps(window):
+    """将待同步的睡眠记录注入前端 store。"""
+    pending_path = widget_data_dir() / WIDGET_PENDING_FILE
+    records = load_json_file(pending_path, [])
+    if not records:
+        return
+    for record in records:
+        js = f"""
+        (function() {{
+            if (typeof window.__widgetAddSleep === 'function') {{
+                window.__widgetAddSleep({{
+                    startTime: {record['startMs']},
+                    endTime: {record['endMs']},
+                    quality: 0,
+                    interruptions: [],
+                    note: "Widget"
+                }});
+            }}
+        }})();
+        """
+        try:
+            window.evaluate_js(js)
+        except Exception as e:
+            print(f"注入睡眠记录失败: {e}", file=sys.stderr)
+            return
+    try:
+        pending_path.unlink(missing_ok=True)
+    except Exception as e:
+        print(f"清理待同步记录失败: {e}", file=sys.stderr)
 
 
 def get_web_root() -> Path:
@@ -116,13 +325,22 @@ class SyncManager:
 
 
 class DesktopBridge:
-    """暴露给前端 JS 的桌面端能力（备份导出/导入、Syncthing 同步）。"""
+    """暴露给前端 JS 的桌面端能力（备份导出/导入、Syncthing 同步、小部件）。"""
 
     window = None
     sync_manager = None
 
     def isDesktop(self):
         return True
+
+    def onWidgetReady(self):
+        """前端 store 就绪后调用，同步通过快捷方式产生的睡眠记录。"""
+        if self.window:
+            inject_pending_sleeps(self.window)
+
+    def addWidgetShortcut(self):
+        """在桌面创建一键睡眠记录的快捷方式。"""
+        return add_widget_shortcut()
 
     def _default_sync_path(self) -> Path:
         return Path.home() / ".JimBDHub" / "sync" / "JimBDHub.sync.json"
