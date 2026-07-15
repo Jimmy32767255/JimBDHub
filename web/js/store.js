@@ -32,6 +32,12 @@ function nowHourFloor() {
   return d.getTime();
 }
 
+function nowMinute() {
+  const d = new Date();
+  d.setSeconds(0, 0);
+  return d.getTime();
+}
+
 const DAY_MS = 24 * 60 * 60 * 1000;
 
 function recalcLogRemainingAfter(medId) {
@@ -402,4 +408,4 @@ export function formatQuantity(med) {
   return `${med.boxCount}${t('unit.box')}*${med.boardPerBox}${t(boardUnit)}*${med.pillsPerBoard}${t(pillUnit)}`;
 }
 
-export { generateId, nowHourFloor };
+export { generateId, nowHourFloor, nowMinute };

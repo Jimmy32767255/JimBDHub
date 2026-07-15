@@ -1,4 +1,4 @@
-import { store, formatDateTime, formatDuration, nowHourFloor } from './store.js';
+import { store, formatDateTime, formatDuration, nowMinute } from './store.js';
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 
@@ -55,7 +55,7 @@ function updateRangeOutputs() {
 function resetForm() {
   moodForm.reset();
   idInput.value = '';
-  timeInput.value = toDatetimeLocal(nowHourFloor());
+  timeInput.value = toDatetimeLocal(nowMinute());
   mixedValueRow.hidden = true;
   dosesField.hidden = true;
   renderDoses([]);
@@ -380,7 +380,7 @@ async function handleSleepSubmit(e) {
 function resetEventForm() {
   eventForm.reset();
   eventIdInput.value = '';
-  eventTimeInput.value = toDatetimeLocal(nowHourFloor());
+  eventTimeInput.value = toDatetimeLocal(nowMinute());
   eventTitleInput.value = '';
   eventNoteInput.value = '';
   eventShowElapsedInput.checked = false;
@@ -427,9 +427,18 @@ function initMemo() {
   });
 }
 
+function refreshCurrentTimes() {
+  if (!idInput.value && !moodForm.hidden) {
+    timeInput.value = toDatetimeLocal(nowMinute());
+  }
+  if (!eventIdInput.value && !eventForm.hidden) {
+    eventTimeInput.value = toDatetimeLocal(nowMinute());
+  }
+}
+
 function initRecords() {
   initMemo();
-  timeInput.value = toDatetimeLocal(nowHourFloor());
+  timeInput.value = toDatetimeLocal(nowMinute());
   updateRangeOutputs();
 
   valueInput.addEventListener('input', updateRangeOutputs);
