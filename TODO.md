@@ -117,6 +117,22 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
   
 在记录-记录-睡眠中，和入睡时间、清醒时间一样，可以填写上床时间与下床时间。在概述-曲线中上床时间用淡紫色显示。
 
+- [ ] 滚动锁定
+
+复选框，开启后不再能拖动视图，变为滑动选取数据，代替点选
+
+- [ ] 事件提醒功能
+
+Google® Android™ 操作系统端独占，请求添加系统日程
+
+- [ ] 吃药提醒功能
+
+Google® Android™ 操作系统端独占，请求添加系统闹钟
+
+- [ ] 自动记录服药
+
+在设置里加开关，开启后全自动，到了设定的服药时间后自动生成记录
+
 ## 修复：
 
 - [x] 渲染（绘图）问题（颜色）
@@ -141,6 +157,10 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 - [x] Microsoft® Windows™ 操作系统端无法使用
 
 使用 PyInstaller 打包后的 Microsoft® Windows™ 操作系统端无法正常使用，报错 404 资源找不到
+
+- [ ] Re1:Microsoft® Windows™ 操作系统端无法使用
+
+打包版卡死
 
 ## 修改：
 
@@ -219,6 +239,8 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 2. 新增字段：每片的剂量（mg等），这样就能在聚合视图中显示更具参考意义的浓度（mmol/L等），而不是现在的以片为单位（如1.23）
 
 添加免责声明：这是经过简化后的预测，不能作为医疗建议
+
+- [ ] 事件距离当前的时间大于24小时时，应以天为单位
 
 ## 移除：
 
