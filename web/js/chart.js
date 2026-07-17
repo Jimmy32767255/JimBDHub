@@ -11,6 +11,10 @@ export const MAX_MOOD_RANGE_MS = 30 * DAY_MS;
 const MAX_EFFECT_RANGE_MS = 7 * DAY_MS;
 const MAX_EFFECT_FUTURE_MS = 7 * DAY_MS;
 
+function isScrollLocked() {
+  return getTheme().scrollLock === true;
+}
+
 function formatAxisTime(ts, spanHours, timeStepHours = 24) {
   const d = new Date(ts);
   const pad = n => String(n).padStart(2, '0');
@@ -490,7 +494,7 @@ export function renderChart(records, container, tooltip) {
   });
   container.addEventListener('mouseleave', hideTooltip);
 
-  container.addEventListener('touchstart', e => {
+  function updateTooltipFromTouch(e) {
     const touch = e.touches[0];
     const x = clientXToChartX(container, touch.clientX);
     if (x < PADDING.left || x > width - PADDING.right) return;
@@ -503,7 +507,16 @@ export function renderChart(records, container, tooltip) {
     });
     const v = nearest.mixed ? (Math.abs(nearest.value) >= Math.abs(nearest.mixedValue) ? nearest.value : nearest.mixedValue) : nearest.value;
     showTooltip(nearest, v);
+  }
+
+  container.addEventListener('touchstart', e => {
+    updateTooltipFromTouch(e);
   }, { passive: true });
+  container.addEventListener('touchmove', e => {
+    if (!isScrollLocked()) return;
+    if (e.cancelable) e.preventDefault();
+    updateTooltipFromTouch(e);
+  }, { passive: false });
   container.addEventListener('touchend', hideTooltip, { passive: true });
 }
 
@@ -1283,13 +1296,22 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   });
   container.addEventListener('mouseleave', hideTooltip);
 
-  container.addEventListener('touchstart', e => {
+  function updateTooltipFromTouch(e) {
     const touch = e.touches[0];
     const x = clientXToChartX(container, touch.clientX);
     if (x < PADDING.left || x > width - PADDING.right) return;
     const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / effectivePxPerHour;
     showCombinedTooltip(ts, x);
+  }
+
+  container.addEventListener('touchstart', e => {
+    updateTooltipFromTouch(e);
   }, { passive: true });
+  container.addEventListener('touchmove', e => {
+    if (!isScrollLocked()) return;
+    if (e.cancelable) e.preventDefault();
+    updateTooltipFromTouch(e);
+  }, { passive: false });
   container.addEventListener('touchend', hideTooltip, { passive: true });
 }
 
@@ -1506,12 +1528,21 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   });
   container.addEventListener('mouseleave', hideEffectTooltip);
 
-  container.addEventListener('touchstart', e => {
+  function updateTooltipFromTouch(e) {
     const touch = e.touches[0];
     const x = clientXToChartX(container, touch.clientX);
     if (x < PADDING.left || x > width - PADDING.right) return;
     const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
     showEffectTooltip(t);
+  }
+
+  container.addEventListener('touchstart', e => {
+    updateTooltipFromTouch(e);
   }, { passive: true });
+  container.addEventListener('touchmove', e => {
+    if (!isScrollLocked()) return;
+    if (e.cancelable) e.preventDefault();
+    updateTooltipFromTouch(e);
+  }, { passive: false });
   container.addEventListener('touchend', hideEffectTooltip, { passive: true });
 }

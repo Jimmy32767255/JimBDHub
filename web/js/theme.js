@@ -3,6 +3,7 @@ const STORAGE_KEY = 'jimbdhub_theme';
 const DEFAULT_THEME = {
   curveLine: 'curve',
   connectMoodDots: false,
+  scrollLock: false,
   positiveColor: '#ef4444',
   negativeColor: '#3b82f6',
   neutralColor: '#64748b',

@@ -4,7 +4,7 @@ import { initMeds } from './meds.js';
 import { initRecords } from './records.js';
 import { initSettings } from './settings.js';
 import { initI18n, t, subscribe, updateDOM } from './i18n.js';
-import { initTheme, subscribe as subscribeTheme } from './theme.js';
+import { initTheme, getTheme, setTheme, subscribe as subscribeTheme } from './theme.js';
 import { initSync } from './sync.js';
 
 const views = {
@@ -27,6 +27,7 @@ const showMoodCheckbox = document.getElementById('show-mood');
 const showEffectCheckbox = document.getElementById('show-effect');
 const showSleepCheckbox = document.getElementById('show-sleep');
 const showForwardCheckbox = document.getElementById('show-forward');
+const scrollLockCheckbox = document.getElementById('chart-scroll-lock');
 
 const BASE_PX_PER_HOUR = 12;
 const MIN_PX_PER_HOUR = 3;
@@ -447,6 +448,11 @@ function initNavigation() {
     saveShowForward(showForwardCheckbox.checked);
     drawChart();
   });
+  if (scrollLockCheckbox) {
+    scrollLockCheckbox.addEventListener('change', () => {
+      setTheme({ scrollLock: scrollLockCheckbox.checked });
+    });
+  }
 }
 
 function initRouting() {
@@ -480,6 +486,17 @@ async function init() {
   store.init();
   showForwardCheckbox.checked = loadShowForward();
   currentPage = loadPage();
+
+  function updateChartScrollLock(theme) {
+    document.querySelectorAll('.chart-wrap').forEach(wrap => {
+      wrap.classList.toggle('scroll-lock', theme.scrollLock === true);
+    });
+    if (scrollLockCheckbox) {
+      scrollLockCheckbox.checked = theme.scrollLock === true;
+    }
+  }
+  subscribeTheme(updateChartScrollLock);
+  updateChartScrollLock(getTheme());
 
   // 恢复侧边栏状态
   const savedCollapsed = loadSidebarCollapsed();

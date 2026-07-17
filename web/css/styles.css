@@ -399,6 +399,12 @@ body {
   height: 100%;
   overflow: visible;
 }
+.chart-wrap.scroll-lock {
+  overflow-x: hidden !important;
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+}
 .chart-tooltip {
   position: absolute;
   pointer-events: none;
