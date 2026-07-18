@@ -15,6 +15,10 @@ const DEFAULT_THEME = {
   textColor: '#f8fafc',
   textMutedColor: '#94a3b8',
   accentColor: '#ef4444',
+  backgroundType: 'solid',
+  backgroundImage: '',
+  backgroundGradient: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
+  medColors: ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'],
   useSystemTheme: false,
   uiScale: 100,
   edgeMargin: 0
@@ -104,6 +108,27 @@ function applyCSS(theme) {
   root.style.setProperty('--theme-text-muted-rgb', hexToRgb(theme.textMutedColor));
   root.style.setProperty('--ui-scale-ratio', theme.uiScale / 100);
   root.style.setProperty('--edge-margin', `${theme.edgeMargin}px`);
+  applyBackground(theme);
+}
+
+function applyBackground(theme) {
+  const root = document.getElementById('ui-scale-root') || document.body;
+  const type = theme.backgroundType || 'solid';
+  root.style.backgroundImage = '';
+  root.style.backgroundSize = '';
+  root.style.backgroundPosition = '';
+  root.style.backgroundRepeat = '';
+  if (type === 'image' && theme.backgroundImage) {
+    root.style.backgroundImage = `url(${theme.backgroundImage})`;
+    root.style.backgroundSize = 'cover';
+    root.style.backgroundPosition = 'center';
+    root.style.backgroundRepeat = 'no-repeat';
+    root.style.backgroundColor = theme.backgroundColor;
+  } else if (type === 'gradient' && theme.backgroundGradient) {
+    root.style.background = theme.backgroundGradient;
+  } else {
+    root.style.background = theme.backgroundColor;
+  }
 }
 
 export function getTheme() {

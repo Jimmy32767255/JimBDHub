@@ -60,7 +60,6 @@ function bindThemeControls() {
   const positiveInput = document.getElementById('theme-positive-color');
   const negativeInput = document.getElementById('theme-negative-color');
   const neutralInput = document.getElementById('theme-neutral-color');
-  const backgroundInput = document.getElementById('theme-background-color');
   const surfaceInput = document.getElementById('theme-surface-color');
   const accentInput = document.getElementById('theme-accent-color');
   const curveLineGroup = document.getElementById('theme-curve-line');
@@ -71,7 +70,6 @@ function bindThemeControls() {
     if (positiveInput) positiveInput.value = theme.positiveColor;
     if (negativeInput) negativeInput.value = theme.negativeColor;
     if (neutralInput) neutralInput.value = theme.neutralColor;
-    if (backgroundInput) backgroundInput.value = theme.backgroundColor;
     if (surfaceInput) surfaceInput.value = theme.surfaceColor;
     if (accentInput) accentInput.value = theme.accentColor;
     if (curveLineGroup) {
@@ -85,7 +83,6 @@ function bindThemeControls() {
     [positiveInput, 'positiveColor'],
     [negativeInput, 'negativeColor'],
     [neutralInput, 'neutralColor'],
-    [backgroundInput, 'backgroundColor'],
     [surfaceInput, 'surfaceColor'],
     [accentInput, 'accentColor']
   ];
@@ -105,6 +102,134 @@ function bindThemeControls() {
 
   systemBtn?.addEventListener('click', applySystemTheme);
   resetBtn?.addEventListener('click', resetTheme);
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
+function parseGradient(gradient = '') {
+  const match = gradient.match(/linear-gradient\(\s*([^,]+),\s*([^,]+),\s*([^)]+)\s*\)/i);
+  if (!match) return { direction: 'to bottom', start: '#0f172a', end: '#1e293b' };
+  return { direction: match[1].trim(), start: match[2].trim(), end: match[3].trim() };
+}
+
+function buildGradient(direction, start, end) {
+  return `linear-gradient(${direction}, ${start}, ${end})`;
+}
+
+function readFileAsDataURL(file) {
+  return new Promise((resolve, reject) => {
+    const reader = new FileReader();
+    reader.onload = () => resolve(reader.result);
+    reader.onerror = () => reject(new Error(t('settings.background.imageError')));
+    reader.readAsDataURL(file);
+  });
+}
+
+function bindBackgroundControls() {
+  const typeGroup = document.getElementById('theme-background-type');
+  const solidControl = document.getElementById('background-solid-control');
+  const imageControl = document.getElementById('background-image-control');
+  const gradientControl = document.getElementById('background-gradient-control');
+  const backgroundInput = document.getElementById('theme-background-color');
+  const imageInput = document.getElementById('theme-background-image');
+  const clearImageBtn = document.getElementById('theme-clear-background-image');
+  const gradientStart = document.getElementById('theme-gradient-start');
+  const gradientEnd = document.getElementById('theme-gradient-end');
+  const gradientDirection = document.getElementById('theme-gradient-direction');
+
+  if (!typeGroup) return;
+
+  function updatePanels(type) {
+    solidControl.hidden = type !== 'solid';
+    imageControl.hidden = type !== 'image';
+    gradientControl.hidden = type !== 'gradient';
+  }
+
+  function updateUIFromTheme(theme) {
+    const type = theme.backgroundType || 'solid';
+    updatePanels(type);
+    typeGroup.querySelectorAll('.segment-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.type === type);
+    });
+    if (backgroundInput) backgroundInput.value = theme.backgroundColor;
+    const parsed = parseGradient(theme.backgroundGradient);
+    if (gradientStart) gradientStart.value = parsed.start;
+    if (gradientEnd) gradientEnd.value = parsed.end;
+    if (gradientDirection) gradientDirection.value = parsed.direction;
+  }
+
+  typeGroup.addEventListener('click', (e) => {
+    const btn = e.target.closest('.segment-btn');
+    if (!btn) return;
+    setTheme({ backgroundType: btn.dataset.type, useSystemTheme: false });
+  });
+
+  backgroundInput?.addEventListener('input', () => {
+    setTheme({ backgroundColor: backgroundInput.value, useSystemTheme: false });
+  });
+
+  imageInput?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const dataUrl = await readFileAsDataURL(file);
+      setTheme({ backgroundImage: dataUrl, backgroundType: 'image', useSystemTheme: false });
+    } catch (err) {
+      await showAlert(t('settings.background.imageError', { message: err.message }));
+    }
+    e.target.value = '';
+  });
+
+  clearImageBtn?.addEventListener('click', () => {
+    setTheme({ backgroundImage: '', backgroundType: 'solid', useSystemTheme: false });
+  });
+
+  function updateGradient() {
+    const start = gradientStart?.value || '#0f172a';
+    const end = gradientEnd?.value || '#1e293b';
+    const direction = gradientDirection?.value || 'to bottom';
+    setTheme({ backgroundGradient: buildGradient(direction, start, end), useSystemTheme: false });
+  }
+
+  gradientStart?.addEventListener('input', updateGradient);
+  gradientEnd?.addEventListener('input', updateGradient);
+  gradientDirection?.addEventListener('change', updateGradient);
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
+function bindMedColorControls() {
+  const container = document.getElementById('theme-med-colors');
+  const resetBtn = document.getElementById('theme-reset-med-colors');
+  if (!container) return;
+
+  function updateUIFromTheme(theme) {
+    const colors = Array.isArray(theme.medColors) ? theme.medColors : [];
+    container.innerHTML = '';
+    colors.forEach((color, idx) => {
+      const label = document.createElement('label');
+      label.className = 'color-field';
+      const span = document.createElement('span');
+      span.textContent = t('settings.appearance.medColorN', { n: idx + 1 });
+      const input = document.createElement('input');
+      input.type = 'color';
+      input.value = color;
+      input.addEventListener('input', () => {
+        const next = [...colors];
+        next[idx] = input.value;
+        setTheme({ medColors: next, useSystemTheme: false });
+      });
+      label.appendChild(span);
+      label.appendChild(input);
+      container.appendChild(label);
+    });
+  }
+
+  resetBtn?.addEventListener('click', () => {
+    setTheme({ medColors: undefined, useSystemTheme: false });
+  });
 
   updateUIFromTheme(getTheme());
   subscribeTheme(updateUIFromTheme);
@@ -308,6 +433,8 @@ export function initSettings() {
   });
 
   bindThemeControls();
+  bindBackgroundControls();
+  bindMedColorControls();
   bindDisplayControls();
   bindConnectMoodDotsControl();
   bindAutoMedLogControl();

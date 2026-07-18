@@ -338,10 +338,6 @@
               <h4 data-i18n="settings.appearance.themeColors">界面主题</h4>
               <div class="color-row">
                 <label class="color-field">
-                  <span data-i18n="settings.appearance.backgroundColor">背景</span>
-                  <input type="color" id="theme-background-color">
-                </label>
-                <label class="color-field">
                   <span data-i18n="settings.appearance.surfaceColor">卡片</span>
                   <input type="color" id="theme-surface-color">
                 </label>
@@ -354,6 +350,48 @@
                 <button type="button" class="btn btn-ghost" id="theme-system-btn" data-i18n="settings.appearance.systemTheme">获取系统主题</button>
                 <button type="button" class="btn btn-ghost" id="theme-reset-btn" data-i18n="settings.appearance.reset">恢复默认</button>
               </div>
+            </div>
+            <div class="setting-group">
+              <h4 data-i18n="settings.appearance.backgroundType">背景</h4>
+              <div class="segmented-control" id="theme-background-type">
+                <button type="button" class="segment-btn active" data-type="solid" data-i18n="settings.appearance.backgroundSolid">纯色</button>
+                <button type="button" class="segment-btn" data-type="image" data-i18n="settings.appearance.backgroundImage">图片</button>
+                <button type="button" class="segment-btn" data-type="gradient" data-i18n="settings.appearance.backgroundGradient">渐变</button>
+              </div>
+              <div class="background-controls" id="background-solid-control">
+                <div class="color-row">
+                  <label class="color-field">
+                    <span data-i18n="settings.appearance.backgroundColor">背景色</span>
+                    <input type="color" id="theme-background-color">
+                  </label>
+                </div>
+              </div>
+              <div class="background-controls" id="background-image-control" hidden>
+                <input type="file" id="theme-background-image" accept="image/*">
+                <button type="button" class="btn btn-ghost btn-sm" id="theme-clear-background-image" data-i18n="common.clear">清除</button>
+              </div>
+              <div class="background-controls" id="background-gradient-control" hidden>
+                <div class="color-row">
+                  <label class="color-field">
+                    <span data-i18n="settings.appearance.gradientStart">渐变起点</span>
+                    <input type="color" id="theme-gradient-start">
+                  </label>
+                  <label class="color-field">
+                    <span data-i18n="settings.appearance.gradientEnd">渐变终点</span>
+                    <input type="color" id="theme-gradient-end">
+                  </label>
+                </div>
+                <select id="theme-gradient-direction" class="form-field">
+                  <option value="to bottom" data-i18n="settings.appearance.gradientVertical">上下</option>
+                  <option value="to bottom right" data-i18n="settings.appearance.gradientDiagonal">斜对角</option>
+                  <option value="to right" data-i18n="settings.appearance.gradientHorizontal">左右</option>
+                </select>
+              </div>
+            </div>
+            <div class="setting-group">
+              <h4 data-i18n="settings.appearance.medColors">药物标记颜色</h4>
+              <div class="color-row" id="theme-med-colors"></div>
+              <button type="button" class="btn btn-ghost btn-sm" id="theme-reset-med-colors" data-i18n="settings.appearance.resetMedColors">恢复默认</button>
             </div>
           </div>
         </div>

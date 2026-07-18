@@ -520,7 +520,7 @@ export function renderChart(records, container, tooltip) {
   container.addEventListener('touchend', hideTooltip, { passive: true });
 }
 
-const MED_COLORS = ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'];
+const DEFAULT_MED_COLORS = ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'];
 
 export function extractDoses(records) {
   const doses = [];
@@ -568,7 +568,11 @@ function groupDosesByMed(doses) {
 }
 
 function medColor(index) {
-  return MED_COLORS[index % MED_COLORS.length];
+  const theme = getTheme();
+  const colors = Array.isArray(theme.medColors) && theme.medColors.length > 0
+    ? theme.medColors
+    : DEFAULT_MED_COLORS;
+  return colors[index % colors.length];
 }
 
 export function renderCombinedChart(records, sleeps = [], events = [], container, tooltip, legendContainer, options = {}) {
