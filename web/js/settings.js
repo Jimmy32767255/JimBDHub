@@ -146,6 +146,22 @@ function bindConnectMoodDotsControl() {
   subscribeTheme(updateUIFromTheme);
 }
 
+function bindAutoMedLogControl() {
+  const checkbox = document.getElementById('auto-med-log');
+  if (!checkbox) return;
+
+  function updateUIFromTheme(theme) {
+    checkbox.checked = theme.autoMedLog === true;
+  }
+
+  checkbox.addEventListener('change', () => {
+    setTheme({ autoMedLog: checkbox.checked });
+  });
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
 function bindSyncControls() {
   const enableCheckbox = document.getElementById('syncthing-enable');
   const chooseBtn = document.getElementById('syncthing-choose-folder');
@@ -275,6 +291,7 @@ export function initSettings() {
   bindThemeControls();
   bindDisplayControls();
   bindConnectMoodDotsControl();
+  bindAutoMedLogControl();
   bindSyncControls();
   bindWidgetControls();
 

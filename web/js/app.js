@@ -480,6 +480,59 @@ function initResize() {
   });
 }
 
+function runAutoMedLog() {
+  if (!getTheme().autoMedLog) return;
+  const theme = getTheme();
+  const now = Date.now();
+  const lastCheck = theme.autoMedLogLastCheck || 0;
+  const WINDOW_MS = 5 * 60 * 1000;
+  const DAY_MS = 24 * 60 * 60 * 1000;
+  const startTs = lastCheck > 0 ? lastCheck : now - DAY_MS;
+
+  let loggedAny = false;
+  store.data.meds.forEach(med => {
+    if (!Array.isArray(med.schedule) || med.schedule.length === 0) return;
+    const doseAmount = Number(med.doseAmount) || 1;
+    if (doseAmount <= 0) return;
+
+    med.schedule.forEach(timeStr => {
+      const [h, min] = timeStr.split(':').map(Number);
+      const startDay = new Date(startTs);
+      startDay.setHours(0, 0, 0, 0);
+      const endDay = new Date(now);
+      endDay.setHours(0, 0, 0, 0);
+      const daysDiff = Math.round((endDay - startDay) / DAY_MS);
+
+      for (let d = 0; d <= daysDiff; d++) {
+        const day = new Date(startDay);
+        day.setDate(day.getDate() + d);
+        const scheduledTs = new Date(day).setHours(h, min, 0, 0);
+        if (scheduledTs > now) continue;
+        if (scheduledTs < startTs - WINDOW_MS) continue;
+
+        const existing = store.data.logs.some(l =>
+          l.medicationId === med.id &&
+          Math.abs(l.timestamp - scheduledTs) < WINDOW_MS
+        );
+        if (existing) continue;
+
+        store.changeMedStock(med.id, -doseAmount, t('meds.autoLog.note'), scheduledTs);
+        loggedAny = true;
+      }
+    });
+  });
+
+  setTheme({ autoMedLogLastCheck: now });
+}
+
+function scheduleAutoMedLog() {
+  runAutoMedLog();
+  setInterval(runAutoMedLog, 60 * 1000);
+  document.addEventListener('visibilitychange', () => {
+    if (!document.hidden) runAutoMedLog();
+  });
+}
+
 async function init() {
   await initI18n();
   initTheme();
@@ -511,6 +564,7 @@ async function init() {
   initSettings();
   initSync();
   initResize();
+  scheduleAutoMedLog();
   drawChart();
 
   // 滚动时保存视图位置（防抖）

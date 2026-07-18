@@ -288,7 +288,7 @@ export const store = {
     this.notify();
   },
 
-  changeMedStock(medId, delta, note = '') {
+  changeMedStock(medId, delta, note = '', timestamp = null) {
     const med = this.data.meds.find(m => m.id === medId);
     if (!med) return;
     const remainingAfter = Math.max(0, med.remainingPills + delta);
@@ -298,7 +298,8 @@ export const store = {
       name: med.name,
       delta,
       remainingAfter,
-      note
+      note,
+      timestamp: timestamp || Date.now()
     });
     this.persist();
     this.notify();

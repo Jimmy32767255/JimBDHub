@@ -12,6 +12,7 @@ const medBoxInput = document.getElementById('med-box');
 const medBoardInput = document.getElementById('med-board');
 const medPillsInput = document.getElementById('med-pills');
 const medUnitInput = document.getElementById('med-unit');
+const medDoseAmountInput = document.getElementById('med-dose-amount');
 const medRemainingInput = document.getElementById('med-remaining');
 const medOnsetInput = document.getElementById('med-onset');
 const medPeakInput = document.getElementById('med-peak');
@@ -325,6 +326,7 @@ function openModal(med = null) {
     medBoardInput.value = med.boardPerBox;
     medPillsInput.value = med.pillsPerBoard;
     medUnitInput.value = med.unit;
+    medDoseAmountInput.value = med.doseAmount ?? 1;
     medRemainingInput.value = med.remainingPills;
     medOnsetInput.value = med.onsetHours ?? 1;
     medPeakInput.value = med.peakHours ?? 2;
@@ -336,6 +338,7 @@ function openModal(med = null) {
   } else {
     medModalTitle.textContent = t('meds.modal.addTitle');
     medIdInput.value = '';
+    medDoseAmountInput.value = 1;
     medOnsetInput.value = 1;
     medPeakInput.value = 2;
     medHalfLifeInput.value = 12;
@@ -432,6 +435,7 @@ function handleFormSubmit(e) {
     boardPerBox: board,
     pillsPerBoard: pills,
     unit: medUnitInput.value,
+    doseAmount: Math.max(0.1, Number(medDoseAmountInput.value) || 1),
     totalPills: total,
     remainingPills: remaining,
     onsetHours: Math.max(0, Number(medOnsetInput.value) || 0),

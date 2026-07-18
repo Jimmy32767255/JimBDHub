@@ -390,6 +390,20 @@
         </div>
         <div class="card">
           <div class="card-header">
+            <h3 data-i18n="settings.meds.title">药物</h3>
+          </div>
+          <div class="settings-section">
+            <div class="setting-group">
+              <label class="checkbox-field">
+                <input type="checkbox" id="auto-med-log">
+                <span data-i18n="settings.meds.autoLog">自动记录服药</span>
+              </label>
+              <small class="form-hint" data-i18n="settings.meds.autoLogHint">开启后，到达药品设定的每日服药时间将自动按每次剂量生成服药记录并扣减库存</small>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
             <h3 data-i18n="settings.backup.title">数据备份</h3>
           </div>
           <div class="settings-actions">
@@ -484,6 +498,9 @@
             <label class="form-field"><span class="form-label" data-i18n="meds.form.unit">单位</span>
               <select id="med-unit"><option value="粒" data-i18n="unit.pill">粒</option><option value="片" data-i18n="unit.tablet">片</option></select>
             </label>
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.doseAmount">每次剂量</span><input type="number" id="med-dose-amount" min="0.1" step="0.1" value="1" required></label>
+          </div>
+          <div class="form-row two-col">
             <label class="form-field"><span class="form-label" data-i18n="meds.form.remaining">当前剩余（总数）</span><input type="number" id="med-remaining" min="0" required></label>
           </div>
           <div class="form-row three-col">
