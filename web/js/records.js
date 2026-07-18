@@ -148,7 +148,7 @@ function resetSleepForm() {
   sleepStartInput.value = toDatetimeLocal(defaults.start);
   sleepEndInput.value = toDatetimeLocal(defaults.end);
   sleepBedTimeInput.value = '';
-  sleepEyeOpenTimeInput.value = '';
+  sleepGetOutOfBedTimeInput.value = '';
   sleepQualityInput.value = 3;
   sleepInterruptions.innerHTML = '';
   sleepNoteInput.value = '';
