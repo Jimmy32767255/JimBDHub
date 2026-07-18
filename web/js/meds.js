@@ -1,6 +1,7 @@
 import { store, formatDateTime, formatQuantity } from './store.js';
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
+import { platform } from './platform.js';
 
 const medModal = document.getElementById('med-modal');
 const medForm = document.getElementById('med-form');
@@ -43,6 +44,7 @@ const medManualFields = document.getElementById('med-manual-fields');
 const medScheduleList = document.getElementById('med-schedule-list');
 const medScheduleTimeInput = document.getElementById('med-schedule-time');
 const medAddScheduleBtn = document.getElementById('med-add-schedule');
+const medAddReminderBtn = document.getElementById('med-add-reminder-btn');
 
 let medDbData = [];
 let medDbTagsList = [];
@@ -489,10 +491,25 @@ async function handleLogSubmit(e) {
 }
 
 function initMeds() {
+  if (medAddReminderBtn) {
+    medAddReminderBtn.hidden = !platform.isMedicationReminderSupported();
+  }
+
   document.getElementById('add-med-btn').addEventListener('click', () => openModal());
   document.getElementById('med-cancel').addEventListener('click', closeModal);
   medModal.querySelector('.modal-backdrop').addEventListener('click', closeModal);
   medForm.addEventListener('submit', handleFormSubmit);
+  medAddReminderBtn?.addEventListener('click', async () => {
+    const name = medNameInput.value.trim();
+    if (!name || currentSchedule.length === 0) {
+      await showAlert(t('meds.validation.requiredReminder'));
+      return;
+    }
+    await platform.addMedicationReminders({
+      name,
+      times: [...currentSchedule]
+    });
+  });
   medToggleManual.addEventListener('click', toggleManualFields);
   medAddScheduleBtn.addEventListener('click', addScheduleTime);
   medScheduleTimeInput.addEventListener('keydown', e => {

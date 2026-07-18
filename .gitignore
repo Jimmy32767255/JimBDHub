@@ -213,3 +213,5 @@ __marimo__/
 .trae
 .vscode
 android/app/release/
+android/gradle/
+android/.idea/

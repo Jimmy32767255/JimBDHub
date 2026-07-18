@@ -1,6 +1,7 @@
 import { store, formatDateTime, formatDuration, nowMinute } from './store.js';
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
+import { platform } from './platform.js';
 
 const formTabs = document.querySelectorAll('.form-tab');
 
@@ -38,6 +39,7 @@ const eventTimeInput = document.getElementById('event-time');
 const eventTitleInput = document.getElementById('event-title');
 const eventNoteInput = document.getElementById('event-note');
 const eventShowElapsedInput = document.getElementById('event-show-elapsed');
+const eventAddReminderBtn = document.getElementById('event-add-reminder-btn');
 const eventCancelBtn = document.getElementById('event-cancel');
 
 function toDatetimeLocal(ts) {
@@ -437,6 +439,10 @@ function refreshCurrentTimes() {
 }
 
 function initRecords() {
+  if (eventAddReminderBtn) {
+    eventAddReminderBtn.hidden = !platform.isEventReminderSupported();
+  }
+
   initMemo();
   timeInput.value = toDatetimeLocal(nowMinute());
   updateRangeOutputs();
@@ -469,6 +475,20 @@ function initRecords() {
 
   eventCancelBtn.addEventListener('click', resetEventForm);
   eventForm.addEventListener('submit', handleEventSubmit);
+  eventAddReminderBtn?.addEventListener('click', async () => {
+    const timestamp = new Date(eventTimeInput.value).getTime();
+    const title = eventTitleInput.value.trim();
+    if (Number.isNaN(timestamp) || !title) {
+      await showAlert(t('records.validation.requiredEventReminder'));
+      return;
+    }
+    await platform.addEventReminder({
+      title,
+      description: eventNoteInput.value.trim(),
+      beginTime: timestamp,
+      endTime: timestamp + 60 * 60 * 1000
+    });
+  });
 
   window.addEventListener('hashchange', () => {
     if (location.hash.slice(1) === 'records') {
@@ -525,8 +545,9 @@ function initRecords() {
 
 function handleEventSubmit(e) {
   e.preventDefault();
+  const timestamp = new Date(eventTimeInput.value).getTime();
   const payload = {
-    timestamp: new Date(eventTimeInput.value).getTime(),
+    timestamp,
     title: eventTitleInput.value.trim(),
     note: eventNoteInput.value.trim(),
     showElapsedTime: eventShowElapsedInput.checked

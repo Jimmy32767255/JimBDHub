@@ -131,11 +131,11 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 复选框，开启后不再能拖动视图，变为滑动选取数据，代替点选
 
-- [ ] 事件提醒功能
+- [x] 事件提醒功能
 
 Google® Android™ 操作系统端独占，请求添加系统日程
 
-- [ ] 吃药提醒功能
+- [x] 吃药提醒功能
 
 Google® Android™ 操作系统端独占，请求添加系统闹钟
 

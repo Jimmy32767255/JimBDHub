@@ -7,6 +7,8 @@ import android.content.Intent
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
+import android.provider.AlarmClock
+import android.provider.CalendarContract
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -512,6 +514,49 @@ class MainActivity : AppCompatActivity() {
                     Toast.makeText(
                         this@MainActivity,
                         "请手动添加小部件",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun addCalendarEvent(title: String, description: String, beginTime: Long, endTime: Long) {
+            runOnUiThread {
+                val intent = Intent(Intent.ACTION_INSERT).apply {
+                    data = CalendarContract.Events.CONTENT_URI
+                    putExtra(CalendarContract.Events.TITLE, title)
+                    putExtra(CalendarContract.Events.DESCRIPTION, description)
+                    putExtra(CalendarContract.EXTRA_EVENT_BEGIN_TIME, beginTime)
+                    putExtra(CalendarContract.EXTRA_EVENT_END_TIME, endTime)
+                }
+                try {
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "无法打开日历应用：${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+
+        @JavascriptInterface
+        fun setAlarm(hour: Int, minute: Int, message: String) {
+            runOnUiThread {
+                val intent = Intent(AlarmClock.ACTION_SET_ALARM).apply {
+                    putExtra(AlarmClock.EXTRA_HOUR, hour)
+                    putExtra(AlarmClock.EXTRA_MINUTES, minute)
+                    putExtra(AlarmClock.EXTRA_MESSAGE, message)
+                    putExtra(AlarmClock.EXTRA_SKIP_UI, false)
+                }
+                try {
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "无法打开闹钟应用：${e.message}",
                         Toast.LENGTH_LONG
                     ).show()
                 }

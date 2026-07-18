@@ -876,6 +876,12 @@ body {
   border: 1px solid var(--theme-surface-2);
 }
 .btn-ghost:hover { background: var(--theme-surface-2); color: var(--theme-text); }
+.btn-secondary {
+  background: transparent;
+  color: var(--theme-accent);
+  border: 1px solid var(--theme-accent);
+}
+.btn-secondary:hover { background: var(--theme-accent); color: white; }
 .btn-sm { padding: 7px 12px; font-size: 13px; }
 .btn-danger {
   background: transparent;

@@ -169,6 +169,14 @@ export const platform = {
     return this.isAndroid() || this.isDesktop();
   },
 
+  isEventReminderSupported() {
+    return this.isAndroid();
+  },
+
+  isMedicationReminderSupported() {
+    return this.isAndroid();
+  },
+
   async addWidget() {
     if (this.isAndroid()) {
       window.AndroidBridge.addWidget();
@@ -178,6 +186,25 @@ export const platform = {
       return window.pywebview.api.addWidgetShortcut() || { ok: false, error: t('platform.desktopError') };
     }
     return { ok: false, error: t('platform.widgetUnsupported') };
+  },
+
+  async addEventReminder({ title, description, beginTime, endTime }) {
+    if (this.isAndroid() && typeof window.AndroidBridge.addCalendarEvent === 'function') {
+      window.AndroidBridge.addCalendarEvent(title, description, beginTime, endTime);
+      return { ok: true };
+    }
+    return { ok: false, error: t('platform.reminderUnsupported') };
+  },
+
+  async addMedicationReminders({ name, times }) {
+    if (this.isAndroid() && typeof window.AndroidBridge.setAlarm === 'function') {
+      for (const time of times) {
+        const [hour, minute] = time.split(':').map(Number);
+        window.AndroidBridge.setAlarm(hour, minute, name);
+      }
+      return { ok: true };
+    }
+    return { ok: false, error: t('platform.reminderUnsupported') };
   },
 
   async enableSync() {
