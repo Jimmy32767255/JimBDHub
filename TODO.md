@@ -84,7 +84,7 @@ Windows使用Pyinstall生成.exe，GNU/Linux使用AppImageBuilder生成.appimage
 
 在足够靠近数据点的地方自动吸附
 
-- [ ] 抹掉数据
+- [x] 抹掉数据
 
 在设置中提供删除所有数据的按键（需二次确认）
 

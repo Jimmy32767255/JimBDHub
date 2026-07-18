@@ -254,6 +254,25 @@ function bindWidgetControls() {
   addBtn.addEventListener('click', onAddClick);
 }
 
+function bindWipeControls() {
+  const wipeBtn = document.getElementById('wipe-data-btn');
+  if (!wipeBtn) return;
+
+  wipeBtn.addEventListener('click', async () => {
+    if (!(await showConfirm(t('settings.dangerZone.wipeConfirm')))) {
+      return;
+    }
+    try {
+      await disableSync();
+      store.clearAll();
+      localStorage.clear();
+      window.location.reload();
+    } catch (err) {
+      await showAlert(t('settings.dangerZone.wipeError', { message: err.message }));
+    }
+  });
+}
+
 export function initSettings() {
   const exportBtn = document.getElementById('export-backup-btn');
   const importBtn = document.getElementById('import-backup-btn');
@@ -294,6 +313,7 @@ export function initSettings() {
   bindAutoMedLogControl();
   bindSyncControls();
   bindWidgetControls();
+  bindWipeControls();
 
   subscribe(() => {
     updateDOM();

@@ -365,6 +365,16 @@ export const store = {
     this.persist();
     this.notify();
     return data.language || getLanguage();
+  },
+
+  clearAll() {
+    this.data.records = [];
+    this.data.meds = [];
+    this.data.logs = [];
+    this.data.sleeps = [];
+    this.data.events = [];
+    this.persist();
+    this.notify();
   }
 };
 
