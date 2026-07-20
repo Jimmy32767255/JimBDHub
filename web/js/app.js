@@ -270,12 +270,17 @@ function computeProjectedDoses(meds, records, endTs) {
         doses.push({
           medicationId: med.id,
           name: med.name,
-          amount: 1,
+          amount: med.doseAmount ?? 1,
           unit: med.unit,
+          dosePerTablet: med.dosePerTablet ?? 1,
+          doseMassUnit: med.doseMassUnit ?? 'mg',
           timestamp: ts,
-          onsetHours: med.onsetHours ?? 1,
-          peakHours: med.peakHours ?? 2,
-          halfLifeHours: med.halfLifeHours ?? 12,
+          onsetMinHours: med.onsetMinHours ?? med.onsetHours ?? 1,
+          onsetMaxHours: med.onsetMaxHours ?? med.onsetHours ?? 1,
+          peakMinHours: med.peakMinHours ?? med.peakHours ?? 2,
+          peakMaxHours: med.peakMaxHours ?? med.peakHours ?? 2,
+          halfLifeMinHours: med.halfLifeMinHours ?? med.halfLifeHours ?? 12,
+          halfLifeMaxHours: med.halfLifeMaxHours ?? med.halfLifeHours ?? 12,
           projected: true
         });
       });
@@ -304,8 +309,8 @@ let _viewRestored = false;
 function updateChartDisclaimer() {
   if (!chartDisclaimer) return;
   const { connectMoodDots } = getTheme();
-  const key = connectMoodDots !== false ? 'chart.disclaimer.connected' : 'chart.disclaimer.dotsOnly';
-  chartDisclaimer.textContent = t(key);
+  const moodKey = connectMoodDots !== false ? 'chart.disclaimer.connected' : 'chart.disclaimer.dotsOnly';
+  chartDisclaimer.textContent = t(moodKey) + ' ' + t('chart.disclaimer.effect');
 }
 
 function drawChart() {

@@ -741,6 +741,20 @@ body {
   font-size: 11px;
   color: var(--theme-text-muted);
 }
+.range-inputs {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+}
+.range-inputs input {
+  flex: 1;
+  min-width: 0;
+}
+.range-inputs span {
+  color: var(--theme-text-muted);
+  font-size: 14px;
+  white-space: nowrap;
+}
 .checkbox-field {
   flex-direction: row;
   align-items: center;

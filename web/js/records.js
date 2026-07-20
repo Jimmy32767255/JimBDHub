@@ -122,9 +122,14 @@ function collectDoses() {
       name: med.name,
       amount: Math.max(0.1, Number(amountInput.value) || 1),
       unit: med.unit,
-      onsetHours: med.onsetHours ?? 1,
-      peakHours: med.peakHours ?? 2,
-      halfLifeHours: med.halfLifeHours ?? 12
+      dosePerTablet: med.dosePerTablet ?? 1,
+      doseMassUnit: med.doseMassUnit ?? 'mg',
+      onsetMinHours: med.onsetMinHours ?? med.onsetHours ?? 1,
+      onsetMaxHours: med.onsetMaxHours ?? med.onsetHours ?? 1,
+      peakMinHours: med.peakMinHours ?? med.peakHours ?? 2,
+      peakMaxHours: med.peakMaxHours ?? med.peakHours ?? 2,
+      halfLifeMinHours: med.halfLifeMinHours ?? med.halfLifeHours ?? 12,
+      halfLifeMaxHours: med.halfLifeMaxHours ?? med.halfLifeHours ?? 12
     });
   });
   return doses;

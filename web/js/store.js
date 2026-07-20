@@ -54,6 +54,43 @@ function recalcLogRemainingAfter(medId) {
     });
 }
 
+function migrateMed(m) {
+  if (!m) return m;
+  const onset = m.onsetHours ?? 1;
+  const peak = m.peakHours ?? 2;
+  const halfLife = m.halfLifeHours ?? 12;
+  return {
+    ...m,
+    dosePerTablet: m.dosePerTablet ?? 1,
+    doseMassUnit: m.doseMassUnit ?? 'mg',
+    onsetMinHours: m.onsetMinHours ?? onset,
+    onsetMaxHours: m.onsetMaxHours ?? onset,
+    peakMinHours: m.peakMinHours ?? peak,
+    peakMaxHours: m.peakMaxHours ?? peak,
+    halfLifeMinHours: m.halfLifeMinHours ?? halfLife,
+    halfLifeMaxHours: m.halfLifeMaxHours ?? halfLife
+  };
+}
+
+function migrateDose(d, medMap) {
+  if (!d) return d;
+  const med = d.medicationId ? medMap[d.medicationId] : null;
+  const onset = d.onsetHours ?? (med ? med.onsetMinHours : 1);
+  const peak = d.peakHours ?? (med ? med.peakMinHours : 2);
+  const halfLife = d.halfLifeHours ?? (med ? med.halfLifeMinHours : 12);
+  return {
+    ...d,
+    dosePerTablet: d.dosePerTablet ?? (med ? med.dosePerTablet : 1),
+    doseMassUnit: d.doseMassUnit ?? (med ? med.doseMassUnit : 'mg'),
+    onsetMinHours: d.onsetMinHours ?? onset,
+    onsetMaxHours: d.onsetMaxHours ?? onset,
+    peakMinHours: d.peakMinHours ?? peak,
+    peakMaxHours: d.peakMaxHours ?? peak,
+    halfLifeMinHours: d.halfLifeMinHours ?? halfLife,
+    halfLifeMaxHours: d.halfLifeMaxHours ?? halfLife
+  };
+}
+
 export const store = {
   data: {
     records: [],
@@ -65,11 +102,14 @@ export const store = {
   listeners: [],
 
   init() {
+    this.data.meds = load(KEYS.meds, []).map(migrateMed);
+    const medMap = Object.fromEntries(this.data.meds.map(m => [m.id, m]));
     this.data.records = load(KEYS.records, []).map(r => {
+      let rec = r;
       if (r.medication && !Array.isArray(r.doses)) {
-        return {
+        rec = {
           ...r,
-          doses: [{
+          doses: [migrateDose({
             medicationId: null,
             name: r.medicationName || t('records.moodForm.legacyMedication'),
             amount: r.medicationAmount || 1,
@@ -77,12 +117,14 @@ export const store = {
             onsetHours: 1,
             peakHours: 2,
             halfLifeHours: 12
-          }]
+          }, medMap)]
         };
       }
-      return r;
+      if (Array.isArray(rec.doses)) {
+        rec = { ...rec, doses: rec.doses.map(d => migrateDose(d, medMap)) };
+      }
+      return rec;
     });
-    this.data.meds = load(KEYS.meds, []);
     this.data.logs = load(KEYS.logs, []);
     this.data.sleeps = load(KEYS.sleeps, []);
     this.data.events = load(KEYS.events, []);
@@ -354,8 +396,17 @@ export const store = {
 
   restoreBackup(data) {
     if (!this.validateBackup(data)) return false;
-    this.data.records = data.records;
-    this.data.meds = data.meds;
+    const meds = (data.meds || []).map(migrateMed);
+    const medMap = Object.fromEntries(meds.map(m => [m.id, m]));
+    const records = (data.records || []).map(r => {
+      let rec = r;
+      if (Array.isArray(rec.doses)) {
+        rec = { ...rec, doses: rec.doses.map(d => migrateDose(d, medMap)) };
+      }
+      return rec;
+    });
+    this.data.records = records;
+    this.data.meds = meds;
     this.data.logs = data.logs;
     this.data.sleeps = data.sleeps || [];
     this.data.events = data.events || [];

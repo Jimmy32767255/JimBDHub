@@ -14,10 +14,15 @@ const medBoardInput = document.getElementById('med-board');
 const medPillsInput = document.getElementById('med-pills');
 const medUnitInput = document.getElementById('med-unit');
 const medDoseAmountInput = document.getElementById('med-dose-amount');
+const medDosePerTabletInput = document.getElementById('med-dose-per-tablet');
+const medDoseMassUnitInput = document.getElementById('med-dose-mass-unit');
 const medRemainingInput = document.getElementById('med-remaining');
-const medOnsetInput = document.getElementById('med-onset');
-const medPeakInput = document.getElementById('med-peak');
-const medHalfLifeInput = document.getElementById('med-half-life');
+const medOnsetMinInput = document.getElementById('med-onset-min');
+const medOnsetMaxInput = document.getElementById('med-onset-max');
+const medPeakMinInput = document.getElementById('med-peak-min');
+const medPeakMaxInput = document.getElementById('med-peak-max');
+const medHalfLifeMinInput = document.getElementById('med-half-life-min');
+const medHalfLifeMaxInput = document.getElementById('med-half-life-max');
 const medNoteInput = document.getElementById('med-note');
 
 const stockModal = document.getElementById('stock-modal');
@@ -136,17 +141,39 @@ function renderMedResults(results) {
   });
 }
 
+function readRangeHours(med, arrayKey, minKey, maxKey, singleKey, fallback) {
+  const arr = med[arrayKey];
+  if (Array.isArray(arr) && arr.length >= 2) {
+    return [arr[0], arr[1]];
+  }
+  if (med[minKey] !== undefined && med[maxKey] !== undefined) {
+    return [med[minKey], med[maxKey]];
+  }
+  const single = med[singleKey];
+  return [single ?? fallback, single ?? fallback];
+}
+
 function fillMedForm(med) {
+  const [onsetMin, onsetMax] = readRangeHours(med, 'onsetRangeHours', 'onsetMinHours', 'onsetMaxHours', 'onsetHours', 1);
+  const [peakMin, peakMax] = readRangeHours(med, 'peakRangeHours', 'peakMinHours', 'peakMaxHours', 'peakHours', 2);
+  const [halfLifeMin, halfLifeMax] = readRangeHours(med, 'halfLifeRangeHours', 'halfLifeMinHours', 'halfLifeMaxHours', 'halfLifeHours', 12);
+
   medNameInput.value = med.name;
   medCategoryInput.value = med.category || '';
   medBoxInput.value = 1;
   medBoardInput.value = 1;
   medPillsInput.value = med.pillsPerBoard || 0;
   medUnitInput.value = med.unit || '片';
+  medDoseAmountInput.value = med.doseAmount ?? 1;
+  medDosePerTabletInput.value = med.dosePerTablet ?? 1;
+  medDoseMassUnitInput.value = med.doseMassUnit ?? 'mg';
   medRemainingInput.value = med.pillsPerBoard || 0;
-  medOnsetInput.value = med.onsetHours ?? 1;
-  medPeakInput.value = med.peakHours ?? 2;
-  medHalfLifeInput.value = med.halfLifeHours ?? 12;
+  medOnsetMinInput.value = onsetMin;
+  medOnsetMaxInput.value = onsetMax;
+  medPeakMinInput.value = peakMin;
+  medPeakMaxInput.value = peakMax;
+  medHalfLifeMinInput.value = halfLifeMin;
+  medHalfLifeMaxInput.value = halfLifeMax;
   medNoteInput.value = med.note || '';
   resetSchedule();
   selectedDbMed = med;
@@ -300,9 +327,20 @@ function setManualFieldsVisible(visible) {
   medManualFields.hidden = !visible;
   medToggleManual.textContent = visible ? t('meds.form.manualToggleHide') : t('meds.form.manualToggle');
   medNameInput.required = visible;
-  medOnsetInput.required = visible;
-  medPeakInput.required = visible;
-  medHalfLifeInput.required = visible;
+  medBoxInput.required = visible;
+  medBoardInput.required = visible;
+  medPillsInput.required = visible;
+  medUnitInput.required = visible;
+  medDoseAmountInput.required = visible;
+  medDosePerTabletInput.required = visible;
+  medDoseMassUnitInput.required = visible;
+  medRemainingInput.required = visible;
+  medOnsetMinInput.required = visible;
+  medOnsetMaxInput.required = visible;
+  medPeakMinInput.required = visible;
+  medPeakMaxInput.required = visible;
+  medHalfLifeMinInput.required = visible;
+  medHalfLifeMaxInput.required = visible;
 }
 
 function toggleManualFields() {
@@ -325,14 +363,23 @@ function openModal(med = null) {
     medNameInput.value = med.name;
     medCategoryInput.value = med.category;
     medBoxInput.value = med.boxCount;
+    const [onsetMin, onsetMax] = readRangeHours(med, 'onsetRangeHours', 'onsetMinHours', 'onsetMaxHours', 'onsetHours', 1);
+    const [peakMin, peakMax] = readRangeHours(med, 'peakRangeHours', 'peakMinHours', 'peakMaxHours', 'peakHours', 2);
+    const [halfLifeMin, halfLifeMax] = readRangeHours(med, 'halfLifeRangeHours', 'halfLifeMinHours', 'halfLifeMaxHours', 'halfLifeHours', 12);
+
     medBoardInput.value = med.boardPerBox;
     medPillsInput.value = med.pillsPerBoard;
     medUnitInput.value = med.unit;
     medDoseAmountInput.value = med.doseAmount ?? 1;
+    medDosePerTabletInput.value = med.dosePerTablet ?? 1;
+    medDoseMassUnitInput.value = med.doseMassUnit ?? 'mg';
     medRemainingInput.value = med.remainingPills;
-    medOnsetInput.value = med.onsetHours ?? 1;
-    medPeakInput.value = med.peakHours ?? 2;
-    medHalfLifeInput.value = med.halfLifeHours ?? 12;
+    medOnsetMinInput.value = onsetMin;
+    medOnsetMaxInput.value = onsetMax;
+    medPeakMinInput.value = peakMin;
+    medPeakMaxInput.value = peakMax;
+    medHalfLifeMinInput.value = halfLifeMin;
+    medHalfLifeMaxInput.value = halfLifeMax;
     medNoteInput.value = med.note;
     currentSchedule = Array.isArray(med.schedule) ? [...med.schedule] : [];
     renderScheduleList();
@@ -341,9 +388,14 @@ function openModal(med = null) {
     medModalTitle.textContent = t('meds.modal.addTitle');
     medIdInput.value = '';
     medDoseAmountInput.value = 1;
-    medOnsetInput.value = 1;
-    medPeakInput.value = 2;
-    medHalfLifeInput.value = 12;
+    medDosePerTabletInput.value = 1;
+    medDoseMassUnitInput.value = 'mg';
+    medOnsetMinInput.value = 1;
+    medOnsetMaxInput.value = 1;
+    medPeakMinInput.value = 2;
+    medPeakMaxInput.value = 2;
+    medHalfLifeMinInput.value = 12;
+    medHalfLifeMaxInput.value = 12;
     resetSchedule();
     setManualFieldsVisible(false);
   }
@@ -430,6 +482,9 @@ function handleFormSubmit(e) {
   const pills = Number(medPillsInput.value) || 0;
   const remaining = Number(medRemainingInput.value) || 0;
   const total = box * board * pills;
+  const onsetMin = Math.max(0, Number(medOnsetMinInput.value) || 0);
+  const peakMin = Math.max(0, Number(medPeakMinInput.value) || 0);
+  const halfLifeMin = Math.max(0.1, Number(medHalfLifeMinInput.value) || 0.1);
   const payload = {
     name: medNameInput.value.trim(),
     category: medCategoryInput.value.trim(),
@@ -438,11 +493,16 @@ function handleFormSubmit(e) {
     pillsPerBoard: pills,
     unit: medUnitInput.value,
     doseAmount: Math.max(0.1, Number(medDoseAmountInput.value) || 1),
+    dosePerTablet: Math.max(0.01, Number(medDosePerTabletInput.value) || 1),
+    doseMassUnit: medDoseMassUnitInput.value || 'mg',
     totalPills: total,
     remainingPills: remaining,
-    onsetHours: Math.max(0, Number(medOnsetInput.value) || 0),
-    peakHours: Math.max(0, Number(medPeakInput.value) || 0),
-    halfLifeHours: Math.max(0.1, Number(medHalfLifeInput.value) || 0.1),
+    onsetMinHours: onsetMin,
+    onsetMaxHours: Math.max(onsetMin, Number(medOnsetMaxInput.value) || onsetMin),
+    peakMinHours: peakMin,
+    peakMaxHours: Math.max(peakMin, Number(medPeakMaxInput.value) || peakMin),
+    halfLifeMinHours: halfLifeMin,
+    halfLifeMaxHours: Math.max(halfLifeMin, Number(medHalfLifeMaxInput.value) || halfLifeMin),
     schedule: [...currentSchedule],
     note: medNoteInput.value.trim()
   };

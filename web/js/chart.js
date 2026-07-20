@@ -541,12 +541,26 @@ function pkEffect(dtHours, onsetHours, peakHours, halfLifeHours) {
   return Math.exp(-(dtHours - peakHours) * Math.LN2 / halfLifeHours);
 }
 
-export function effectEndTime(dose, threshold = 0.01) {
-  const { timestamp, amount, peakHours, halfLifeHours } = dose;
-  if (!amount || amount <= threshold || !halfLifeHours || halfLifeHours <= 0) {
-    return timestamp + Math.max(0, peakHours || 0) * HOUR_MS;
+function doseMass(dose) {
+  return (dose.amount || 0) * (dose.dosePerTablet || 1);
+}
+
+function effectAt(dtHours, dose, variant = 'upper') {
+  if (variant === 'upper') {
+    return doseMass(dose) * pkEffect(dtHours, dose.onsetMinHours, dose.peakMinHours, dose.halfLifeMaxHours);
   }
-  const decayEndHours = peakHours + halfLifeHours * Math.log(amount / threshold) / Math.LN2;
+  return doseMass(dose) * pkEffect(dtHours, dose.onsetMaxHours, dose.peakMaxHours, dose.halfLifeMinHours);
+}
+
+export function effectEndTime(dose, threshold = 0.01) {
+  const timestamp = dose.timestamp;
+  const mass = doseMass(dose);
+  const peakHours = dose.peakMaxHours ?? dose.peakHours ?? 0;
+  const halfLifeHours = dose.halfLifeMaxHours ?? dose.halfLifeHours ?? 0.1;
+  if (!mass || mass <= threshold || !halfLifeHours || halfLifeHours <= 0) {
+    return timestamp + Math.max(0, peakHours) * HOUR_MS;
+  }
+  const decayEndHours = peakHours + halfLifeHours * Math.log(mass / threshold) / Math.LN2;
   return timestamp + decayEndHours * HOUR_MS;
 }
 
@@ -559,6 +573,7 @@ function groupDosesByMed(doses) {
         medicationId: d.medicationId,
         name: d.name,
         unit: d.unit,
+        doseMassUnit: d.doseMassUnit || 'mg',
         doses: []
       };
     }
@@ -761,17 +776,19 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
     const series = groups.map((g, idx) => {
       const data = samplePoints.map(ts => {
-        let effect = 0;
+        let upper = 0;
+        let lower = 0;
         g.doses.forEach(d => {
           const dt = (ts - d.timestamp) / HOUR_MS;
-          effect += d.amount * pkEffect(dt, d.onsetHours, d.peakHours, d.halfLifeHours);
+          upper += effectAt(dt, d, 'upper');
+          lower += effectAt(dt, d, 'lower');
         });
-        return { t: ts, effect };
+        return { t: ts, upper, lower };
       });
       return { ...g, color: medColor(idx), data };
     });
 
-    const maxEffect = Math.max(0.1, ...series.flatMap(s => s.data.map(p => p.effect)));
+    const maxEffect = Math.max(0.1, ...series.flatMap(s => s.data.map(p => p.upper)));
     const yMax = Math.ceil(maxEffect * 1.1);
     const yEffectFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
 
@@ -783,25 +800,53 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     }
     renderYAxisOverlay(wrap, 'right', effectYLabels, colors.textMuted, height);
 
-    // 绘制药效曲线
+    const unitSet = new Set(groups.map(g => g.doseMassUnit));
+    const effectUnit = unitSet.size === 1 ? [...unitSet][0] : t('chart.effectUnit');
+    if (effectUnit) {
+      const unitLabel = createSVGElement('text', {
+        x: width - PADDING.right + 4, y: PADDING.top - 6, 'text-anchor': 'start',
+        fill: colors.textMuted, 'font-size': '10'
+      });
+      unitLabel.textContent = effectUnit;
+      container.appendChild(unitLabel);
+    }
+
+    // 绘制药效区间（最高/最低两条曲线）
     series.forEach(s => {
-      const areaD = s.data.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.t)} ${yEffectFor(p.effect)}`).join(' ')
-        + ` L ${xFor(s.data[s.data.length - 1].t)} ${yEffectFor(0)} L ${xFor(s.data[0].t)} ${yEffectFor(0)} Z`;
+      let bandD = `M ${xFor(s.data[0].t)} ${yEffectFor(s.data[0].upper)}`;
+      for (let i = 1; i < s.data.length; i++) {
+        bandD += ` L ${xFor(s.data[i].t)} ${yEffectFor(s.data[i].upper)}`;
+      }
+      for (let i = s.data.length - 1; i >= 0; i--) {
+        bandD += ` L ${xFor(s.data[i].t)} ${yEffectFor(s.data[i].lower)}`;
+      }
+      bandD += ' Z';
       container.appendChild(createSVGElement('path', {
-        d: areaD,
+        d: bandD,
         fill: `rgba(${hexToRgb(s.color)}, 0.15)`,
         stroke: 'none'
       }));
 
-      let lineD = '';
-      s.data.forEach((p, i) => {
-        lineD += `${i === 0 ? 'M' : 'L'} ${xFor(p.t)} ${yEffectFor(p.effect)}`;
-      });
+      let upperD = `M ${xFor(s.data[0].t)} ${yEffectFor(s.data[0].upper)}`;
+      let lowerD = `M ${xFor(s.data[0].t)} ${yEffectFor(s.data[0].lower)}`;
+      for (let i = 1; i < s.data.length; i++) {
+        upperD += ` L ${xFor(s.data[i].t)} ${yEffectFor(s.data[i].upper)}`;
+        lowerD += ` L ${xFor(s.data[i].t)} ${yEffectFor(s.data[i].lower)}`;
+      }
       container.appendChild(createSVGElement('path', {
-        d: lineD,
+        d: upperD,
         fill: 'none',
         stroke: s.color,
-        'stroke-width': 2,
+        'stroke-width': 2.5,
+        'stroke-linecap': 'round',
+        'stroke-linejoin': 'round'
+      }));
+      container.appendChild(createSVGElement('path', {
+        d: lowerD,
+        fill: 'none',
+        stroke: s.color,
+        'stroke-width': 1.5,
+        'stroke-dasharray': '4 4',
         'stroke-linecap': 'round',
         'stroke-linejoin': 'round'
       }));
@@ -1211,13 +1256,16 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     if (hasEffectData) {
       const groups = groupDosesByMed(doses);
       groups.forEach((g, idx) => {
-        let effect = 0;
+        let upper = 0;
+        let lower = 0;
         g.doses.forEach(d => {
           const dt = (tooltipTs - d.timestamp) / HOUR_MS;
-          effect += d.amount * pkEffect(dt, d.onsetHours, d.peakHours, d.halfLifeHours);
+          upper += effectAt(dt, d, 'upper');
+          lower += effectAt(dt, d, 'lower');
         });
-        if (effect > 0) {
-          content += `<div style="color:${medColor(idx)}">${g.name}: ${effect.toFixed(2)}</div>`;
+        if (upper > 0) {
+          const unit = g.doseMassUnit || 'mg';
+          content += `<div style="color:${medColor(idx)}">${g.name}: ${lower.toFixed(2)} ~ ${upper.toFixed(2)} ${unit}</div>`;
         }
       });
     }
@@ -1382,17 +1430,19 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
 
   const series = groups.map((g, idx) => {
     const data = samplePoints.map(t => {
-      let effect = 0;
+      let upper = 0;
+      let lower = 0;
       g.doses.forEach(d => {
         const dt = (t - d.timestamp) / HOUR_MS;
-        effect += d.amount * pkEffect(dt, d.onsetHours, d.peakHours, d.halfLifeHours);
+        upper += effectAt(dt, d, 'upper');
+        lower += effectAt(dt, d, 'lower');
       });
-      return { t, effect };
+      return { t, upper, lower };
     });
     return { ...g, color: medColor(idx), data };
   });
 
-  const maxEffect = Math.max(0.1, ...series.flatMap(s => s.data.map(p => p.effect)));
+  const maxEffect = Math.max(0.1, ...series.flatMap(s => s.data.map(p => p.upper)));
   const yMax = Math.ceil(maxEffect * 1.1);
   const yFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
 
@@ -1445,23 +1495,40 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   container.appendChild(timeAxisGroup);
 
   series.forEach(s => {
-    const areaD = s.data.map((p, i) => `${i === 0 ? 'M' : 'L'} ${xFor(p.t)} ${yFor(p.effect)}`).join(' ')
-      + ` L ${xFor(s.data[s.data.length - 1].t)} ${yFor(0)} L ${xFor(s.data[0].t)} ${yFor(0)} Z`;
+    let bandD = `M ${xFor(s.data[0].t)} ${yFor(s.data[0].upper)}`;
+    for (let i = 1; i < s.data.length; i++) {
+      bandD += ` L ${xFor(s.data[i].t)} ${yFor(s.data[i].upper)}`;
+    }
+    for (let i = s.data.length - 1; i >= 0; i--) {
+      bandD += ` L ${xFor(s.data[i].t)} ${yFor(s.data[i].lower)}`;
+    }
+    bandD += ' Z';
     container.appendChild(createSVGElement('path', {
-      d: areaD,
+      d: bandD,
       fill: `rgba(${hexToRgb(s.color)}, 0.15)`,
       stroke: 'none'
     }));
 
-    let lineD = '';
-    s.data.forEach((p, i) => {
-      lineD += `${i === 0 ? 'M' : 'L'} ${xFor(p.t)} ${yFor(p.effect)}`;
-    });
+    let upperD = `M ${xFor(s.data[0].t)} ${yFor(s.data[0].upper)}`;
+    let lowerD = `M ${xFor(s.data[0].t)} ${yFor(s.data[0].lower)}`;
+    for (let i = 1; i < s.data.length; i++) {
+      upperD += ` L ${xFor(s.data[i].t)} ${yFor(s.data[i].upper)}`;
+      lowerD += ` L ${xFor(s.data[i].t)} ${yFor(s.data[i].lower)}`;
+    }
     container.appendChild(createSVGElement('path', {
-      d: lineD,
+      d: upperD,
       fill: 'none',
       stroke: s.color,
-      'stroke-width': 2,
+      'stroke-width': 2.5,
+      'stroke-linecap': 'round',
+      'stroke-linejoin': 'round'
+    }));
+    container.appendChild(createSVGElement('path', {
+      d: lowerD,
+      fill: 'none',
+      stroke: s.color,
+      'stroke-width': 1.5,
+      'stroke-dasharray': '4 4',
       'stroke-linecap': 'round',
       'stroke-linejoin': 'round'
     }));
@@ -1490,9 +1557,9 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
     vLine.setAttribute('x2', x);
 
     const rows = series.map(s => {
-      const effect = s.data.reduce((closest, p) =>
-        Math.abs(p.t - timestamp) < Math.abs(closest.t - timestamp) ? p : closest, s.data[0]).effect;
-      return `<div style="color:${s.color}">${s.name}: ${effect.toFixed(2)}</div>`;
+      const closest = s.data.reduce((best, p) =>
+        Math.abs(p.t - timestamp) < Math.abs(best.t - timestamp) ? p : best, s.data[0]);
+      return `<div style="color:${s.color}">${s.name}: ${closest.lower.toFixed(2)} ~ ${closest.upper.toFixed(2)} ${s.doseMassUnit || 'mg'}</div>`;
     }).join('');
 
     tooltip.innerHTML = `
