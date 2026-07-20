@@ -9,6 +9,7 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.AlarmClock
 import android.provider.CalendarContract
+import android.util.Base64
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -96,6 +97,29 @@ class MainActivity : AppCompatActivity() {
             }
         } catch (e: Exception) {
             evaluateJavascriptError(e.message ?: "读取文件失败")
+        }
+    }
+
+    private val openBackgroundImageLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocument()
+    ) { uri ->
+        if (uri == null) return@registerForActivityResult
+        try {
+            val dataUrl = readImageAsDataUrl(uri)
+            if (dataUrl != null) {
+                webView.evaluateJavascript(
+                    "if (window.__androidBackgroundImageCallback) window.__androidBackgroundImageCallback(${
+                        escapeJson(
+                            dataUrl
+                        )
+                    })",
+                    null
+                )
+            } else {
+                evaluateJavascriptBackgroundImageError("读取图片失败")
+            }
+        } catch (e: Exception) {
+            evaluateJavascriptBackgroundImageError(e.message ?: "读取图片失败")
         }
     }
 
@@ -209,6 +233,22 @@ class MainActivity : AppCompatActivity() {
     private fun evaluateJavascriptError(message: String) {
         webView.evaluateJavascript(
             "if (window.__androidBackupError) window.__androidBackupError(${escapeJson(message)})",
+            null
+        )
+    }
+
+    private fun readImageAsDataUrl(uri: Uri): String? {
+        val mimeType = contentResolver.getType(uri) ?: "image/*"
+        return contentResolver.openInputStream(uri)?.use { input ->
+            val bytes = input.readBytes()
+            val base64 = Base64.encodeToString(bytes, Base64.NO_WRAP)
+            "data:$mimeType;base64,$base64"
+        }
+    }
+
+    private fun evaluateJavascriptBackgroundImageError(message: String) {
+        webView.evaluateJavascript(
+            "if (window.__androidBackgroundImageError) window.__androidBackgroundImageError(${escapeJson(message)})",
             null
         )
     }
@@ -467,6 +507,13 @@ class MainActivity : AppCompatActivity() {
         fun pickBackup() {
             runOnUiThread {
                 this@MainActivity.pickBackup()
+            }
+        }
+
+        @JavascriptInterface
+        fun pickBackgroundImage() {
+            runOnUiThread {
+                openBackgroundImageLauncher.launch(arrayOf("image/*"))
             }
         }
 

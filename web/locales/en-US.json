@@ -206,6 +206,7 @@
   "settings.appearance.medColorN": "Med {n}",
   "settings.appearance.resetMedColors": "Reset to default",
   "settings.background.imageError": "Failed to read image: {message}",
+  "settings.background.chooseImage": "Choose image",
   "common.clear": "Clear",
   "settings.display.title": "Display",
   "settings.display.uiScale": "Interface scale",

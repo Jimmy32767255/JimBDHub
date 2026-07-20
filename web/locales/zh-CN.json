@@ -206,6 +206,7 @@
   "settings.appearance.medColorN": "药物 {n}",
   "settings.appearance.resetMedColors": "恢复默认",
   "settings.background.imageError": "读取图片失败：{message}",
+  "settings.background.chooseImage": "选择图片",
   "common.clear": "清除",
   "settings.display.title": "显示",
   "settings.display.uiScale": "界面缩放",

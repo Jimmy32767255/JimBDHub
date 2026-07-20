@@ -127,6 +127,33 @@ function waitForAndroidSyncCallback() {
   });
 }
 
+function waitForAndroidBackgroundImageCallback() {
+  return new Promise((resolve, reject) => {
+    const previousCallback = window.__androidBackgroundImageCallback;
+    const previousError = window.__androidBackgroundImageError;
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(t('platform.androidTimeout')));
+    }, 60000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      window.__androidBackgroundImageCallback = previousCallback;
+      window.__androidBackgroundImageError = previousError;
+    };
+
+    window.__androidBackgroundImageCallback = (dataUrl) => {
+      cleanup();
+      resolve(dataUrl);
+    };
+
+    window.__androidBackgroundImageError = (message) => {
+      cleanup();
+      reject(new Error(message || t('platform.androidError')));
+    };
+  });
+}
+
 export const platform = {
   isAndroid() {
     return typeof window.AndroidBridge !== 'undefined';
@@ -186,6 +213,15 @@ export const platform = {
       return window.pywebview.api.addWidgetShortcut() || { ok: false, error: t('platform.desktopError') };
     }
     return { ok: false, error: t('platform.widgetUnsupported') };
+  },
+
+  async pickBackgroundImage() {
+    if (this.isAndroid()) {
+      window.AndroidBridge.pickBackgroundImage();
+      const dataUrl = await waitForAndroidBackgroundImageCallback();
+      return dataUrl || null;
+    }
+    return null;
   },
 
   async addEventReminder({ title, description, beginTime, endTime }) {

@@ -140,6 +140,25 @@ function bindBackgroundControls() {
 
   if (!typeGroup) return;
 
+  if (platform.isAndroid() && imageInput && !imageControl.querySelector('.choose-image-btn')) {
+    imageInput.hidden = true;
+    const chooseBtn = document.createElement('button');
+    chooseBtn.type = 'button';
+    chooseBtn.className = 'btn btn-ghost btn-sm choose-image-btn';
+    chooseBtn.textContent = t('settings.background.chooseImage');
+    chooseBtn.addEventListener('click', async () => {
+      try {
+        const dataUrl = await platform.pickBackgroundImage();
+        if (dataUrl) {
+          setTheme({ backgroundImage: dataUrl, backgroundType: 'image', useSystemTheme: false });
+        }
+      } catch (err) {
+        await showAlert(t('settings.background.imageError', { message: err.message }));
+      }
+    });
+    imageControl.insertBefore(chooseBtn, clearImageBtn);
+  }
+
   function updatePanels(type) {
     solidControl.hidden = type !== 'solid';
     imageControl.hidden = type !== 'image';
