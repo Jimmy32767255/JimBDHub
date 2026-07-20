@@ -92,10 +92,10 @@ chmod +x Build.sh
 
 | 键名 | 内容 |
 |---|---|
-| `jim_mood_records` | 情绪记录 |
-| `jim_medications` | 药品信息 |
-| `jim_med_logs` | 药品变更日志 |
-| `jim_sleep_records` | 睡眠记录 |
+| `jimbdhub_mood_records` | 情绪记录 |
+| `jimbdhub_medications` | 药品信息 |
+| `jimbdhub_med_logs` | 药品变更日志 |
+| `jimbdhub_sleep_records` | 睡眠记录 |
 
 建议定期使用 **设置 → 数据备份** 功能导出备份文件。
 

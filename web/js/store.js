@@ -2,11 +2,11 @@ import { getLanguage, t } from './i18n.js';
 import { getTheme, setTheme } from './theme.js';
 
 const KEYS = {
-  records: 'jim_mood_records',
-  meds: 'jim_medications',
-  logs: 'jim_med_logs',
-  sleeps: 'jim_sleep_records',
-  events: 'jim_events'
+  records: 'jimbdhub_mood_records',
+  meds: 'jimbdhub_medications',
+  logs: 'jimbdhub_med_logs',
+  sleeps: 'jimbdhub_sleep_records',
+  events: 'jimbdhub_events'
 };
 
 function generateId() {
