@@ -306,6 +306,34 @@ function bindAutoMedLogControl() {
   subscribeTheme(updateUIFromTheme);
 }
 
+function bindSimpleModeControls() {
+  const enableCheckbox = document.getElementById('simple-mode-enable');
+  const granularityGroup = document.getElementById('simple-mode-granularity');
+  if (!enableCheckbox || !granularityGroup) return;
+
+  function updateUIFromTheme(theme) {
+    enableCheckbox.checked = theme.simpleMode === true;
+    granularityGroup.querySelectorAll('.segment-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.granularity === theme.simpleModeGranularity);
+    });
+    granularityGroup.disabled = !enableCheckbox.checked;
+    granularityGroup.style.opacity = enableCheckbox.checked ? '1' : '0.5';
+  }
+
+  enableCheckbox.addEventListener('change', () => {
+    setTheme({ simpleMode: enableCheckbox.checked });
+  });
+
+  granularityGroup.addEventListener('click', (e) => {
+    const btn = e.target.closest('.segment-btn');
+    if (!btn || !enableCheckbox.checked) return;
+    setTheme({ simpleModeGranularity: btn.dataset.granularity });
+  });
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
 function bindMedHistoryControls() {
   const group = document.getElementById('med-history-group');
   const list = document.getElementById('med-history-list');
@@ -631,6 +659,7 @@ export function initSettings() {
   bindDisplayControls();
   bindConnectMoodDotsControl();
   bindAutoMedLogControl();
+  bindSimpleModeControls();
   bindMedHistoryControls();
   bindSyncControls();
   bindWidgetControls();

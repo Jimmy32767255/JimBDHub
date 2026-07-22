@@ -157,7 +157,12 @@ function renderYAxisOverlay(wrap, side, labels, textColor, height) {
   wrap.addEventListener('scroll', update);
 }
 
+function isMoodRecord(r) {
+  return r.type !== 'medication';
+}
+
 export function renderChart(records, container, tooltip) {
+  records = records.filter(isMoodRecord);
   const theme = getTheme();
   const colors = {
     positive: theme.positiveColor,
@@ -659,6 +664,7 @@ function medColor(index) {
 }
 
 export function renderCombinedChart(records, sleeps = [], events = [], container, tooltip, legendContainer, options = {}) {
+  records = records.filter(isMoodRecord);
   const { showMood = true, showEffect = true, showSleep = true, projectedDoses = [], pxPerHour, displayRange, boundaryRecords = [], doses: explicitDoses = null } = options;
   const effectivePxPerHour = pxPerHour || PX_PER_HOUR;
   const theme = getTheme();

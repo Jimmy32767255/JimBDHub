@@ -21,7 +21,9 @@ const DEFAULT_THEME = {
   medColors: ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'],
   useSystemTheme: false,
   uiScale: 100,
-  edgeMargin: 0
+  edgeMargin: 0,
+  simpleMode: false,
+  simpleModeGranularity: 'day'
 };
 
 const SYSTEM_PRESETS = {

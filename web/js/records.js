@@ -2,6 +2,7 @@ import { store, formatDateTime, formatDuration, nowMinute } from './store.js';
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { platform } from './platform.js';
+import { getTheme, subscribe as subscribeTheme } from './theme.js';
 
 const formTabs = document.querySelectorAll('.form-tab');
 
@@ -14,11 +15,22 @@ const mixedInput = document.getElementById('record-mixed');
 const mixedValueRow = document.getElementById('mixed-value-row');
 const mixedValueInput = document.getElementById('record-mixed-value');
 const mixedValueOut = document.getElementById('mixed-value-out');
-const medicationInput = document.getElementById('record-medication');
-const dosesField = document.getElementById('medication-doses-field');
-const dosesList = document.getElementById('medication-doses-list');
 const noteInput = document.getElementById('record-note');
 const cancelBtn = document.getElementById('record-cancel');
+
+const moodTimeNormal = document.getElementById('mood-time-normal');
+const moodTimeSimpleDay = document.getElementById('mood-time-simple-day');
+const moodTimeSimplePeriod = document.getElementById('mood-time-simple-period');
+const recordDate = document.getElementById('record-date');
+const recordDatePeriod = document.getElementById('record-date-period');
+const recordPeriodGroup = document.getElementById('record-period-group');
+
+const medicationForm = document.getElementById('medication-form');
+const medicationIdInput = document.getElementById('medication-id');
+const medicationTimeInput = document.getElementById('medication-time');
+const medicationDosesList = document.getElementById('medication-doses-list');
+const medicationNoteInput = document.getElementById('medication-note');
+const medicationCancelBtn = document.getElementById('medication-cancel');
 
 const sleepForm = document.getElementById('sleep-form');
 const sleepIdInput = document.getElementById('sleep-id');
@@ -48,6 +60,73 @@ function toDatetimeLocal(ts) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
 }
 
+function toDateInputValue(ts) {
+  const d = new Date(ts);
+  const pad = n => String(n).padStart(2, '0');
+  return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
+}
+
+const PERIOD_HOURS = { morning: 8, afternoon: 14, evening: 20 };
+
+function getPeriodFromHour(hour) {
+  if (hour < 11) return 'morning';
+  if (hour < 17) return 'afternoon';
+  return 'evening';
+}
+
+function parseLocalDate(dateStr) {
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date();
+  d.setFullYear(year, month - 1, day);
+  d.setHours(0, 0, 0, 0);
+  return d;
+}
+
+function getMoodTimestampFromForm() {
+  const theme = getTheme();
+  if (theme.simpleMode) {
+    if (theme.simpleModeGranularity === 'day') {
+      const dateVal = recordDate.value;
+      if (!dateVal) return Number.NaN;
+      const d = parseLocalDate(dateVal);
+      d.setHours(12, 0, 0, 0);
+      return d.getTime();
+    }
+    const dateVal = recordDatePeriod.value;
+    const activeBtn = recordPeriodGroup?.querySelector('.segment-btn.active');
+    const period = activeBtn?.dataset.period || 'morning';
+    if (!dateVal) return Number.NaN;
+    const d = parseLocalDate(dateVal);
+    d.setHours(PERIOD_HOURS[period], 0, 0, 0);
+    return d.getTime();
+  }
+  return new Date(timeInput.value).getTime();
+}
+
+function setMoodFormTimestamp(ts) {
+  const theme = getTheme();
+  if (theme.simpleMode) {
+    const dateVal = toDateInputValue(ts);
+    if (recordDate) recordDate.value = dateVal;
+    if (recordDatePeriod) recordDatePeriod.value = dateVal;
+    const period = getPeriodFromHour(new Date(ts).getHours());
+    recordPeriodGroup?.querySelectorAll('.segment-btn').forEach(btn => {
+      btn.classList.toggle('active', btn.dataset.period === period);
+    });
+  } else if (timeInput) {
+    timeInput.value = toDatetimeLocal(ts);
+  }
+}
+
+function applySimpleModeUI() {
+  const theme = getTheme();
+  const simple = theme.simpleMode === true;
+  const granularity = theme.simpleModeGranularity || 'day';
+  if (moodTimeNormal) moodTimeNormal.hidden = simple;
+  if (moodTimeSimpleDay) moodTimeSimpleDay.hidden = !simple || granularity !== 'day';
+  if (moodTimeSimplePeriod) moodTimeSimplePeriod.hidden = !simple || granularity !== 'period';
+}
+
 function updateRangeOutputs() {
   valueOut.textContent = valueInput.value;
   mixedValueOut.textContent = mixedValueInput.value;
@@ -57,32 +136,27 @@ function updateRangeOutputs() {
 function resetForm() {
   moodForm.reset();
   idInput.value = '';
-  timeInput.value = toDatetimeLocal(nowMinute());
+  setMoodFormTimestamp(nowMinute());
   mixedValueRow.hidden = true;
-  dosesField.hidden = true;
-  renderDoses([]);
   updateRangeOutputs();
 }
 
 function editRecord(record) {
   idInput.value = record.id;
-  timeInput.value = toDatetimeLocal(record.timestamp);
+  setMoodFormTimestamp(record.timestamp);
   valueInput.value = record.value;
   mixedInput.checked = record.mixed;
   mixedValueInput.value = record.mixedValue;
-  medicationInput.checked = !!record.doses && record.doses.length > 0;
   noteInput.value = record.note || '';
   mixedValueRow.hidden = !record.mixed;
-  dosesField.hidden = !medicationInput.checked;
-  renderDoses(record.doses || []);
   updateRangeOutputs();
   switchForm('mood');
 }
 
 function renderDoses(selectedDoses = []) {
-  dosesList.innerHTML = '';
+  medicationDosesList.innerHTML = '';
   if (store.data.meds.length === 0) {
-    dosesList.innerHTML = `<div class="doses-empty">${t('records.moodForm.noMeds')}</div>`;
+    medicationDosesList.innerHTML = `<div class="doses-empty">${t('records.moodForm.noMeds')}</div>`;
     return;
   }
   const byId = Object.fromEntries(selectedDoses.map(d => [d.medicationId, d]));
@@ -96,10 +170,10 @@ function renderDoses(selectedDoses = []) {
       <input type="number" class="dose-amount" data-id="${med.id}" min="0.1" step="0.1" value="${existing ? existing.amount : 1}" ${existing ? '' : 'disabled'}>
       <span class="dose-unit">${med.unit}</span>
     `;
-    dosesList.appendChild(row);
+    medicationDosesList.appendChild(row);
   });
 
-  dosesList.querySelectorAll('.dose-check').forEach(check => {
+  medicationDosesList.querySelectorAll('.dose-check').forEach(check => {
     check.addEventListener('change', () => {
       const rowEl = check.closest('.dose-row');
       const amountInput = rowEl.querySelector(`.dose-amount[data-id="${check.dataset.id}"]`);
@@ -109,7 +183,7 @@ function renderDoses(selectedDoses = []) {
 }
 
 function collectDoses() {
-  const rows = dosesList.querySelectorAll('.dose-row');
+  const rows = medicationDosesList.querySelectorAll('.dose-row');
   const doses = [];
   rows.forEach(row => {
     const check = row.querySelector('.dose-check');
@@ -220,10 +294,13 @@ function renderRecords() {
   const list = document.getElementById('records-list');
   list.innerHTML = '';
 
-  const moodItems = store.data.records.map(r => ({ kind: 'mood', data: r, time: r.timestamp }));
+  const isMoodRecord = r => r.type !== 'medication';
+  const isMedicationRecord = r => r.type === 'medication';
+  const moodItems = store.data.records.filter(isMoodRecord).map(r => ({ kind: 'mood', data: r, time: r.timestamp }));
+  const medicationItems = store.data.records.filter(isMedicationRecord).map(r => ({ kind: 'medication', data: r, time: r.timestamp }));
   const sleepItems = store.data.sleeps.map(s => ({ kind: 'sleep', data: s, time: s.startTime }));
   const eventItems = store.data.events.map(e => ({ kind: 'event', data: e, time: e.timestamp }));
-  const all = [...moodItems, ...sleepItems, ...eventItems].sort((a, b) => b.time - a.time);
+  const all = [...moodItems, ...medicationItems, ...sleepItems, ...eventItems].sort((a, b) => b.time - a.time);
 
   all.forEach((item, idx) => {
     const el = document.createElement('div');
@@ -236,13 +313,24 @@ function renderRecords() {
       const r = item.data;
       const mainClass = r.value === 0 ? 'neutral' : (r.value > 0 ? 'positive' : 'negative');
       const mixedText = r.mixed ? ` / ${r.mixedValue > 0 ? '+' : ''}${r.mixedValue}` : '';
-      const medText = (r.doses || []).length
-        ? t('records.history.medicationDoses', { names: r.doses.map(d => `${d.name} ${d.amount}${d.unit}`).join('、') })
-        : '';
       el.innerHTML = `
         <header>
           <span class="value-badge ${mainClass}">${r.value > 0 ? '+' : ''}${r.value}${mixedText}</span>
-          <time>${formatDateTime(r.timestamp)}${medText}</time>
+          <time>${formatDateTime(r.timestamp)}</time>
+        </header>
+        ${r.note ? `<p class="note">${r.note}</p>` : ''}
+        <footer>
+          <button class="btn btn-icon" data-action="edit" data-id="${r.id}">${t('common.edit')}</button>
+          <button class="btn btn-danger" data-action="delete" data-id="${r.id}">${t('common.delete')}</button>
+        </footer>
+      `;
+    } else if (item.kind === 'medication') {
+      const r = item.data;
+      const medText = (r.doses || []).map(d => `${d.name} ${d.amount}${d.unit}`).join('、');
+      el.innerHTML = `
+        <header>
+          <span class="event-badge">${t('records.history.medication')}</span>
+          <time>${formatDateTime(r.timestamp)} · ${medText}</time>
         </header>
         ${r.note ? `<p class="note">${r.note}</p>` : ''}
         <footer>
@@ -297,22 +385,18 @@ function renderRecords() {
 
 function handleSubmit(e) {
   e.preventDefault();
-  const doses = medicationInput.checked ? collectDoses() : [];
   const payload = {
-    timestamp: new Date(timeInput.value).getTime(),
+    timestamp: getMoodTimestampFromForm(),
     value: Number(valueInput.value),
     mixed: mixedInput.checked,
     mixedValue: mixedInput.checked ? Number(mixedValueInput.value) : 0,
-    doses,
-    note: noteInput.value.trim()
+    note: noteInput.value.trim(),
+    type: 'mood'
   };
   if (idInput.value) {
-    const oldRecord = store.data.records.find(r => r.id === idInput.value);
     store.updateRecord(idInput.value, payload);
-    adjustStockForEdit(oldRecord, payload);
   } else {
     store.addRecord(payload);
-    adjustStockForDoses(doses, 'records.moodForm.doseLogNote', -1);
   }
   resetForm();
 }
@@ -402,11 +486,49 @@ function editEvent(event) {
   switchForm('event');
 }
 
+function resetMedicationForm() {
+  medicationForm.reset();
+  medicationIdInput.value = '';
+  medicationTimeInput.value = toDatetimeLocal(nowMinute());
+  renderDoses([]);
+  medicationNoteInput.value = '';
+}
+
+function editMedicationRecord(record) {
+  medicationIdInput.value = record.id;
+  medicationTimeInput.value = toDatetimeLocal(record.timestamp);
+  renderDoses(record.doses || []);
+  medicationNoteInput.value = record.note || '';
+  switchForm('medication');
+}
+
+function handleMedicationSubmit(e) {
+  e.preventDefault();
+  const doses = collectDoses();
+  const timestamp = new Date(medicationTimeInput.value).getTime();
+  const payload = {
+    timestamp,
+    doses,
+    note: medicationNoteInput.value.trim(),
+    type: 'medication'
+  };
+  if (medicationIdInput.value) {
+    const oldRecord = store.data.records.find(r => r.id === medicationIdInput.value);
+    store.updateRecord(medicationIdInput.value, payload);
+    adjustStockForEdit(oldRecord, payload);
+  } else {
+    store.addRecord(payload);
+    adjustStockForDoses(doses, 'records.moodForm.doseLogNote', -1);
+  }
+  resetMedicationForm();
+}
+
 function switchForm(name) {
   formTabs.forEach(tab => {
     tab.classList.toggle('active', tab.dataset.form === name);
   });
   moodForm.hidden = name !== 'mood';
+  medicationForm.hidden = name !== 'medication';
   sleepForm.hidden = name !== 'sleep';
   eventForm.hidden = name !== 'event';
 }
@@ -436,7 +558,10 @@ function initMemo() {
 
 function refreshCurrentTimes() {
   if (!idInput.value && !moodForm.hidden) {
-    timeInput.value = toDatetimeLocal(nowMinute());
+    setMoodFormTimestamp(nowMinute());
+  }
+  if (!medicationIdInput.value && medicationForm && !medicationForm.hidden) {
+    medicationTimeInput.value = toDatetimeLocal(nowMinute());
   }
   if (!eventIdInput.value && !eventForm.hidden) {
     eventTimeInput.value = toDatetimeLocal(nowMinute());
@@ -449,7 +574,9 @@ function initRecords() {
   }
 
   initMemo();
-  timeInput.value = toDatetimeLocal(nowMinute());
+  setMoodFormTimestamp(nowMinute());
+  resetMedicationForm();
+  applySimpleModeUI();
   updateRangeOutputs();
 
   valueInput.addEventListener('input', updateRangeOutputs);
@@ -459,12 +586,18 @@ function initRecords() {
   mixedInput.addEventListener('change', () => {
     mixedValueRow.hidden = !mixedInput.checked;
   });
-  medicationInput.addEventListener('change', () => {
-    dosesField.hidden = !medicationInput.checked;
-    if (medicationInput.checked) renderDoses();
-  });
   cancelBtn.addEventListener('click', resetForm);
   moodForm.addEventListener('submit', handleSubmit);
+
+  recordPeriodGroup?.addEventListener('click', e => {
+    const btn = e.target.closest('.segment-btn');
+    if (!btn) return;
+    recordPeriodGroup.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+
+  medicationCancelBtn?.addEventListener('click', resetMedicationForm);
+  medicationForm?.addEventListener('submit', handleMedicationSubmit);
 
   formTabs.forEach(tab => {
     tab.addEventListener('click', () => switchForm(tab.dataset.form));
@@ -516,6 +649,16 @@ function initRecords() {
         editRecord(record);
       } else if (action === 'delete') {
         if (await showConfirm(t('records.confirm.deleteMood'))) {
+          store.deleteRecord(id);
+        }
+      }
+    } else if (kind === 'medication') {
+      const record = store.data.records.find(r => r.id === id);
+      if (!record) return;
+      if (action === 'edit') {
+        editMedicationRecord(record);
+      } else if (action === 'delete') {
+        if (await showConfirm(t('records.confirm.deleteMedication'))) {
           adjustStockForDoses(record.doses || [], 'records.moodForm.doseDeleteLogNote', 1);
           store.deleteRecord(id);
         }
@@ -545,6 +688,12 @@ function initRecords() {
 
   store.subscribe(() => renderRecords());
   subscribe(() => renderRecords());
+  subscribeTheme(() => {
+    applySimpleModeUI();
+    if (!idInput.value) {
+      setMoodFormTimestamp(nowMinute());
+    }
+  });
   renderRecords();
 }
 

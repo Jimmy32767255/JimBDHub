@@ -137,17 +137,38 @@
               <h3 data-i18n="records.sectionTitle">记录</h3>
               <div class="form-tabs">
                 <button type="button" class="form-tab active" data-form="mood" data-i18n="records.formTabs.mood">情绪</button>
+                <button type="button" class="form-tab" data-form="medication" data-i18n="records.formTabs.medication">服药</button>
                 <button type="button" class="form-tab" data-form="sleep" data-i18n="records.formTabs.sleep">睡眠</button>
                 <button type="button" class="form-tab" data-form="event" data-i18n="records.formTabs.event">事件</button>
               </div>
             </div>
             <form id="record-form" class="record-form">
               <input type="hidden" id="record-id">
-              <div class="form-row">
+              <div class="form-row" id="mood-time-normal">
                 <label class="form-field">
                   <span class="form-label" data-i18n="records.moodForm.time">时间</span>
                   <input type="datetime-local" id="record-time" required>
                 </label>
+              </div>
+              <div class="form-row" id="mood-time-simple-day" hidden>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.moodForm.date">日期</span>
+                  <input type="date" id="record-date" required>
+                </label>
+              </div>
+              <div class="form-row" id="mood-time-simple-period" hidden>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.moodForm.date">日期</span>
+                  <input type="date" id="record-date-period" required>
+                </label>
+                <div class="form-field" style="margin-top: 12px;">
+                  <span class="form-label" data-i18n="records.moodForm.period">时段</span>
+                  <div class="segmented-control" id="record-period-group">
+                    <button type="button" class="segment-btn active" data-period="morning" data-i18n="settings.simpleMode.morning">早</button>
+                    <button type="button" class="segment-btn" data-period="afternoon" data-i18n="settings.simpleMode.afternoon">中</button>
+                    <button type="button" class="segment-btn" data-period="evening" data-i18n="settings.simpleMode.evening">晚</button>
+                  </div>
+                </div>
               </div>
               <div class="form-row two-col">
                 <label class="form-field">
@@ -167,18 +188,6 @@
                 </label>
               </div>
               <div class="form-row">
-                <label class="form-field checkbox-field">
-                  <input type="checkbox" id="record-medication">
-                  <span data-i18n="records.moodForm.medication">使用药物</span>
-                </label>
-              </div>
-              <div class="form-row" id="medication-doses-field" hidden>
-                <div class="form-field">
-                  <span class="form-label" data-i18n="records.moodForm.medicationDoses">本次服用</span>
-                  <div id="medication-doses-list"></div>
-                </div>
-              </div>
-              <div class="form-row">
                 <label class="form-field">
                   <span class="form-label" data-i18n="records.moodForm.note">备注</span>
                   <textarea id="record-note" rows="3" data-i18n-placeholder="records.moodForm.notePlaceholder" placeholder="记录当下的身体感受、睡眠、事件等"></textarea>
@@ -187,6 +196,31 @@
               <div class="form-actions">
                 <button type="button" class="btn btn-ghost" id="record-cancel" data-i18n="common.cancel">取消</button>
                 <button type="submit" class="btn btn-primary" data-i18n="records.moodForm.save">保存记录</button>
+              </div>
+            </form>
+            <form id="medication-form" class="record-form" hidden>
+              <input type="hidden" id="medication-id">
+              <div class="form-row">
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.medicationForm.time">时间</span>
+                  <input type="datetime-local" id="medication-time" required>
+                </label>
+              </div>
+              <div class="form-row">
+                <div class="form-field">
+                  <span class="form-label" data-i18n="records.medicationForm.doses">本次服用</span>
+                  <div id="medication-doses-list"></div>
+                </div>
+              </div>
+              <div class="form-row">
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.medicationForm.note">备注</span>
+                  <textarea id="medication-note" rows="3" data-i18n-placeholder="records.moodForm.notePlaceholder" placeholder="记录用药相关说明"></textarea>
+                </label>
+              </div>
+              <div class="form-actions">
+                <button type="button" class="btn btn-ghost" id="medication-cancel" data-i18n="common.cancel">取消</button>
+                <button type="submit" class="btn btn-primary" data-i18n="records.medicationForm.save">保存服药记录</button>
               </div>
             </form>
             <form id="event-form" class="record-form" hidden>
@@ -424,6 +458,27 @@
                 <option value="32">32 px</option>
               </select>
               <small class="form-hint" data-i18n="settings.display.edgeMarginHint">在移动端增加屏幕两侧留白，避免边缘控件难以点击</small>
+            </div>
+          </div>
+        </div>
+        <div class="card">
+          <div class="card-header">
+            <h3 data-i18n="settings.simpleMode.title">简化模式</h3>
+          </div>
+          <div class="settings-section">
+            <div class="setting-group">
+              <label class="checkbox-field">
+                <input type="checkbox" id="simple-mode-enable">
+                <span data-i18n="settings.simpleMode.enable">启用简化模式</span>
+              </label>
+              <small class="form-hint" data-i18n="settings.simpleMode.enableHint">开启后，情绪记录可以按天或早中晚为单位记录，服药记录将独立显示</small>
+            </div>
+            <div class="setting-group">
+              <h4 data-i18n="settings.simpleMode.granularity">记录粒度</h4>
+              <div class="segmented-control" id="simple-mode-granularity">
+                <button type="button" class="segment-btn active" data-granularity="day" data-i18n="settings.simpleMode.day">天</button>
+                <button type="button" class="segment-btn" data-granularity="period" data-i18n="settings.simpleMode.period">早中晚</button>
+              </div>
             </div>
           </div>
         </div>
