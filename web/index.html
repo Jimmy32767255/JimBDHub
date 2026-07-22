@@ -439,6 +439,39 @@
               </label>
               <small class="form-hint" data-i18n="settings.meds.autoLogHint">开启后，到达药品设定的每日服药时间将自动按每次剂量生成服药记录并扣减库存</small>
             </div>
+            <div class="setting-group" id="med-history-group">
+              <h4 data-i18n="settings.meds.historyTitle">用药历史（补充药效）</h4>
+              <small class="form-hint" data-i18n="settings.meds.historyHint">添加开始用药或变更用药的时间点，用于在首次服药记录之前估算药效。变更点后的实际服药记录优先于历史记录。</small>
+              <div class="med-history-list" id="med-history-list"></div>
+              <div class="med-history-form" id="med-history-form" hidden>
+                <input type="hidden" id="med-history-id">
+                <div class="form-row two-col">
+                  <label class="form-field">
+                    <span class="form-label" data-i18n="settings.meds.historyMedication">药品</span>
+                    <select id="med-history-med-id" required></select>
+                  </label>
+                  <label class="form-field">
+                    <span class="form-label" data-i18n="settings.meds.historyTime">变更时间</span>
+                    <input type="datetime-local" id="med-history-time" required>
+                  </label>
+                </div>
+                <div class="form-row two-col">
+                  <label class="form-field">
+                    <span class="form-label" data-i18n="settings.meds.historyAmount">每次剂量</span>
+                    <input type="number" id="med-history-amount" min="0.1" step="0.1" required>
+                  </label>
+                  <label class="form-field">
+                    <span class="form-label" data-i18n="settings.meds.historyUnit">单位</span>
+                    <input type="text" id="med-history-unit" readonly>
+                  </label>
+                </div>
+                <div class="form-actions med-history-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" id="med-history-cancel" data-i18n="common.cancel">取消</button>
+                  <button type="button" class="btn btn-primary btn-sm" id="med-history-save" data-i18n="common.save">保存</button>
+                </div>
+              </div>
+              <button type="button" class="btn btn-ghost btn-sm" id="med-history-add-btn" data-i18n="settings.meds.historyAdd">添加变更点</button>
+            </div>
           </div>
         </div>
         <div class="card">

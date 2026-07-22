@@ -1047,6 +1047,57 @@ body {
   text-transform: uppercase;
   letter-spacing: 0.05em;
 }
+.med-history-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.med-history-empty {
+  font-size: 13px;
+  color: var(--theme-text-muted);
+  padding: 8px 0;
+}
+.med-history-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+}
+.med-history-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.med-history-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text);
+}
+.med-history-meta {
+  font-size: 12px;
+  color: var(--theme-text-muted);
+}
+.med-history-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
+.med-history-form {
+  padding: 12px;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  margin-bottom: 12px;
+}
+.med-history-form .form-actions {
+  margin-bottom: 0;
+}
 .color-row {
   display: flex;
   gap: 16px;

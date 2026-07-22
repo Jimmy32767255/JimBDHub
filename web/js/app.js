@@ -1,5 +1,5 @@
 import { store } from './store.js';
-import { renderCombinedChart, MAX_MOOD_RANGE_MS, extractDoses, effectEndTime } from './chart.js';
+import { renderCombinedChart, MAX_MOOD_RANGE_MS, getEffectiveDoses, effectEndTime } from './chart.js';
 import { initMeds } from './meds.js';
 import { initRecords } from './records.js';
 import { initSettings } from './settings.js';
@@ -189,7 +189,7 @@ function filterDataForPage(records, sleeps, events, page, globalRange) {
     .sort((a, b) => a.timestamp - b.timestamp)[0] || null;
 
   // Include doses whose pharmacological effect reaches into this page
-  const allDoses = extractDoses(records);
+  const allDoses = getEffectiveDoses(records, { maxTime: pageEnd });
   const affectingDoses = allDoses.filter(d => d.timestamp <= pageEnd && effectEndTime(d, 0.01) >= pageStart);
 
   return {

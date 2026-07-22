@@ -1,4 +1,4 @@
-import { formatDateTime, formatDuration } from './store.js';
+import { store, formatDateTime, formatDuration } from './store.js';
 import { t } from './i18n.js';
 import { getTheme } from './theme.js';
 
@@ -532,6 +532,74 @@ export function extractDoses(records) {
   return doses;
 }
 
+function generateHistoricalDoses(maxTime) {
+  const history = store.data.medHistory || [];
+  if (history.length === 0) return [];
+
+  const actualByMed = {};
+  store.data.records.forEach(r => {
+    (r.doses || []).forEach(d => {
+      const key = d.medicationId || d.name;
+      if (!actualByMed[key]) actualByMed[key] = [];
+      actualByMed[key].push({ ...d, timestamp: r.timestamp });
+    });
+  });
+
+  const historyByMed = {};
+  history.forEach(h => {
+    const key = h.medicationId || h.name;
+    if (!historyByMed[key]) historyByMed[key] = [];
+    historyByMed[key].push(h);
+  });
+
+  const capTime = maxTime || (Date.now() + MAX_EFFECT_FUTURE_MS);
+  const virtualDoses = [];
+
+  Object.values(historyByMed).forEach(entries => {
+    const sorted = entries.sort((a, b) => a.timestamp - b.timestamp);
+    const medKey = sorted[0].medicationId || sorted[0].name;
+    const actuals = actualByMed[medKey] || [];
+    const firstActualTs = actuals.length ? Math.min(...actuals.map(d => d.timestamp)) : Infinity;
+
+    sorted.forEach((entry, idx) => {
+      const nextEntry = sorted[idx + 1];
+      const endTime = Math.min(
+        nextEntry ? nextEntry.timestamp : Infinity,
+        firstActualTs,
+        capTime
+      );
+      const schedule = Array.isArray(entry.schedule) ? entry.schedule : [];
+      const amount = Number(entry.amount) || 0;
+      if (!schedule.length || amount <= 0) return;
+
+      const startDay = new Date(entry.timestamp);
+      startDay.setHours(0, 0, 0, 0);
+      for (let dayTs = startDay.getTime(); dayTs < endTime; dayTs += DAY_MS) {
+        schedule.forEach(time => {
+          const [h, min] = String(time).split(':').map(Number);
+          if (Number.isNaN(h) || Number.isNaN(min)) return;
+          const doseTs = dayTs + h * HOUR_MS + min * 60 * 1000;
+          if (doseTs < entry.timestamp || doseTs >= endTime) return;
+          virtualDoses.push({
+            ...entry,
+            timestamp: doseTs,
+            amount,
+            historical: true
+          });
+        });
+      }
+    });
+  });
+
+  return virtualDoses;
+}
+
+export function getEffectiveDoses(records, options = {}) {
+  const actual = extractDoses(records);
+  const historical = generateHistoricalDoses(options.maxTime);
+  return [...actual, ...historical, ...(options.projectedDoses || [])];
+}
+
 function pkEffect(dtHours, onsetHours, peakHours, halfLifeHours) {
   if (dtHours < 0 || dtHours < onsetHours) return 0;
   if (dtHours <= peakHours) {
@@ -611,7 +679,8 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   if (legendContainer) legendContainer.innerHTML = '';
 
   let actualDoses = explicitDoses !== null ? explicitDoses : extractDoses(records);
-  let doses = [...actualDoses, ...projectedDoses];
+  let historicalDoses = generateHistoricalDoses();
+  let doses = [...actualDoses, ...historicalDoses, ...projectedDoses];
   let hasMoodData = records.length > 0 && showMood;
   let hasEffectData = doses.length > 0 && showEffect;
   let hasSleepData = sleeps.length > 0 && showSleep;
@@ -651,7 +720,8 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   events = events.filter(e => e.timestamp >= dataMinTime && e.timestamp <= dataMaxTime);
   if (explicitDoses === null) {
     actualDoses = extractDoses(records);
-    doses = [...actualDoses, ...projectedDoses];
+    historicalDoses = generateHistoricalDoses();
+    doses = [...actualDoses, ...historicalDoses, ...projectedDoses];
   }
   hasMoodData = records.length > 0 && showMood;
   hasEffectData = doses.length > 0 && showEffect;
@@ -1386,7 +1456,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   clearYAxisOverlays(wrap);
   if (legendContainer) legendContainer.innerHTML = '';
 
-  let doses = extractDoses(records);
+  let doses = getEffectiveDoses(records);
   if (doses.length === 0) {
     const empty = createSVGElement('text', {
       x: '50%', y: '50%', 'text-anchor': 'middle', fill: textMuted, 'font-size': '14'

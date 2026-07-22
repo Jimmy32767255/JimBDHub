@@ -6,7 +6,8 @@ const KEYS = {
   meds: 'jimbdhub_medications',
   logs: 'jimbdhub_med_logs',
   sleeps: 'jimbdhub_sleep_records',
-  events: 'jimbdhub_events'
+  events: 'jimbdhub_events',
+  medHistory: 'jimbdhub_med_history'
 };
 
 function generateId() {
@@ -91,19 +92,41 @@ function migrateDose(d, medMap) {
   };
 }
 
+function migrateMedHistory(h, medMap) {
+  if (!h) return h;
+  const med = h.medicationId ? medMap[h.medicationId] : null;
+  return {
+    ...h,
+    name: h.name || (med ? med.name : t('records.moodForm.legacyMedication')),
+    unit: h.unit || (med ? med.unit : '片'),
+    amount: h.amount ?? (med ? med.doseAmount : 1),
+    dosePerTablet: h.dosePerTablet ?? (med ? med.dosePerTablet : 1),
+    doseMassUnit: h.doseMassUnit ?? (med ? med.doseMassUnit : 'mg'),
+    schedule: Array.isArray(h.schedule) ? h.schedule : (med ? med.schedule : []),
+    onsetMinHours: h.onsetMinHours ?? (med ? med.onsetMinHours : 1),
+    onsetMaxHours: h.onsetMaxHours ?? (med ? med.onsetMaxHours : 1),
+    peakMinHours: h.peakMinHours ?? (med ? med.peakMinHours : 2),
+    peakMaxHours: h.peakMaxHours ?? (med ? med.peakMaxHours : 2),
+    halfLifeMinHours: h.halfLifeMinHours ?? (med ? med.halfLifeMinHours : 12),
+    halfLifeMaxHours: h.halfLifeMaxHours ?? (med ? med.halfLifeMaxHours : 12)
+  };
+}
+
 export const store = {
   data: {
     records: [],
     meds: [],
     logs: [],
     sleeps: [],
-    events: []
+    events: [],
+    medHistory: []
   },
   listeners: [],
 
   init() {
     this.data.meds = load(KEYS.meds, []).map(migrateMed);
     const medMap = Object.fromEntries(this.data.meds.map(m => [m.id, m]));
+    this.data.medHistory = load(KEYS.medHistory, []).map(h => migrateMedHistory(h, medMap));
     this.data.records = load(KEYS.records, []).map(r => {
       let rec = r;
       if (r.medication && !Array.isArray(r.doses)) {
@@ -136,6 +159,7 @@ export const store = {
     save(KEYS.logs, this.data.logs);
     save(KEYS.sleeps, this.data.sleeps);
     save(KEYS.events, this.data.events);
+    save(KEYS.medHistory, this.data.medHistory);
   },
 
   subscribe(fn) {
@@ -292,6 +316,30 @@ export const store = {
     this.notify();
   },
 
+  addMedHistory(entry) {
+    const e = { ...entry, id: generateId() };
+    this.data.medHistory.push(e);
+    this.data.medHistory.sort((a, b) => a.timestamp - b.timestamp);
+    this.persist();
+    this.notify();
+    return e;
+  },
+
+  updateMedHistory(id, patch) {
+    const idx = this.data.medHistory.findIndex(e => e.id === id);
+    if (idx === -1) return;
+    this.data.medHistory[idx] = { ...this.data.medHistory[idx], ...patch };
+    this.data.medHistory.sort((a, b) => a.timestamp - b.timestamp);
+    this.persist();
+    this.notify();
+  },
+
+  deleteMedHistory(id) {
+    this.data.medHistory = this.data.medHistory.filter(e => e.id !== id);
+    this.persist();
+    this.notify();
+  },
+
   addLog(log) {
     const l = { ...log, id: generateId(), timestamp: log.timestamp || Date.now() };
     this.data.logs.unshift(l);
@@ -376,6 +424,7 @@ export const store = {
       logs: this.data.logs,
       sleeps: this.data.sleeps,
       events: this.data.events,
+      medHistory: this.data.medHistory,
       language: getLanguage(),
       theme: getTheme()
     };
@@ -389,6 +438,7 @@ export const store = {
     if (!Array.isArray(data.logs)) return false;
     if ('sleeps' in data && !Array.isArray(data.sleeps)) return false;
     if ('events' in data && !Array.isArray(data.events)) return false;
+    if ('medHistory' in data && !Array.isArray(data.medHistory)) return false;
     if ('language' in data && typeof data.language !== 'string') return false;
     if ('theme' in data && (typeof data.theme !== 'object' || data.theme === null)) return false;
     return true;
@@ -410,6 +460,7 @@ export const store = {
     this.data.logs = data.logs;
     this.data.sleeps = data.sleeps || [];
     this.data.events = data.events || [];
+    this.data.medHistory = (data.medHistory || []).map(h => migrateMedHistory(h, medMap));
     if (data.theme) {
       setTheme(data.theme);
     }
@@ -424,6 +475,7 @@ export const store = {
     this.data.logs = [];
     this.data.sleeps = [];
     this.data.events = [];
+    this.data.medHistory = [];
     this.persist();
     this.notify();
   }

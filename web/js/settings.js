@@ -306,6 +306,180 @@ function bindAutoMedLogControl() {
   subscribeTheme(updateUIFromTheme);
 }
 
+function bindMedHistoryControls() {
+  const group = document.getElementById('med-history-group');
+  const list = document.getElementById('med-history-list');
+  const form = document.getElementById('med-history-form');
+  const addBtn = document.getElementById('med-history-add-btn');
+  const cancelBtn = document.getElementById('med-history-cancel');
+  const saveBtn = document.getElementById('med-history-save');
+  const idInput = document.getElementById('med-history-id');
+  const medSelect = document.getElementById('med-history-med-id');
+  const timeInput = document.getElementById('med-history-time');
+  const amountInput = document.getElementById('med-history-amount');
+  const unitInput = document.getElementById('med-history-unit');
+
+  if (!group) return;
+
+  function formatDateTimeLocal(ts) {
+    const d = new Date(ts);
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}T${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function populateMedSelect(selectedId = '') {
+    if (!medSelect) return;
+    medSelect.innerHTML = '';
+    if (store.data.meds.length === 0) {
+      const option = document.createElement('option');
+      option.value = '';
+      option.textContent = t('records.moodForm.noMeds');
+      medSelect.appendChild(option);
+      return;
+    }
+    store.data.meds.forEach(med => {
+      const option = document.createElement('option');
+      option.value = med.id;
+      option.textContent = med.name;
+      if (med.id === selectedId) option.selected = true;
+      medSelect.appendChild(option);
+    });
+  }
+
+  function updateUnitFromSelection() {
+    const med = store.data.meds.find(m => m.id === medSelect.value);
+    unitInput.value = med ? med.unit : '';
+    if (!idInput.value && med) {
+      amountInput.value = med.doseAmount ?? 1;
+    }
+  }
+
+  function renderList() {
+    if (!list) return;
+    list.innerHTML = '';
+    const entries = [...store.data.medHistory].sort((a, b) => a.timestamp - b.timestamp);
+    if (entries.length === 0) {
+      list.innerHTML = `<div class="med-history-empty">${t('settings.meds.historyEmpty')}</div>`;
+      return;
+    }
+    entries.forEach(entry => {
+      const item = document.createElement('div');
+      item.className = 'med-history-item';
+      item.innerHTML = `
+        <div class="med-history-info">
+          <span class="med-history-name">${entry.name}</span>
+          <span class="med-history-meta">${formatDateTimeLocal(entry.timestamp)} · ${entry.amount}${entry.unit}</span>
+        </div>
+        <div class="med-history-actions">
+          <button type="button" class="btn btn-icon btn-sm" data-action="edit" data-id="${entry.id}">${t('common.edit')}</button>
+          <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-id="${entry.id}">${t('common.delete')}</button>
+        </div>
+      `;
+      list.appendChild(item);
+    });
+  }
+
+  function openForm(entry = null) {
+    populateMedSelect(entry?.medicationId);
+    if (entry) {
+      idInput.value = entry.id;
+      medSelect.value = entry.medicationId;
+      timeInput.value = formatDateTimeLocal(entry.timestamp);
+      amountInput.value = entry.amount;
+      unitInput.value = entry.unit;
+    } else {
+      idInput.value = '';
+      timeInput.value = formatDateTimeLocal(Date.now());
+      updateUnitFromSelection();
+    }
+    form.hidden = false;
+    addBtn.hidden = true;
+  }
+
+  function closeForm() {
+    form.hidden = true;
+    addBtn.hidden = false;
+    idInput.value = '';
+    if (timeInput) timeInput.value = '';
+    if (amountInput) amountInput.value = '';
+    if (unitInput) unitInput.value = '';
+  }
+
+  async function saveEntry() {
+    const medId = medSelect.value;
+    const med = store.data.meds.find(m => m.id === medId);
+    if (!med) {
+      await showAlert(t('records.moodForm.noMeds'));
+      return;
+    }
+    const timestamp = new Date(timeInput.value).getTime();
+    if (Number.isNaN(timestamp)) {
+      await showAlert(t('records.validation.endAfterStart'));
+      return;
+    }
+    const amount = Math.max(0.1, Number(amountInput.value) || 0.1);
+    const payload = {
+      timestamp,
+      medicationId: medId,
+      name: med.name,
+      amount,
+      unit: med.unit,
+      dosePerTablet: med.dosePerTablet,
+      doseMassUnit: med.doseMassUnit,
+      schedule: Array.isArray(med.schedule) ? [...med.schedule] : [],
+      onsetMinHours: med.onsetMinHours,
+      onsetMaxHours: med.onsetMaxHours,
+      peakMinHours: med.peakMinHours,
+      peakMaxHours: med.peakMaxHours,
+      halfLifeMinHours: med.halfLifeMinHours,
+      halfLifeMaxHours: med.halfLifeMaxHours
+    };
+    if (idInput.value) {
+      store.updateMedHistory(idInput.value, payload);
+    } else {
+      store.addMedHistory(payload);
+    }
+    closeForm();
+  }
+
+  addBtn?.addEventListener('click', () => {
+    if (store.data.meds.length === 0) {
+      showAlert(t('records.moodForm.noMeds'));
+      return;
+    }
+    openForm();
+  });
+  cancelBtn?.addEventListener('click', closeForm);
+  saveBtn?.addEventListener('click', saveEntry);
+  medSelect?.addEventListener('change', updateUnitFromSelection);
+
+  list?.addEventListener('click', async e => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const id = btn.dataset.id;
+    const action = btn.dataset.action;
+    const entry = store.data.medHistory.find(e => e.id === id);
+    if (!entry) return;
+    if (action === 'edit') {
+      openForm(entry);
+    } else if (action === 'delete') {
+      if (await showConfirm(t('settings.meds.historyConfirmDelete', { name: entry.name }))) {
+        store.deleteMedHistory(id);
+      }
+    }
+  });
+
+  store.subscribe(() => {
+    renderList();
+    if (form && !form.hidden) {
+      populateMedSelect(medSelect.value);
+      updateUnitFromSelection();
+    }
+  });
+  subscribe(() => renderList());
+  renderList();
+}
+
 function bindSyncControls() {
   const enableCheckbox = document.getElementById('syncthing-enable');
   const chooseBtn = document.getElementById('syncthing-choose-folder');
@@ -457,6 +631,7 @@ export function initSettings() {
   bindDisplayControls();
   bindConnectMoodDotsControl();
   bindAutoMedLogControl();
+  bindMedHistoryControls();
   bindSyncControls();
   bindWidgetControls();
   bindWipeControls();
