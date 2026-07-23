@@ -125,6 +125,9 @@ function applySimpleModeUI() {
   if (moodTimeNormal) moodTimeNormal.hidden = simple;
   if (moodTimeSimpleDay) moodTimeSimpleDay.hidden = !simple || granularity !== 'day';
   if (moodTimeSimplePeriod) moodTimeSimplePeriod.hidden = !simple || granularity !== 'period';
+  if (timeInput) timeInput.required = !simple;
+  if (recordDate) recordDate.required = simple && granularity === 'day';
+  if (recordDatePeriod) recordDatePeriod.required = simple && granularity === 'period';
 }
 
 function updateRangeOutputs() {
