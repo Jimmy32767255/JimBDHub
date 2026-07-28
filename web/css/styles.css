@@ -619,7 +619,7 @@ body {
 }
 
 .logs-list {
-  padding: 16px;
+  padding: 8px 16px 16px;
   display: flex;
   flex-direction: column;
   gap: 12px;
@@ -961,9 +961,143 @@ body {
 .record-item time { font-size: 12px; color: var(--theme-text-muted); }
 .record-item .note { font-size: 13px; color: var(--theme-text-muted); margin: 8px 0; }
 .record-item .elapsed-time { font-size: 12px; color: var(--theme-text-muted); margin: 4px 0 8px; }
-.record-item footer { display: flex; gap: 8px; justify-content: flex-end; }
+.record-item.log-item footer { display: flex; gap: 8px; justify-content: flex-end; }
+
+.logs-header-actions {
+  display: flex;
+  gap: 10px;
+  align-items: center;
+  flex-wrap: wrap;
+}
+.logs-header-actions .records-period-filter {
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  padding: 6px 10px;
+  color: var(--theme-text);
+  font-family: inherit;
+  font-size: 13px;
+  outline: none;
+}
+
 .event-line, .event-dot { pointer-events: none; }
-.event-dot { pointer-events: auto; }
+
+.records-filter-bar {
+  display: flex;
+  gap: 12px;
+  flex-wrap: wrap;
+}
+.records-filter-bar .records-search {
+  min-width: 160px;
+  flex: 1;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: var(--theme-text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+.records-filter-bar .records-search:focus { border-color: var(--theme-accent); }
+.records-filter-bar .records-period-filter {
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: var(--theme-text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+
+.meds-filter-bar {
+  padding: 12px 20px 0;
+  border-bottom: 1px solid var(--theme-surface-2);
+}
+.meds-filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 8px;
+  margin-bottom: 12px;
+}
+.med-tags-cell {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-top: 6px;
+}
+.med-tag-chip {
+  display: inline-flex;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  color: var(--theme-text-muted);
+  border-radius: 20px;
+  padding: 2px 8px;
+  font-size: 11px;
+}
+
+.records-custom-range {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  padding-top: 12px;
+  flex-wrap: wrap;
+}
+.records-custom-range .form-field {
+  flex: 1;
+  min-width: 140px;
+  margin: 0;
+}
+.records-custom-range input[type="date"] {
+  width: 100%;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: var(--theme-text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+.records-custom-range input[type="date"]:focus { border-color: var(--theme-accent); }
+.records-range-separator {
+  color: var(--theme-text-muted);
+  padding-bottom: 10px;
+}
+
+.doses-filter-tags {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.dose-tag-btn {
+  display: inline-flex;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  color: var(--theme-text-muted);
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dose-tag-btn.active {
+  background: var(--theme-accent);
+  color: white;
+  border-color: var(--theme-accent);
+}
+.dose-tag-btn:hover:not(.active) {
+  border-color: var(--theme-surface-3);
+  color: var(--theme-text);
+}
+.med-db-tag-hint {
+  color: var(--theme-text-muted);
+  font-size: 12px;
+  font-style: italic;
+}
 
 .dose-row {
   display: flex;

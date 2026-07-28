@@ -54,6 +54,15 @@ const eventShowElapsedInput = document.getElementById('event-show-elapsed');
 const eventAddReminderBtn = document.getElementById('event-add-reminder-btn');
 const eventCancelBtn = document.getElementById('event-cancel');
 
+const recordsSearchInput = document.getElementById('records-search');
+const recordsPeriodFilter = document.getElementById('records-period-filter');
+const recordsCustomRange = document.getElementById('records-custom-range');
+const recordsRangeStart = document.getElementById('records-range-start');
+const recordsRangeEnd = document.getElementById('records-range-end');
+const dosesFilterTags = document.getElementById('doses-filter-tags');
+
+let dosesSelectedTags = [];
+
 function toDatetimeLocal(ts) {
   const d = new Date(ts);
   const pad = n => String(n).padStart(2, '0');
@@ -163,7 +172,15 @@ function renderDoses(selectedDoses = []) {
     return;
   }
   const byId = Object.fromEntries(selectedDoses.map(d => [d.medicationId, d]));
-  store.data.meds.forEach(med => {
+  let meds = store.data.meds;
+  if (dosesSelectedTags.length) {
+    meds = meds.filter(med => {
+      const medTags = new Set(med.tags || []);
+      if (med.category) medTags.add(med.category);
+      return dosesSelectedTags.some(tag => medTags.has(tag));
+    });
+  }
+  meds.forEach(med => {
     const existing = byId[med.id];
     const row = document.createElement('label');
     row.className = 'dose-row';
@@ -183,6 +200,53 @@ function renderDoses(selectedDoses = []) {
       if (amountInput) amountInput.disabled = !check.checked;
     });
   });
+  renderDosesTagFilter();
+}
+
+function getAllMedTags() {
+  const tags = new Set();
+  store.data.meds.forEach(med => {
+    if (med.category) tags.add(med.category);
+    (med.tags || []).forEach(tag => tags.add(tag));
+  });
+  return Array.from(tags).sort();
+}
+
+function renderDosesTagFilter() {
+  if (!dosesFilterTags) return;
+  dosesFilterTags.innerHTML = '';
+  const tags = getAllMedTags();
+  dosesFilterTags.hidden = false;
+  const allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = `dose-tag-btn ${!dosesSelectedTags.length ? 'active' : ''}`;
+  allBtn.textContent = t('meds.form.dbTagAll');
+  allBtn.addEventListener('click', () => {
+    dosesSelectedTags = [];
+    renderDoses();
+  });
+  dosesFilterTags.appendChild(allBtn);
+
+  tags.forEach(tag => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `dose-tag-btn ${dosesSelectedTags.includes(tag) ? 'active' : ''}`;
+    btn.textContent = tag;
+    btn.addEventListener('click', () => {
+      const idx = dosesSelectedTags.indexOf(tag);
+      if (idx >= 0) dosesSelectedTags.splice(idx, 1);
+      else dosesSelectedTags.push(tag);
+      renderDoses();
+    });
+    dosesFilterTags.appendChild(btn);
+  });
+
+  if (tags.length === 0) {
+    const hint = document.createElement('span');
+    hint.className = 'med-db-tag-hint';
+    hint.textContent = t('meds.form.tagFilterHint');
+    dosesFilterTags.appendChild(hint);
+  }
 }
 
 function collectDoses() {
@@ -293,17 +357,70 @@ function calcSleepDuration(sleep) {
   return { total, awakeTotal, asleep };
 }
 
+function parseRangeDate(dateStr, endOfDay) {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date();
+  d.setFullYear(year, month - 1, day);
+  d.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, 0);
+  return d.getTime();
+}
+
+function getCustomRange() {
+  const start = parseRangeDate(recordsRangeStart?.value, false);
+  const end = parseRangeDate(recordsRangeEnd?.value, true);
+  return start !== null && end !== null ? { start, end } : null;
+}
+
+function itemText(item) {
+  const d = item.data;
+  const parts = [];
+  if (item.kind === 'mood') {
+    parts.push(String(d.value), d.note || '');
+  } else if (item.kind === 'medication') {
+    parts.push(...(d.doses || []).map(x => `${x.name} ${x.amount}${x.unit}`), d.note || '');
+  } else if (item.kind === 'sleep') {
+    parts.push(d.note || '', String(d.quality || ''));
+  } else if (item.kind === 'event') {
+    parts.push(d.title || '', d.note || '');
+  }
+  return parts.join(' ').toLowerCase();
+}
+
 function renderRecords() {
   const list = document.getElementById('records-list');
   list.innerHTML = '';
 
+  const periodValue = recordsPeriodFilter?.value || 'all';
+  const searchQuery = (recordsSearchInput?.value || '').trim().toLowerCase();
+  const customRange = periodValue === 'custom' ? getCustomRange() : null;
+  const periodDays = periodValue === 'all' || periodValue === 'custom' ? null : Number(periodValue);
+  const periodCutoff = periodDays ? Date.now() - periodDays * 24 * 60 * 60 * 1000 : null;
+
   const isMoodRecord = r => r.type !== 'medication';
   const isMedicationRecord = r => r.type === 'medication';
-  const moodItems = store.data.records.filter(isMoodRecord).map(r => ({ kind: 'mood', data: r, time: r.timestamp }));
-  const medicationItems = store.data.records.filter(isMedicationRecord).map(r => ({ kind: 'medication', data: r, time: r.timestamp }));
-  const sleepItems = store.data.sleeps.map(s => ({ kind: 'sleep', data: s, time: s.startTime }));
-  const eventItems = store.data.events.map(e => ({ kind: 'event', data: e, time: e.timestamp }));
-  const all = [...moodItems, ...medicationItems, ...sleepItems, ...eventItems].sort((a, b) => b.time - a.time);
+  let moodItems = store.data.records.filter(isMoodRecord).map(r => ({ kind: 'mood', data: r, time: r.timestamp }));
+  let medicationItems = store.data.records.filter(isMedicationRecord).map(r => ({ kind: 'medication', data: r, time: r.timestamp }));
+  let sleepItems = store.data.sleeps.map(s => ({ kind: 'sleep', data: s, time: s.startTime }));
+  let eventItems = store.data.events.map(e => ({ kind: 'event', data: e, time: e.timestamp }));
+
+  if (customRange) {
+    moodItems = moodItems.filter(i => i.time >= customRange.start && i.time <= customRange.end);
+    medicationItems = medicationItems.filter(i => i.time >= customRange.start && i.time <= customRange.end);
+    sleepItems = sleepItems.filter(i => i.time >= customRange.start && i.time <= customRange.end);
+    eventItems = eventItems.filter(i => i.time >= customRange.start && i.time <= customRange.end);
+  } else if (periodCutoff) {
+    moodItems = moodItems.filter(i => i.time >= periodCutoff);
+    medicationItems = medicationItems.filter(i => i.time >= periodCutoff);
+    sleepItems = sleepItems.filter(i => i.time >= periodCutoff);
+    eventItems = eventItems.filter(i => i.time >= periodCutoff);
+  }
+
+  let all = [...moodItems, ...medicationItems, ...sleepItems, ...eventItems].sort((a, b) => b.time - a.time);
+
+  if (searchQuery) {
+    all = all.filter(item => itemText(item).includes(searchQuery));
+  }
 
   all.forEach((item, idx) => {
     const el = document.createElement('div');
@@ -636,6 +753,14 @@ function initRecords() {
       refreshCurrentTimes();
     }
   });
+
+  recordsSearchInput?.addEventListener('input', () => renderRecords());
+  recordsPeriodFilter?.addEventListener('change', () => {
+    if (recordsCustomRange) recordsCustomRange.hidden = recordsPeriodFilter?.value !== 'custom';
+    renderRecords();
+  });
+  recordsRangeStart?.addEventListener('change', () => renderRecords());
+  recordsRangeEnd?.addEventListener('change', () => renderRecords());
 
   document.getElementById('records-list').addEventListener('click', async e => {
     const btn = e.target.closest('button[data-action]');

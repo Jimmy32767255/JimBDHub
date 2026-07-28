@@ -9,6 +9,7 @@ const medModalTitle = document.getElementById('med-modal-title');
 const medIdInput = document.getElementById('med-id');
 const medNameInput = document.getElementById('med-name');
 const medCategoryInput = document.getElementById('med-category');
+const medTagsInput = document.getElementById('med-tags');
 const medBoxInput = document.getElementById('med-box');
 const medBoardInput = document.getElementById('med-board');
 const medPillsInput = document.getElementById('med-pills');
@@ -50,6 +51,12 @@ const medScheduleList = document.getElementById('med-schedule-list');
 const medScheduleTimeInput = document.getElementById('med-schedule-time');
 const medAddScheduleBtn = document.getElementById('med-add-schedule');
 const medAddReminderBtn = document.getElementById('med-add-reminder-btn');
+const medsFilterTags = document.getElementById('meds-filter-tags');
+const logsFilterTags = document.getElementById('logs-filter-tags');
+const logsPeriodFilter = document.getElementById('logs-period-filter');
+const logsCustomRange = document.getElementById('logs-custom-range');
+const logsRangeStart = document.getElementById('logs-range-start');
+const logsRangeEnd = document.getElementById('logs-range-end');
 
 let medDbData = [];
 let medDbTagsList = [];
@@ -57,6 +64,8 @@ let medDbSelectedTag = '';
 let selectedDbMed = null;
 let manualFieldsVisible = false;
 let currentSchedule = [];
+let medsSelectedTags = [];
+let logsSelectedTags = [];
 
 async function loadMedDB() {
   try {
@@ -160,6 +169,7 @@ function fillMedForm(med) {
 
   medNameInput.value = med.name;
   medCategoryInput.value = med.category || '';
+  medTagsInput.value = formatTagsInput(med.tags);
   medBoxInput.value = 1;
   medBoardInput.value = 1;
   medPillsInput.value = med.pillsPerBoard || 0;
@@ -186,6 +196,48 @@ function fillMedForm(med) {
 
 function percent(med) {
   return med.totalPills > 0 ? Math.round((med.remainingPills / med.totalPills) * 100) : 0;
+}
+
+function parseTagsInput(value) {
+  return value
+    .split(/[,，]/)
+    .map(s => s.trim())
+    .filter(Boolean);
+}
+
+function formatTagsInput(tags) {
+  return (tags || []).join(', ');
+}
+
+function getAllMedTags() {
+  const tags = new Set();
+  store.data.meds.forEach(med => {
+    if (med.category) tags.add(med.category);
+    (med.tags || []).forEach(tag => tags.add(tag));
+  });
+  return Array.from(tags).sort();
+}
+
+function medHasAnyTag(med, selectedTags) {
+  if (!selectedTags || selectedTags.length === 0) return true;
+  const medTags = new Set(med.tags || []);
+  if (med.category) medTags.add(med.category);
+  return selectedTags.some(tag => medTags.has(tag));
+}
+
+function parseRangeDate(dateStr, endOfDay) {
+  if (!dateStr) return null;
+  const [year, month, day] = dateStr.split('-').map(Number);
+  const d = new Date();
+  d.setFullYear(year, month - 1, day);
+  d.setHours(endOfDay ? 23 : 0, endOfDay ? 59 : 0, endOfDay ? 59 : 0, 0);
+  return d.getTime();
+}
+
+function getLogsCustomRange() {
+  const start = parseRangeDate(logsRangeStart?.value, false);
+  const end = parseRangeDate(logsRangeEnd?.value, true);
+  return start !== null && end !== null ? { start, end } : null;
 }
 
 function predictDepletion(med) {
@@ -237,11 +289,15 @@ function formatDepletion(depletionTs) {
 function renderMeds() {
   const tbody = document.querySelector('#meds-table tbody');
   tbody.innerHTML = '';
-  store.data.meds.forEach(med => {
+  const filtered = medsSelectedTags.length
+    ? store.data.meds.filter(med => medHasAnyTag(med, medsSelectedTags))
+    : store.data.meds;
+  filtered.forEach(med => {
     const tr = document.createElement('tr');
     const pct = percent(med);
     const depletionTs = predictDepletion(med);
     const depletionLine = depletionTs === null ? '' : formatDepletion(depletionTs);
+    const tagsHtml = (med.tags || []).slice(0, 3).map(tag => `<span class="med-tag-chip">${tag}</span>`).join('');
     tr.innerHTML = `
       <td><strong>${med.name}</strong></td>
       <td>${med.category || t('meds.table.emptyNote')}</td>
@@ -251,7 +307,7 @@ function renderMeds() {
         ${depletionLine ? `<small style="color: var(--text-muted); display: block">${depletionLine}</small>` : ''}
       </td>
       <td>${formatQuantity(med)}</td>
-      <td>${med.note || t('meds.table.emptyNote')}</td>
+      <td>${med.note || t('meds.table.emptyNote')}${tagsHtml ? `<div class="med-tags-cell">${tagsHtml}</div>` : ''}</td>
       <td>
         <div class="med-actions">
           <button class="btn btn-icon" data-action="adjust" data-id="${med.id}" title="${t('meds.adjustTitle')}">${t('meds.adjust')}</button>
@@ -262,13 +318,70 @@ function renderMeds() {
     `;
     tbody.appendChild(tr);
   });
+  renderMedsTagFilter();
+}
+
+function renderMedsTagFilter() {
+  if (!medsFilterTags) return;
+  medsFilterTags.innerHTML = '';
+  const tags = getAllMedTags();
+  medsFilterTags.hidden = false;
+  const allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = `med-db-tag ${!medsSelectedTags.length ? 'active' : ''}`;
+  allBtn.textContent = t('meds.form.dbTagAll');
+  allBtn.addEventListener('click', () => {
+    medsSelectedTags = [];
+    renderMeds();
+  });
+  medsFilterTags.appendChild(allBtn);
+
+  tags.forEach(tag => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `med-db-tag ${medsSelectedTags.includes(tag) ? 'active' : ''}`;
+    btn.textContent = tag;
+    btn.addEventListener('click', () => {
+      const idx = medsSelectedTags.indexOf(tag);
+      if (idx >= 0) medsSelectedTags.splice(idx, 1);
+      else medsSelectedTags.push(tag);
+      renderMeds();
+    });
+    medsFilterTags.appendChild(btn);
+  });
+
+  if (tags.length === 0) {
+    const hint = document.createElement('span');
+    hint.className = 'med-db-tag-hint';
+    hint.textContent = t('meds.form.tagFilterHint');
+    medsFilterTags.appendChild(hint);
+  }
 }
 
 function renderLogs() {
   const list = document.getElementById('logs-list');
   list.innerHTML = '';
-  const maxDelta = Math.max(1, ...store.data.logs.map(l => Math.abs(l.delta)));
-  store.data.logs.forEach((log, idx) => {
+  const medMap = Object.fromEntries(store.data.meds.map(m => [m.id, m]));
+
+  const periodValue = logsPeriodFilter?.value || 'all';
+  const customRange = periodValue === 'custom' ? getLogsCustomRange() : null;
+  const periodDays = periodValue === 'all' || periodValue === 'custom' ? null : Number(periodValue);
+  const periodCutoff = periodDays ? Date.now() - periodDays * 24 * 60 * 60 * 1000 : null;
+
+  let logs = store.data.logs;
+  if (customRange) {
+    logs = logs.filter(l => l.timestamp >= customRange.start && l.timestamp <= customRange.end);
+  } else if (periodCutoff) {
+    logs = logs.filter(l => l.timestamp >= periodCutoff);
+  }
+  if (logsSelectedTags.length) {
+    logs = logs.filter(log => {
+      const med = medMap[log.medicationId];
+      return med && medHasAnyTag(med, logsSelectedTags);
+    });
+  }
+  const maxDelta = Math.max(1, ...logs.map(l => Math.abs(l.delta)));
+  logs.forEach((log, idx) => {
     const item = document.createElement('div');
     item.className = 'log-item';
     item.style.animationDelay = `${idx * 60}ms`;
@@ -291,6 +404,44 @@ function renderLogs() {
     `;
     list.appendChild(item);
   });
+  renderLogsTagFilter();
+}
+
+function renderLogsTagFilter() {
+  if (!logsFilterTags) return;
+  logsFilterTags.innerHTML = '';
+  const tags = getAllMedTags();
+  logsFilterTags.hidden = false;
+  const allBtn = document.createElement('button');
+  allBtn.type = 'button';
+  allBtn.className = `med-db-tag ${!logsSelectedTags.length ? 'active' : ''}`;
+  allBtn.textContent = t('meds.form.dbTagAll');
+  allBtn.addEventListener('click', () => {
+    logsSelectedTags = [];
+    renderLogs();
+  });
+  logsFilterTags.appendChild(allBtn);
+
+  tags.forEach(tag => {
+    const btn = document.createElement('button');
+    btn.type = 'button';
+    btn.className = `med-db-tag ${logsSelectedTags.includes(tag) ? 'active' : ''}`;
+    btn.textContent = tag;
+    btn.addEventListener('click', () => {
+      const idx = logsSelectedTags.indexOf(tag);
+      if (idx >= 0) logsSelectedTags.splice(idx, 1);
+      else logsSelectedTags.push(tag);
+      renderLogs();
+    });
+    logsFilterTags.appendChild(btn);
+  });
+
+  if (tags.length === 0) {
+    const hint = document.createElement('span');
+    hint.className = 'med-db-tag-hint';
+    hint.textContent = t('meds.form.tagFilterHint');
+    logsFilterTags.appendChild(hint);
+  }
 }
 
 function renderScheduleList() {
@@ -362,6 +513,7 @@ function openModal(med = null) {
     medIdInput.value = med.id;
     medNameInput.value = med.name;
     medCategoryInput.value = med.category;
+    medTagsInput.value = formatTagsInput(med.tags);
     medBoxInput.value = med.boxCount;
     const [onsetMin, onsetMax] = readRangeHours(med, 'onsetRangeHours', 'onsetMinHours', 'onsetMaxHours', 'onsetHours', 1);
     const [peakMin, peakMax] = readRangeHours(med, 'peakRangeHours', 'peakMinHours', 'peakMaxHours', 'peakHours', 2);
@@ -488,6 +640,7 @@ function handleFormSubmit(e) {
   const payload = {
     name: medNameInput.value.trim(),
     category: medCategoryInput.value.trim(),
+    tags: parseTagsInput(medTagsInput.value),
     boxCount: box,
     boardPerBox: board,
     pillsPerBoard: pills,
@@ -638,6 +791,14 @@ function initMeds() {
     renderLogs();
     renderTags();
   });
+
+  logsPeriodFilter?.addEventListener('change', () => {
+    if (logsCustomRange) logsCustomRange.hidden = logsPeriodFilter?.value !== 'custom';
+    renderLogs();
+  });
+  logsRangeStart?.addEventListener('change', () => renderLogs());
+  logsRangeEnd?.addEventListener('change', () => renderLogs());
+
   renderMeds();
   renderLogs();
   loadMedDB();

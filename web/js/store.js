@@ -62,6 +62,7 @@ function migrateMed(m) {
   const halfLife = m.halfLifeHours ?? 12;
   return {
     ...m,
+    tags: Array.isArray(m.tags) ? m.tags : [],
     dosePerTablet: m.dosePerTablet ?? 1,
     doseMassUnit: m.doseMassUnit ?? 'mg',
     onsetMinHours: m.onsetMinHours ?? onset,

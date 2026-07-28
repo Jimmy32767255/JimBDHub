@@ -104,6 +104,9 @@
               <h3 data-i18n="meds.header.title">药品库存</h3>
               <button class="btn btn-primary btn-sm" id="add-med-btn" data-i18n="meds.header.add">新增药品</button>
             </div>
+            <div class="meds-filter-bar">
+              <div class="meds-filter-tags" id="meds-filter-tags"></div>
+            </div>
             <div class="table-wrap">
               <table class="data-table" id="meds-table">
                 <thead>
@@ -123,7 +126,30 @@
           <div class="card logs-card">
             <div class="card-header">
               <h3 data-i18n="meds.logs.title">变更日志</h3>
-              <button class="btn btn-primary btn-sm" id="add-log-btn" data-i18n="meds.logs.add">添加变更日志</button>
+              <div class="logs-header-actions">
+                <select class="records-period-filter" id="logs-period-filter">
+                  <option value="all" data-i18n="records.history.period.all">全部时间</option>
+                  <option value="7" data-i18n="records.history.period.week">最近 7 天</option>
+                  <option value="30" data-i18n="records.history.period.month">最近 30 天</option>
+                  <option value="90" data-i18n="records.history.period.quarter">最近 90 天</option>
+                  <option value="custom" data-i18n="records.history.period.custom">自选时间段</option>
+                </select>
+                <button class="btn btn-primary btn-sm" id="add-log-btn" data-i18n="meds.logs.add">添加变更日志</button>
+              </div>
+            </div>
+            <div class="meds-filter-bar">
+              <div class="meds-filter-tags" id="logs-filter-tags"></div>
+            </div>
+            <div class="records-custom-range" id="logs-custom-range" hidden>
+              <label class="form-field">
+                <span class="form-label" data-i18n="records.history.period.from">从</span>
+                <input type="date" id="logs-range-start">
+              </label>
+              <span class="records-range-separator">~</span>
+              <label class="form-field">
+                <span class="form-label" data-i18n="records.history.period.to">到</span>
+                <input type="date" id="logs-range-end">
+              </label>
             </div>
             <div class="logs-list" id="logs-list"></div>
           </div>
@@ -209,6 +235,7 @@
               <div class="form-row">
                 <div class="form-field">
                   <span class="form-label" data-i18n="records.medicationForm.doses">本次服用</span>
+                  <div class="doses-filter-tags" id="doses-filter-tags"></div>
                   <div id="medication-doses-list"></div>
                 </div>
               </div>
@@ -314,6 +341,27 @@
           <div class="card records-list-card">
             <div class="card-header">
               <h3 data-i18n="records.history.title">历史记录</h3>
+              <div class="records-filter-bar">
+                <input type="search" class="records-search" id="records-search" data-i18n-placeholder="records.history.searchPlaceholder" placeholder="搜索历史记录...">
+                <select class="records-period-filter" id="records-period-filter">
+                  <option value="all" data-i18n="records.history.period.all">全部时间</option>
+                  <option value="7" data-i18n="records.history.period.week">最近 7 天</option>
+                  <option value="30" data-i18n="records.history.period.month">最近 30 天</option>
+                  <option value="90" data-i18n="records.history.period.quarter">最近 90 天</option>
+                  <option value="custom" data-i18n="records.history.period.custom">自选时间段</option>
+                </select>
+              </div>
+              <div class="records-custom-range" id="records-custom-range" hidden>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.history.period.from">从</span>
+                  <input type="date" id="records-range-start">
+                </label>
+                <span class="records-range-separator">~</span>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.history.period.to">到</span>
+                  <input type="date" id="records-range-end">
+                </label>
+              </div>
             </div>
             <div class="records-list" id="records-list"></div>
           </div>
@@ -629,6 +677,9 @@
           <div class="form-row two-col">
             <label class="form-field"><span class="form-label" data-i18n="meds.form.name">名称</span><input type="text" id="med-name" required></label>
             <label class="form-field"><span class="form-label" data-i18n="meds.form.category">分类</span><input type="text" id="med-category" data-i18n-placeholder="meds.form.categoryPlaceholder" placeholder="如：心境稳定剂"></label>
+          </div>
+          <div class="form-row">
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.tags">标签</span><input type="text" id="med-tags" data-i18n-placeholder="meds.form.tagsPlaceholder" placeholder="多个标签用逗号分隔"></label>
           </div>
           <div class="form-row three-col">
             <label class="form-field"><span class="form-label" data-i18n="meds.form.boxCount">盒数</span><input type="number" id="med-box" min="0" value="0" required></label>
