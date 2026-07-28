@@ -100,6 +100,7 @@
   "records.history.period.custom": "Custom range",
   "records.history.period.from": "From",
   "records.history.period.to": "To",
+  "records.history.type.all": "All types",
   "records.history.event": "Event",
   "records.history.elapsedTime.past": "{duration} ago",
   "records.history.elapsedTime.future": "in {duration}",

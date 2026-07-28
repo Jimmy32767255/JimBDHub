@@ -100,6 +100,7 @@
   "records.history.period.custom": "自选时间段",
   "records.history.period.from": "从",
   "records.history.period.to": "到",
+  "records.history.type.all": "全部类型",
   "records.history.event": "事件",
   "records.history.elapsedTime.past": "已过 {duration}",
   "records.history.elapsedTime.future": "还有 {duration}",

@@ -961,7 +961,7 @@ body {
 .record-item time { font-size: 12px; color: var(--theme-text-muted); }
 .record-item .note { font-size: 13px; color: var(--theme-text-muted); margin: 8px 0; }
 .record-item .elapsed-time { font-size: 12px; color: var(--theme-text-muted); margin: 4px 0 8px; }
-.record-item.log-item footer { display: flex; gap: 8px; justify-content: flex-end; }
+.record-item footer { display: flex; gap: 8px; justify-content: flex-end; }
 
 .logs-header-actions {
   display: flex;
@@ -1001,6 +1001,16 @@ body {
 }
 .records-filter-bar .records-search:focus { border-color: var(--theme-accent); }
 .records-filter-bar .records-period-filter {
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  padding: 8px 12px;
+  color: var(--theme-text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+.records-filter-bar .records-type-filter {
   background: var(--theme-bg);
   border: 1px solid var(--theme-surface-2);
   border-radius: 10px;

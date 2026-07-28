@@ -56,6 +56,7 @@ const eventCancelBtn = document.getElementById('event-cancel');
 
 const recordsSearchInput = document.getElementById('records-search');
 const recordsPeriodFilter = document.getElementById('records-period-filter');
+const recordsTypeFilter = document.getElementById('records-type-filter');
 const recordsCustomRange = document.getElementById('records-custom-range');
 const recordsRangeStart = document.getElementById('records-range-start');
 const recordsRangeEnd = document.getElementById('records-range-end');
@@ -392,6 +393,7 @@ function renderRecords() {
   list.innerHTML = '';
 
   const periodValue = recordsPeriodFilter?.value || 'all';
+  const typeValue = recordsTypeFilter?.value || 'all';
   const searchQuery = (recordsSearchInput?.value || '').trim().toLowerCase();
   const customRange = periodValue === 'custom' ? getCustomRange() : null;
   const periodDays = periodValue === 'all' || periodValue === 'custom' ? null : Number(periodValue);
@@ -403,6 +405,14 @@ function renderRecords() {
   let medicationItems = store.data.records.filter(isMedicationRecord).map(r => ({ kind: 'medication', data: r, time: r.timestamp }));
   let sleepItems = store.data.sleeps.map(s => ({ kind: 'sleep', data: s, time: s.startTime }));
   let eventItems = store.data.events.map(e => ({ kind: 'event', data: e, time: e.timestamp }));
+
+  // Filter by record type
+  if (typeValue !== 'all') {
+    moodItems = typeValue === 'mood' ? moodItems : [];
+    medicationItems = typeValue === 'medication' ? medicationItems : [];
+    sleepItems = typeValue === 'sleep' ? sleepItems : [];
+    eventItems = typeValue === 'event' ? eventItems : [];
+  }
 
   if (customRange) {
     moodItems = moodItems.filter(i => i.time >= customRange.start && i.time <= customRange.end);
@@ -759,6 +769,7 @@ function initRecords() {
     if (recordsCustomRange) recordsCustomRange.hidden = recordsPeriodFilter?.value !== 'custom';
     renderRecords();
   });
+  recordsTypeFilter?.addEventListener('change', () => renderRecords());
   recordsRangeStart?.addEventListener('change', () => renderRecords());
   recordsRangeEnd?.addEventListener('change', () => renderRecords());
 
