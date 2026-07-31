@@ -2,114 +2,81 @@
 
 一个给**双相情感障碍**患者记录情绪、管理药物、追踪睡眠的跨平台应用。数据完全存储在本地，不上传任何云端。
 
+简体中文 | [English](./docs/en-US/README.md)
+
 ## 功能特性
 
-- **情绪记录** — 记录每日情绪值（-10~10），支持混合期标记，可关联药物服用信息
-- **综合曲线图** — 在同一时间轴上展示情绪波动、药效浓度曲线和睡眠条，支持缩放和平移
-- **药品库管理** — 管理个人药品库存，包含内置药品数据库，支持按名称/分类/标签快速搜索
-- **药效追踪** — 基于药物的半衰期、起效/达峰时间自动计算药效浓度曲线
-- **睡眠记录** — 记录入睡/清醒时间、中断情况、睡眠质量评分（0~5）
-- **数据备份** — 导出/导入完整数据（含记录、药品、设置），方便迁移
-- **国际化** — 内置简体中文和 English 界面，可随时切换
-- **个性化主题** — 自定义情绪颜色、曲线连接方式（曲线/直线）、界面配色方案
+- **情绪记录** — 记录每日情绪值（-10~10），支持混合期标记与备注；可开启"简化模式"按天或早/中/晚粒度记录
+- **综合曲线图** — 在同一时间轴上展示情绪波动、药效浓度曲线（最高/最低两条）和睡眠条，支持缩放、平移、悬停吸附、分页与图例自动换行
+- **事件记录** — 重要事件在聚合视图显示为竖线，支持显示距当前的时间（纪念日/倒计时），Android 端可一键添加到系统日程
+- **药品库管理** — 管理个人药品库存（盒/板/粒），内置药品数据库支持按名称/分类/标签快速搜索，库存调整与变更日志
+- **药效追踪** — 基于药物的半衰期、起效/达峰时间**范围**自动计算药效浓度曲线（按每片剂量换算），支持补充用药历史，以估算首次服药记录前的药效
+- **预测药效** — 设置每日固定服药时间后，可向前计算未来药效，为行程安排提供参考
+- **睡眠记录** — 记录上床/入睡/清醒/下床时间、中断情况、睡眠质量评分（0~5）；支持时间条与半透明覆盖式两种显示模式
+- **备忘录** — 在记录页提供持久化文本输入框，随手记下任何想法
+- **数据备份** — 导出/导入完整数据（含记录、药品、日志、设置、主题、备忘录），方便迁移
+- **Syncthing 同步** — 桌面端与 Android 端可将数据自动写入本地同步文件，借助 Syncthing 实现跨设备自动同步（"万物皆文件"）
+- **桌面小部件** — Android 启动器小部件与桌面端快捷方式（.lnk / .desktop），一键开始/结束睡眠记录，无需打开软件
+- **系统提醒**（Android 独占）— 事件可请求添加系统日程，药品可请求添加系统闹钟
+- **自动记录服药** — 开启后到达设定的每日服药时间自动生成服药记录并扣减库存
+- **国际化** — 内置简体中文和 English 界面，切换语言即时生效，无需重启
+- **个性化主题** — 自定义情绪颜色、数据点连接方式（曲线/直线）、背景（纯色/图片/渐变）、界面配色、药物标记颜色
+- **显示适配** — 界面整体缩放（50%~150%）与屏幕边距设置，适配不同屏幕与全面屏设备
+- **搜索与筛选** — 药品库/服药记录支持按标签过滤，历史记录支持按时间段、类型过滤与关键词搜索
 
-## 跨平台架构
+*药效曲线基于简化药代动力学模型计算，仅供自我观察参考，不构成医疗建议。*
 
-所有平台共享 `web/` 目录下的同一套前端代码，桌面端和 Android 端仅作为 WebView 外壳提供原生能力（文件对话框等）。
+## 支持平台
 
-### 目录结构
-
-请参阅[目录结构表](./DirInfo.txt)
-
-## 快速开始
-
-### 开发/运行 Web 端
-
-直接使用任意静态服务器打开 `web/` 目录即可（由于 ES Module 的 CORS 限制，不能直接双击 `index.html`）：
-
-```bash
-# Python 内置服务器
-cd web && python3 -m http.server 8765
-
-# 或使用 Node.js
-npx serve web/
-```
-
-浏览器打开 `http://localhost:8765`。
-
-### 运行桌面端
-
-```bash
-# 1. 创建虚拟环境
-cd desktop
-python -m venv venv
-source venv/bin/activate  # Windows: venv\Scripts\activate
-
-# 2. 安装依赖
-pip install -r requirements.txt
-
-# Linux 额外需要
-# sudo pacman -S python-pyqt6 python-pyqt6-webengine  # Arch
-# 或使用 GTK 后端：pip install PyGObject + 系统安装 webkit2gtk
-
-# 3. 启动
-python main.py
-```
-
-### 运行 Android 端
-
-用 Android Studio 打开 `android/` 目录，同步 Gradle 后直接运行。
-
-## 构建与打包
-
-### Windows — 可执行文件 (.exe)
-
-```bash
-# 需要安装 Python
-Build.bat
-# 输出: dist/Microsoft-Windows-amd64.exe
-
-# 如果在 Wine 下交叉打包
-Build.bat --wine
-```
-
-### GNU/Linux — AppImage
-
-```bash
-# 需要安装 Python3、wget
-chmod +x Build.sh
-./Build.sh
-# 输出: dist/GNU-Linux-amd64.AppImage
-```
-
-### Android — APK
-
-用 Android Studio 打开 `android/` 目录，选择 `Build > Build Bundle(s) / APK(s) > Build APK(s)`。
-
-## 数据存储
-
-所有数据存储在浏览器 `localStorage` 中（桌面端和 Android 端同样使用 WebView 内置存储）：
-
-| 键名 | 内容 |
+| 平台 | 说明 |
 |---|---|
-| `jimbdhub_mood_records` | 情绪记录 |
-| `jimbdhub_medications` | 药品信息 |
-| `jimbdhub_med_logs` | 药品变更日志 |
-| `jimbdhub_sleep_records` | 睡眠记录 |
+| Windows | 绿色 exe 程序，双击即用 |
+| GNU/Linux | AppImage 格式，免安装 |
+| Android | APK 安装包，含桌面小部件与系统提醒 |
 
-建议定期使用 **设置 → 数据备份** 功能导出备份文件。
+三种平台共享同一套界面与数据，数据始终保存在本地设备上。
 
-## 技术栈
+## 下载与安装
 
-| 层面 | 技术 |
-|---|---|
-| 前端 | 原生 HTML/CSS/JS (ES Modules) |
-| 图表 | 原生 SVG 渲染 |
-| 数据 | localStorage |
-| 桌面端 | Python 3 + pywebview + PyQt6 |
-| Android | Kotlin + WebView + WebViewAssetLoader |
-| 打包 (Windows) | PyInstaller |
-| 打包 (Linux) | AppImage / appimagetool |
+从 [Releases](https://github.com/Jimmy32767255/JimBDHub/releases) 页面下载对应平台的安装包：
+
+- **Windows**：下载 `Microsoft-Windows-amd64.exe`，双击运行即可，无需安装。
+- **GNU/Linux**：下载 `GNU-Linux-amd64.AppImage`，赋予执行权限后运行：
+
+  ```bash
+  chmod +x GNU-Linux-amd64.AppImage
+  ./GNU-Linux-amd64.AppImage
+  ```
+
+- **Android**：下载 `Google-Android-arm64.apk` 并安装（需允许安装未知来源应用）。
+
+### 桌面小部件（可选）
+
+打开软件后，在 设置 → 桌面小部件 → 添加到桌面，即可在桌面创建一键睡眠记录快捷方式，之后无需打开软件即可开始/结束睡眠记录。
+
+### 跨设备同步（可选）
+
+如需在多个设备间同步数据，请参考 [Syncthing 同步配置教程](./docs/zh-CN/tutorial/syncthing.md)。
+
+## 获取帮助
+
+遇到问题或有建议，可以通过以下方式联系我们：
+
+- **QQ 群**：`181336946`
+- **GitHub 议题**：在 [议题](https://github.com/Jimmy32767255/JimBDHub/issues) 页面报告程序缺陷、提出改进建议或功能请求
+- **邮箱**：<jimmy32767255@outlook.com>
+
+## 数据与隐私
+
+- 所有数据（记录、药品、日志、设置、主题、备忘录）只保存在本机 `localStorage` / WebView 存储中，**不向任何云端上传**。
+- 桌面端数据持久化于 `~/.JimBDHub`，卸载程序不影响数据。
+- 建议定期使用 **设置 → 数据备份** 导出备份文件，便于迁移或应急恢复。
+- 多设备同步请使用 [Syncthing 同步配置教程](./docs/zh-CN/tutorial/syncthing.md) 中的方法。
+
+## 对开发者
+
+- [目录结构](./DirInfo.txt)
+- [开发者文档](./docs/zh-CN/dev.md)
 
 ## License
 

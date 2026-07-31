@@ -1,4 +1,13 @@
 ./                          # 项目根目录
+├── README.md               # 中文用户文档
+├── docs/                   # 文档
+│   ├── en-US/
+│   │   ├── README.md       # 英文用户文档
+│   │   └── dev.md          # 英文开发者文档
+│   ├── zh-CN/
+│   │   └── dev.md          # 中文开发者文档
+│   └── tutorial/
+│       └── syncthing.md    # Syncthing 同步配置教程
 ├── web/                    # 前端应用（核心）
 │   ├── index.html          # 主页面
 │   ├── css/styles.css      # 样式
@@ -10,23 +19,35 @@
 │   │   ├── records.js      # 记录模块
 │   │   ├── settings.js     # 设置模块
 │   │   ├── theme.js        # 主题系统
+│   │   ├── sync.js         # Syncthing 同步
 │   │   ├── platform.js     # 平台检测与桥接
 │   │   └── i18n.js         # 国际化引擎
 │   ├── locales/            # 语言文件
 │   │   ├── zh-CN.json      # 简体中文
 │   │   └── en-US.json      # 美式英语
-│   └── MedDB.json          # 内置药品数据库
+│   ├── MedDB.json          # 内置药品数据库
+│   └── JimBDHubIcon256.png # 应用图标
 ├── desktop/                # 桌面端（Python + pywebview）
-│   ├── main.py             # 桌面端入口
+│   ├── main.py             # 桌面端入口（HTTP 服务器、小部件、同步桥接）
 │   └── requirements.txt    # Python 依赖
 ├── android/                # Android 端（Kotlin）
-│   ├── android/app/build.gradle.kts # 在这里修改移动端版本号
-│   ├── app/src/main/assets/web # 这是到./web的符号链接，两个文件夹内容自动同步
-│   └── app/src/main/java/org/jimmy/bdhub/MainActivity.kt # 主活动
+│   └── app/
+│       ├── build.gradle.kts            # 在这里修改移动端版本号
+│       └── src/main/
+│           ├── assets/web              # 到 ./web 的符号链接，内容自动同步
+│           ├── java/org/jimmy/bdhub/
+│           │   ├── MainActivity.kt             # 主活动与 AndroidBridge 桥接
+│           │   ├── SleepWidgetProvider.kt      # 桌面小部件提供者
+│           │   ├── SleepWidgetActionReceiver.kt # 小部件点击接收器
+│           │   └── SleepWidgetHelper.kt        # 小部件工具
+│           ├── res/                    # 资源（图标、布局、主题、xml）
+│           └── AndroidManifest.xml
 ├── assets/                 # 资产（图标等）
 ├── Build.sh                # Linux AppImage 构建脚本
 ├── Build.bat               # Windows exe 构建脚本
 ├── Build.spec              # PyInstaller 配置文件
 ├── AppImageBuilder.yml     # AppImage Builder 配置，在这里修改桌面端版本号
 ├── Stear.sh                # Linux 启动脚本
-└── Stear.bat               # Windows 启动脚本
+├── Stear.bat               # Windows 启动脚本
+├── TODO.md                 # 开发待办
+└── LICENSE                 # GPLv3 许可证
