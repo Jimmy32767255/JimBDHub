@@ -145,6 +145,7 @@ function bindBackgroundControls() {
     const chooseBtn = document.createElement('button');
     chooseBtn.type = 'button';
     chooseBtn.className = 'btn btn-ghost btn-sm choose-image-btn';
+    chooseBtn.dataset.i18n = 'settings.background.chooseImage';
     chooseBtn.textContent = t('settings.background.chooseImage');
     chooseBtn.addEventListener('click', async () => {
       try {
@@ -231,6 +232,8 @@ function bindMedColorControls() {
       const label = document.createElement('label');
       label.className = 'color-field';
       const span = document.createElement('span');
+      span.dataset.i18n = 'settings.appearance.medColorN';
+      span.dataset.i18nParams = JSON.stringify({ n: idx + 1 });
       span.textContent = t('settings.appearance.medColorN', { n: idx + 1 });
       const input = document.createElement('input');
       input.type = 'color';
@@ -377,6 +380,7 @@ function bindMedHistoryControls() {
     if (store.data.meds.length === 0) {
       const option = document.createElement('option');
       option.value = '';
+      option.dataset.i18n = 'records.moodForm.noMeds';
       option.textContent = t('records.moodForm.noMeds');
       medSelect.appendChild(option);
       return;
@@ -533,6 +537,18 @@ function bindSyncControls() {
 
   if (!card) return;
 
+  // 设置文本的同时标注 data-i18n，语言切换时 updateDOM 会自动用新语言重算
+  function setI18nText(el, key, params) {
+    if (!el) return;
+    el.dataset.i18n = key;
+    if (params) {
+      el.dataset.i18nParams = JSON.stringify(params);
+    } else {
+      delete el.dataset.i18nParams;
+    }
+    el.textContent = t(key, params);
+  }
+
   function updateUI(status) {
     if (enableCheckbox) {
       enableCheckbox.checked = status.enabled;
@@ -543,24 +559,26 @@ function bindSyncControls() {
     }
     if (pathText) {
       if (!platform.isSyncSupported()) {
-        pathText.textContent = t('settings.sync.webHint');
+        setI18nText(pathText, 'settings.sync.webHint');
       } else if (status.path) {
-        pathText.textContent = t('settings.sync.desktopPath', { path: status.path });
+        setI18nText(pathText, 'settings.sync.desktopPath', { path: status.path });
       } else if (status.folderName) {
-        pathText.textContent = t('settings.sync.androidFolder', { name: status.folderName });
+        setI18nText(pathText, 'settings.sync.androidFolder', { name: status.folderName });
       } else {
+        delete pathText.dataset.i18n;
+        delete pathText.dataset.i18nParams;
         pathText.textContent = '';
       }
     }
     if (statusText) {
       if (status.error) {
-        statusText.textContent = t('settings.sync.error', { message: status.error });
+        setI18nText(statusText, 'settings.sync.error', { message: status.error });
         statusText.classList.add('sync-error');
       } else if (status.enabled) {
-        statusText.textContent = t('settings.sync.enabled');
+        setI18nText(statusText, 'settings.sync.enabled');
         statusText.classList.remove('sync-error');
       } else {
-        statusText.textContent = t('settings.sync.disabled');
+        setI18nText(statusText, 'settings.sync.disabled');
         statusText.classList.remove('sync-error');
       }
     }

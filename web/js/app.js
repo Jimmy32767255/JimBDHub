@@ -592,6 +592,7 @@ async function init() {
   });
   subscribe(() => {
     updateDOM();
+    updateChartDisclaimer();
     pageTitle.textContent = t('page.' + (location.hash.slice(1) || 'overview'));
     if (views.overview.classList.contains('view-active')) {
       drawChart();

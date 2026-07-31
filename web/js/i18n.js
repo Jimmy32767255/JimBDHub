@@ -52,7 +52,13 @@ export function subscribe(fn) {
 export function updateDOM(root = document) {
   root.querySelectorAll('[data-i18n]').forEach(el => {
     const key = el.dataset.i18n;
-    if (key) el.textContent = t(key);
+    if (key) {
+      let params;
+      if (el.dataset.i18nParams) {
+        try { params = JSON.parse(el.dataset.i18nParams); } catch { params = undefined; }
+      }
+      el.textContent = t(key, params);
+    }
   });
   root.querySelectorAll('[data-i18n-placeholder]').forEach(el => {
     const key = el.dataset.i18nPlaceholder;
