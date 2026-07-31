@@ -664,6 +664,7 @@ function medColor(index) {
 }
 
 export function renderCombinedChart(records, sleeps = [], events = [], container, tooltip, legendContainer, options = {}) {
+  const allRecords = records;
   records = records.filter(isMoodRecord);
   const { showMood = true, showEffect = true, showSleep = true, projectedDoses = [], pxPerHour, displayRange, boundaryRecords = [], doses: explicitDoses = null } = options;
   const effectivePxPerHour = pxPerHour || PX_PER_HOUR;
@@ -684,7 +685,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   clearYAxisOverlays(wrap);
   if (legendContainer) legendContainer.innerHTML = '';
 
-  let actualDoses = explicitDoses !== null ? explicitDoses : extractDoses(records);
+  let actualDoses = explicitDoses !== null ? explicitDoses : extractDoses(allRecords);
   let historicalDoses = generateHistoricalDoses();
   let doses = [...actualDoses, ...historicalDoses, ...projectedDoses];
   let hasMoodData = records.length > 0 && showMood;
@@ -725,7 +726,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   });
   events = events.filter(e => e.timestamp >= dataMinTime && e.timestamp <= dataMaxTime);
   if (explicitDoses === null) {
-    actualDoses = extractDoses(records);
+    actualDoses = extractDoses(allRecords);
     historicalDoses = generateHistoricalDoses();
     doses = [...actualDoses, ...historicalDoses, ...projectedDoses];
   }
@@ -1307,6 +1308,36 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     });
   }
 
+  // 服药记录点
+  const doseMarkerMap = new Map();
+  if (actualDoses.length > 0) {
+    const doseGroups = groupDosesByMed(actualDoses);
+    doseGroups.forEach((g, idx) => {
+      const color = medColor(idx);
+      g.doses.forEach(d => doseMarkerMap.set(d, color));
+    });
+
+    actualDoses.forEach(d => {
+      const dx = xFor(d.timestamp);
+      if (dx < PADDING.left || dx > width - PADDING.right) return;
+      const color = doseMarkerMap.get(d) || medColor(0);
+      const markerY = PADDING.top + 10;
+      const size = 4;
+      // 使用菱形标记
+      const diamond = createSVGElement('polygon', {
+        points: `${dx},${markerY - size} ${dx + size},${markerY} ${dx},${markerY + size} ${dx - size},${markerY}`,
+        fill: color,
+        stroke: colors.bg,
+        'stroke-width': 1.5,
+        class: 'dose-marker',
+        'data-dose-time': d.timestamp
+      });
+      diamond.style.pointerEvents = 'auto';
+      diamond.style.cursor = 'pointer';
+      container.appendChild(diamond);
+    });
+  }
+
   // 情绪图例
   if (hasMoodData && legendContainer) {
     const moodLegend = document.createElement('span');
@@ -1337,6 +1368,13 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     eventLegend.className = 'legend-item';
     eventLegend.innerHTML = `<i class="dot" style="background:${colors.accent}; width: 2px; border-radius: 0;"></i><span data-i18n="chart.legend.event">${t('chart.legend.event')}</span>`;
     legendContainer.appendChild(eventLegend);
+  }
+
+  if (actualDoses.length > 0 && legendContainer) {
+    const doseLegend = document.createElement('span');
+    doseLegend.className = 'legend-item';
+    doseLegend.innerHTML = `<i class="dot" style="background:${colors.textMuted}; transform: rotate(45deg); border-radius: 0;"></i><span data-i18n="chart.legend.dose">${t('chart.legend.dose')}</span>`;
+    legendContainer.appendChild(doseLegend);
   }
 
   // 十字线和交互
@@ -1379,18 +1417,28 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     });
     const showEventDetail = nearestEvent && (cursorX === null || nearestEventPxDist <= NEAR_THRESHOLD_PX);
 
+    // 附近的服药记录点
+    let nearestDose = null;
+    let nearestDosePxDist = Infinity;
+    actualDoses.forEach(d => {
+      const dist = Math.abs(xFor(d.timestamp) - xFor(ts));
+      if (dist < nearestDosePxDist) { nearestDosePxDist = dist; nearestDose = d; }
+    });
+    const showDoseDetail = nearestDose && (cursorX === null || nearestDosePxDist <= NEAR_THRESHOLD_PX);
+
     // 仅当光标与情绪数据点足够接近时才显示情绪详情，并吸附到该点
     const snapToPoint = hasMoodData && nearest && (cursorX === null || nearestPxDist <= NEAR_THRESHOLD_PX);
     const showMoodDetail = snapToPoint;
     let tooltipTs = snapToPoint ? nearest.timestamp : ts;
     if (showEventDetail && !snapToPoint) tooltipTs = nearestEvent.timestamp;
+    if (showDoseDetail && !snapToPoint && !showEventDetail) tooltipTs = nearestDose.timestamp;
 
     crosshairGroup.setAttribute('display', 'block');
     const x = xFor(tooltipTs);
     vLine.setAttribute('x1', x);
     vLine.setAttribute('x2', x);
 
-    if (!showMoodDetail && !hasEffectData && !hasSleepData && !showEventDetail) {
+    if (!showMoodDetail && !hasEffectData && !hasSleepData && !showEventDetail && !showDoseDetail) {
       hideTooltip();
       return;
     }
@@ -1407,6 +1455,12 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         content += `<div class="note">${t(`chart.tooltip.eventElapsed.${suffix}`, { duration: elapsed })}</div>`;
       }
       if (nearestEvent.note) content += `<div class="note">${nearestEvent.note}</div>`;
+    }
+
+    // 服药记录点信息
+    if (showDoseDetail) {
+      const color = doseMarkerMap.get(nearestDose) || medColor(0);
+      content += `<div style="color:${color}; font-weight:600;">${t('chart.tooltip.dose')}: ${nearestDose.name} ${nearestDose.amount}${nearestDose.unit}</div>`;
     }
 
     // 情绪信息
