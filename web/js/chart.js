@@ -1581,7 +1581,10 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   function updateTooltipFromTouch(e) {
     const touch = e.touches[0];
     const x = clientXToChartX(container, touch.clientX);
-    if (x < PADDING.left || x > width - PADDING.right) return;
+    if (x < PADDING.left || x > width - PADDING.right) {
+      hideTooltip();
+      return;
+    }
     const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / effectivePxPerHour;
     showCombinedTooltip(ts, x);
   }
@@ -1590,8 +1593,11 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     updateTooltipFromTouch(e);
   }, { passive: true });
   container.addEventListener('touchmove', e => {
-    if (!isScrollLocked()) return;
-    if (e.cancelable) e.preventDefault();
+    // 滚动锁定时阻止原生滚动（手指滑动仅浏览），否则交给原生滚动拖动视图；
+    // 两种情况 tooltip 都跟随手指实时更新
+    if (isScrollLocked()) {
+      if (e.cancelable) e.preventDefault();
+    }
     updateTooltipFromTouch(e);
   }, { passive: false });
   container.addEventListener('touchend', hideTooltip, { passive: true });
