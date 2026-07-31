@@ -23,7 +23,8 @@ const DEFAULT_THEME = {
   uiScale: 100,
   edgeMargin: 0,
   simpleMode: false,
-  simpleModeGranularity: 'day'
+  simpleModeGranularity: 'day',
+  sleepDisplayMode: 'bar'
 };
 
 const SYSTEM_PRESETS = {

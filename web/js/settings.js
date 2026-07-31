@@ -290,6 +290,22 @@ function bindConnectMoodDotsControl() {
   subscribeTheme(updateUIFromTheme);
 }
 
+function bindSleepOverlayModeControl() {
+  const checkbox = document.getElementById('sleep-overlay-mode');
+  if (!checkbox) return;
+
+  function updateUIFromTheme(theme) {
+    checkbox.checked = theme.sleepDisplayMode === 'overlay';
+  }
+
+  checkbox.addEventListener('change', () => {
+    setTheme({ sleepDisplayMode: checkbox.checked ? 'overlay' : 'bar' });
+  });
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
 function bindAutoMedLogControl() {
   const checkbox = document.getElementById('auto-med-log');
   if (!checkbox) return;
@@ -658,6 +674,7 @@ export function initSettings() {
   bindMedColorControls();
   bindDisplayControls();
   bindConnectMoodDotsControl();
+  bindSleepOverlayModeControl();
   bindAutoMedLogControl();
   bindSimpleModeControls();
   bindMedHistoryControls();

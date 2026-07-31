@@ -209,6 +209,8 @@
   "settings.appearance.line": "Line",
   "settings.appearance.connectMoodDots": "Connect mood data points",
   "settings.appearance.connectMoodDotsHint": "When on, mood data points are connected by lines; when off, only discrete points are shown to honestly reflect unknown mood during unrecorded periods.",
+  "settings.appearance.sleepOverlayMode": "Translucent sleep overlay",
+  "settings.appearance.sleepOverlayModeHint": "When enabled, sleep records are shown as translucent colored bands spanning the full chart height, with quality shown at the top.",
   "settings.appearance.themeColors": "Theme colors",
   "settings.appearance.backgroundColor": "Background",
   "settings.appearance.surfaceColor": "Surface",

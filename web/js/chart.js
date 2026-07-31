@@ -992,6 +992,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
   // 绘制睡眠条（在零值基线上）
   if (hasSleepData) {
+    const sleepOverlayMode = theme.sleepDisplayMode === 'overlay';
     const sleepBarHeight = 14;
     const sleepY = yMoodFor(0) - sleepBarHeight / 2;
     const sleepClipId = 'sleep-bar-clip';
@@ -1005,6 +1006,94 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       const xBedEnd = xFor(bedEnd);
       const clipWidth = xBedEnd - xBedStart;
       if (clipWidth <= 0) return;
+
+      if (sleepOverlayMode) {
+        const overlayTop = PADDING.top;
+        const overlayHeight = height - PADDING.top - PADDING.bottom;
+        const quality = Math.max(0, Math.min(5, Number(sleep.quality) || 0));
+        const baseOpacity = 0.08 + (quality / 5) * 0.22;
+        const overlayGroup = createSVGElement('g', { class: 'sleep-overlay-group' });
+
+        // 在床上的整个时段（浅紫色）
+        const bedRect = createSVGElement('rect', {
+          x: xBedStart, y: overlayTop, width: clipWidth, height: overlayHeight,
+          fill: '#c4b5fd', opacity: String(baseOpacity), rx: 4, ry: 4
+        });
+        overlayGroup.appendChild(bedRect);
+
+        // 根据入睡/清醒和中断计算各段
+        const segments = [];
+        let cursor = sleep.startTime;
+        const interruptions = [...(sleep.interruptions || [])].sort((a, b) => a.awakeAt - b.awakeAt);
+        interruptions.forEach(i => {
+          if (i.awakeAt > cursor) {
+            segments.push({ type: 'asleep', start: cursor, end: i.awakeAt });
+          }
+          segments.push({ type: 'awake', start: i.awakeAt, end: i.asleepAt });
+          cursor = i.asleepAt;
+        });
+        if (cursor < sleep.endTime) {
+          segments.push({ type: 'asleep', start: cursor, end: sleep.endTime });
+        }
+
+        segments.forEach(seg => {
+          const sx = xFor(seg.start);
+          const sw = xFor(seg.end) - sx;
+          if (sw <= 0) return;
+          const fill = seg.type === 'asleep' ? '#8b5cf6' : theme.surface2Color;
+          const opacity = seg.type === 'asleep' ? String(baseOpacity + 0.15) : String(baseOpacity + 0.1);
+          overlayGroup.appendChild(createSVGElement('rect', {
+            x: sx, y: overlayTop, width: sw, height: overlayHeight,
+            fill, opacity
+          }));
+        });
+
+        // 入睡/清醒边界线
+        if (sleep.bedTime && sleep.bedTime < sleep.startTime) {
+          const x = xFor(sleep.bedTime);
+          overlayGroup.appendChild(createSVGElement('line', {
+            x1: x, y1: overlayTop, x2: x, y2: overlayTop + overlayHeight,
+            stroke: '#c4b5fd', 'stroke-width': 1.5, 'stroke-dasharray': '3 3'
+          }));
+        }
+        if (sleep.getOutOfBedTime && sleep.getOutOfBedTime > sleep.endTime) {
+          const x = xFor(sleep.getOutOfBedTime);
+          overlayGroup.appendChild(createSVGElement('line', {
+            x1: x, y1: overlayTop, x2: x, y2: overlayTop + overlayHeight,
+            stroke: '#c4b5fd', 'stroke-width': 1.5, 'stroke-dasharray': '3 3'
+          }));
+        }
+
+        // 中断线
+        interruptions.forEach(i => {
+          const ix1 = xFor(i.awakeAt);
+          const ix2 = xFor(i.asleepAt);
+          if (ix1 >= xBedStart && ix1 <= xBedEnd) {
+            overlayGroup.appendChild(createSVGElement('line', {
+              x1: ix1, y1: overlayTop, x2: ix1, y2: overlayTop + overlayHeight,
+              stroke: '#ef4444', 'stroke-width': 1.5
+            }));
+          }
+          if (ix2 >= xBedStart && ix2 <= xBedEnd) {
+            overlayGroup.appendChild(createSVGElement('line', {
+              x1: ix2, y1: overlayTop, x2: ix2, y2: overlayTop + overlayHeight,
+              stroke: '#ef4444', 'stroke-width': 1.5
+            }));
+          }
+        });
+
+        // 质量显示在最上方
+        const centerX = (xBedStart + xBedEnd) / 2;
+        const qualityLabel = createSVGElement('text', {
+          x: centerX, y: overlayTop + 16, 'text-anchor': 'middle',
+          fill: '#8b5cf6', 'font-size': '12', 'font-weight': '600'
+        });
+        qualityLabel.textContent = `Q${sleep.quality}`;
+        overlayGroup.appendChild(qualityLabel);
+
+        container.appendChild(overlayGroup);
+        return;
+      }
 
       const interruptions = [...(sleep.interruptions || [])].sort((a, b) => a.awakeAt - b.awakeAt);
       const segments = [];

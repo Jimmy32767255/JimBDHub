@@ -209,6 +209,8 @@
   "settings.appearance.line": "直线",
   "settings.appearance.connectMoodDots": "连接情绪数据点",
   "settings.appearance.connectMoodDotsHint": "开启后将在情绪记录点之间绘制连线；关闭时仅显示离散点，更真实地反映未记录时段的未知情绪。",
+  "settings.appearance.sleepOverlayMode": "半透明覆盖式睡眠显示",
+  "settings.appearance.sleepOverlayModeHint": "开启后睡眠记录显示为贯穿整个视图高度的半透明色块，质量显示在顶部。",
   "settings.appearance.themeColors": "界面主题",
   "settings.appearance.backgroundColor": "背景",
   "settings.appearance.surfaceColor": "卡片",
