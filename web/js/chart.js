@@ -10,6 +10,8 @@ const PAD_HOURS = 6;
 export const MAX_MOOD_RANGE_MS = 30 * DAY_MS;
 const MAX_EFFECT_RANGE_MS = 7 * DAY_MS;
 const MAX_EFFECT_FUTURE_MS = 7 * DAY_MS;
+// 药物浓度低于该值时截断曲线，不再继续渲染
+export const EFFECT_VISIBLE_THRESHOLD = 0.01;
 
 function isScrollLocked() {
   return getTheme().scrollLock === true;
@@ -637,6 +639,40 @@ export function effectEndTime(dose, threshold = 0.01) {
   return timestamp + decayEndHours * HOUR_MS;
 }
 
+// 在相邻采样点之间线性插值，返回 upper 恰好达到 threshold 的截断点
+function thresholdCrossingPoint(p0, p1, threshold) {
+  const u0 = p0.upper;
+  const u1 = p1.upper;
+  if (u0 === u1) return null;
+  const f = (threshold - u0) / (u1 - u0);
+  if (f <= 0 || f >= 1) return null;
+  return {
+    t: p0.t + f * (p1.t - p0.t),
+    upper: threshold,
+    lower: p0.lower + f * (p1.lower - p0.lower)
+  };
+}
+
+// 截取采样数据中 upper >= threshold 的可见区段，并在两端插值补齐截断点；不可见时返回 null
+function truncateSeriesData(data, threshold) {
+  const firstIdx = data.findIndex(p => p.upper >= threshold);
+  if (firstIdx === -1) return null;
+  let lastIdx = -1;
+  for (let i = data.length - 1; i >= 0; i--) {
+    if (data[i].upper >= threshold) { lastIdx = i; break; }
+  }
+  const visible = data.slice(firstIdx, lastIdx + 1);
+  if (firstIdx > 0) {
+    const c = thresholdCrossingPoint(data[firstIdx - 1], data[firstIdx], threshold);
+    if (c) visible.unshift(c);
+  }
+  if (lastIdx < data.length - 1) {
+    const c = thresholdCrossingPoint(data[lastIdx], data[lastIdx + 1], threshold);
+    if (c) visible.push(c);
+  }
+  return visible;
+}
+
 function groupDosesByMed(doses) {
   const groups = {};
   doses.forEach(d => {
@@ -751,7 +787,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   let displayMinTime = dataMinTime - (padStart ? padMs : 0);
   let displayMaxTime = dataMaxTime + (padEnd ? padMs : 0);
   if (hasEffectData) {
-    const maxEffectEnd = Math.max(...doses.map(d => effectEndTime(d, 0.01)));
+    const maxEffectEnd = Math.max(...doses.map(d => effectEndTime(d, EFFECT_VISIBLE_THRESHOLD)));
     displayMaxTime = Math.max(displayMaxTime, Math.min(maxEffectEnd, dataMaxTime + (padEnd ? MAX_EFFECT_FUTURE_MS : 0)));
   }
   if (!displayRange) {
@@ -855,6 +891,9 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       samplePoints.push(displayMaxTime);
     }
 
+    // 判断该药在当前视图范围内是否有服药记录（跨视图延续的药效尾巴不占用图例/工具提示空间）
+    const hasDoseInView = g => g.doses.some(d => d.timestamp >= displayMinTime && d.timestamp <= displayMaxTime);
+
     const series = groups.map((g, idx) => {
       const data = samplePoints.map(ts => {
         let upper = 0;
@@ -866,7 +905,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         });
         return { t: ts, upper, lower };
       });
-      return { ...g, color: medColor(idx), data };
+      return { ...g, color: medColor(idx), data, activeInView: hasDoseInView(g) };
     });
 
     const maxEffect = Math.max(0.1, ...series.flatMap(s => s.data.map(p => p.upper)));
@@ -894,12 +933,16 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
     // 绘制药效区间（最高/最低两条曲线）
     series.forEach(s => {
-      let bandD = `M ${xFor(s.data[0].t)} ${yEffectFor(s.data[0].upper)}`;
-      for (let i = 1; i < s.data.length; i++) {
-        bandD += ` L ${xFor(s.data[i].t)} ${yEffectFor(s.data[i].upper)}`;
+      // 浓度低于阈值时截断曲线，不再继续渲染
+      const visible = truncateSeriesData(s.data, EFFECT_VISIBLE_THRESHOLD);
+      if (!visible) return;
+
+      let bandD = `M ${xFor(visible[0].t)} ${yEffectFor(visible[0].upper)}`;
+      for (let i = 1; i < visible.length; i++) {
+        bandD += ` L ${xFor(visible[i].t)} ${yEffectFor(visible[i].upper)}`;
       }
-      for (let i = s.data.length - 1; i >= 0; i--) {
-        bandD += ` L ${xFor(s.data[i].t)} ${yEffectFor(s.data[i].lower)}`;
+      for (let i = visible.length - 1; i >= 0; i--) {
+        bandD += ` L ${xFor(visible[i].t)} ${yEffectFor(visible[i].lower)}`;
       }
       bandD += ' Z';
       container.appendChild(createSVGElement('path', {
@@ -908,11 +951,11 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         stroke: 'none'
       }));
 
-      let upperD = `M ${xFor(s.data[0].t)} ${yEffectFor(s.data[0].upper)}`;
-      let lowerD = `M ${xFor(s.data[0].t)} ${yEffectFor(s.data[0].lower)}`;
-      for (let i = 1; i < s.data.length; i++) {
-        upperD += ` L ${xFor(s.data[i].t)} ${yEffectFor(s.data[i].upper)}`;
-        lowerD += ` L ${xFor(s.data[i].t)} ${yEffectFor(s.data[i].lower)}`;
+      let upperD = `M ${xFor(visible[0].t)} ${yEffectFor(visible[0].upper)}`;
+      let lowerD = `M ${xFor(visible[0].t)} ${yEffectFor(visible[0].lower)}`;
+      for (let i = 1; i < visible.length; i++) {
+        upperD += ` L ${xFor(visible[i].t)} ${yEffectFor(visible[i].upper)}`;
+        lowerD += ` L ${xFor(visible[i].t)} ${yEffectFor(visible[i].lower)}`;
       }
       container.appendChild(createSVGElement('path', {
         d: upperD,
@@ -932,7 +975,8 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         'stroke-linejoin': 'round'
       }));
 
-      if (legendContainer) {
+      // 当前视图范围内没有再服用的药不显示在图例里
+      if (legendContainer && s.activeInView) {
         const item = document.createElement('span');
         item.className = 'legend-item';
         item.innerHTML = `<i class="dot" style="background:${s.color}"></i><span>${s.name}</span>`;
@@ -1477,6 +1521,8 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     if (hasEffectData) {
       const groups = groupDosesByMed(doses);
       groups.forEach((g, idx) => {
+        // 当前视图范围内没有再服用的药不显示在工具提示里
+        if (!g.doses.some(d => d.timestamp >= displayMinTime && d.timestamp <= displayMaxTime)) return;
         let upper = 0;
         let lower = 0;
         g.doses.forEach(d => {
@@ -1484,7 +1530,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
           upper += effectAt(dt, d, 'upper');
           lower += effectAt(dt, d, 'lower');
         });
-        if (upper > 0) {
+        if (upper >= EFFECT_VISIBLE_THRESHOLD) {
           const unit = g.doseMassUnit || 'mg';
           content += `<div style="color:${medColor(idx)}">${g.name}: ${lower.toFixed(2)} ~ ${upper.toFixed(2)} ${unit}</div>`;
         }
