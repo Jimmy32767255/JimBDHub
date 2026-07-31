@@ -244,11 +244,25 @@ body {
 .chart-card { min-height: 520px; }
 .chart-legend {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   font-size: 12px;
   color: var(--theme-text-muted);
+  min-width: 0;
+  max-width: 100%;
 }
-.legend-item { display: flex; align-items: center; gap: 6px; }
+.legend-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 0;
+  max-width: 100%;
+}
+.legend-item > span {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
+}
 .dot { width: 8px; height: 8px; border-radius: 50%; }
 .dot.red { background: var(--theme-positive); }
 .dot.blue { background: var(--theme-negative); }
@@ -444,7 +458,8 @@ body {
 #combined-chart { display: block; min-width: 100%; height: 100%; overflow: visible; }
 .chart-controls {
   display: flex;
-  gap: 16px;
+  flex-wrap: wrap;
+  gap: 8px 16px;
   padding: 12px 16px;
   border-top: 1px solid var(--theme-surface-2);
 }
@@ -455,12 +470,20 @@ body {
   cursor: pointer;
   font-size: 14px;
   color: var(--theme-text);
+  min-width: 0;
+  max-width: 100%;
+}
+.chart-checkbox > span {
+  min-width: 0;
+  overflow-wrap: break-word;
+  word-break: break-word;
 }
 .chart-checkbox input[type="checkbox"] {
   width: 16px;
   height: 16px;
   accent-color: var(--theme-accent);
   cursor: pointer;
+  flex-shrink: 0;
 }
 .chart-disclaimer {
   margin: 0;
