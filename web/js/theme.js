@@ -26,7 +26,6 @@ const DEFAULT_THEME = {
   simpleModeGranularity: 'day',
   sleepDisplayMode: 'bar',
   depletionReminderDays: 3,
-  medRemainingStyle: 'solid',
   dynamicAnimationSpeed: true,
   disableAnimations: false
 };

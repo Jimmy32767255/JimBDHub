@@ -287,46 +287,17 @@ function formatDepletion(depletionTs) {
   }
 }
 
-function getRemainingColor(pct) {
-  // 0% → #ef4444 (red), 50% → #eab308 (yellow), 100% → #22c55e (green)
-  const stops = [
-    { pos: 0, r: 239, g: 68, b: 68 },
-    { pos: 50, r: 234, g: 179, b: 8 },
-    { pos: 100, r: 34, g: 197, b: 94 }
-  ];
-  let lo = stops[0], hi = stops[stops.length - 1];
-  for (let i = 0; i < stops.length - 1; i++) {
-    if (pct >= stops[i].pos && pct <= stops[i + 1].pos) {
-      lo = stops[i]; hi = stops[i + 1]; break;
-    }
-  }
-  const tRange = hi.pos - lo.pos || 1;
-  const f = (pct - lo.pos) / tRange;
-  const r = Math.round(lo.r + (hi.r - lo.r) * f);
-  const g = Math.round(lo.g + (hi.g - lo.g) * f);
-  const b = Math.round(lo.b + (hi.b - lo.b) * f);
-  return `rgb(${r},${g},${b})`;
-}
-
 function renderMeds() {
   const tbody = document.querySelector('#meds-table tbody');
   tbody.innerHTML = '';
   const filtered = medsSelectedTags.length
     ? store.data.meds.filter(med => medHasAnyTag(med, medsSelectedTags))
     : store.data.meds;
-  const medStyle = getTheme().medRemainingStyle || 'solid';
   filtered.forEach(med => {
     const tr = document.createElement('tr');
     const pct = percent(med);
-    const fillColor = getRemainingColor(pct);
-    let fillStyle;
-    if (medStyle === 'gradient') {
-      // 截断渐变：渐变覆盖整个条宽，填充宽度截断可见部分
-      fillStyle = `width: ${pct}%; background: linear-gradient(90deg, #ef4444, #eab308 50%, #22c55e); background-size: 120px 100%; background-repeat: no-repeat;`;
-    } else {
-      // 全纯色：整条实心部分使用单一颜色
-      fillStyle = `width: ${pct}%; background: ${fillColor};`;
-    }
+    // 截断渐变：渐变覆盖整个条宽，填充宽度截断可见部分
+    const fillStyle = `width: ${pct}%; background: linear-gradient(90deg, #ef4444, #eab308 50%, #22c55e); background-size: 120px 100%; background-repeat: no-repeat;`;
     const depletionTs = predictDepletion(med);
     const depletionLine = depletionTs === null ? '' : formatDepletion(depletionTs);
     const tagsHtml = (med.tags || []).slice(0, 3).map(tag => `<span class="med-tag-chip">${tag}</span>`).join('');

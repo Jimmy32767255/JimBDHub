@@ -335,27 +335,6 @@ function bindAutoMedLogControl() {
   subscribeTheme(updateUIFromTheme);
 }
 
-function bindMedRemainingStyleControl() {
-  const group = document.getElementById('med-remaining-style');
-  if (!group) return;
-
-  function updateUIFromTheme(theme) {
-    const style = theme.medRemainingStyle || 'solid';
-    group.querySelectorAll('.segment-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.style === style);
-    });
-  }
-
-  group.addEventListener('click', (e) => {
-    const btn = e.target.closest('.segment-btn');
-    if (!btn) return;
-    setTheme({ medRemainingStyle: btn.dataset.style });
-  });
-
-  updateUIFromTheme(getTheme());
-  subscribeTheme(updateUIFromTheme);
-}
-
 function bindSimpleModeControls() {
   const enableCheckbox = document.getElementById('simple-mode-enable');
   const granularityGroup = document.getElementById('simple-mode-granularity');
@@ -832,7 +811,6 @@ export function initSettings() {
   bindSleepOverlayModeControl();
   bindAutoMedLogControl();
   bindDepletionReminderDaysControl();
-  bindMedRemainingStyleControl();
   bindSimpleModeControls();
   bindMedHistoryControls();
   bindSyncControls();
