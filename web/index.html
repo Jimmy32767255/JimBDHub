@@ -561,6 +561,13 @@
               <input type="number" id="depletion-reminder-days" min="0" max="30" step="1" class="form-field" style="max-width: 100px">
               <small class="form-hint" data-i18n="settings.meds.depletionReminderDaysHint">在聚合视图中，药品耗尽点前多少天开始显示虚线预警提示</small>
             </div>
+            <div class="setting-group">
+              <h4 data-i18n="settings.meds.remainingBarStyle">药品余量条样式</h4>
+              <div class="segmented-control" id="med-remaining-style">
+                <button type="button" class="segment-btn active" data-style="solid" data-i18n="settings.meds.remainingBarStyleSolid">全纯色</button>
+                <button type="button" class="segment-btn" data-style="gradient" data-i18n="settings.meds.remainingBarStyleGradient">截断渐变</button>
+              </div>
+            </div>
             <div class="setting-group" id="med-history-group">
               <h4 data-i18n="settings.meds.historyTitle">用药历史（补充药效）</h4>
               <small class="form-hint" data-i18n="settings.meds.historyHint">添加开始用药或变更用药的时间点，用于在首次服药记录之前估算药效。变更点后的实际服药记录优先于历史记录。</small>
