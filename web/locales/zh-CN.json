@@ -36,6 +36,7 @@
   "chart.tooltip.dose": "服药",
   "chart.effectTooltip": "估算药效",
   "chart.effectUnit": "混合单位",
+  "chart.effectAxisTooltip": "{name}：上限 {max} {unit}",
   "chart.tooltip.event": "事件",
   "chart.tooltip.eventElapsed.past": "距离现在 {duration}",
   "chart.tooltip.eventElapsed.future": "还有 {duration}",

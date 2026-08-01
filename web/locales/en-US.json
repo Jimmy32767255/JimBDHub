@@ -36,6 +36,7 @@
   "chart.tooltip.dose": "Dose",
   "chart.effectTooltip": "Estimated effect",
   "chart.effectUnit": "mixed units",
+  "chart.effectAxisTooltip": "{name}: max {max} {unit}",
   "chart.tooltip.event": "Event",
   "chart.tooltip.eventElapsed.past": "{duration} ago",
   "chart.tooltip.eventElapsed.future": "in {duration}",

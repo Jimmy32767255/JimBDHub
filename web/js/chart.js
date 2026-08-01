@@ -128,6 +128,10 @@ function renderYAxisOverlay(wrap, side, labels, textColor, height) {
     wrap.appendChild(overlay);
   }
   overlay.innerHTML = '';
+  // 浮层需锚定在图表内容区顶部（chart-wrap 的 padding-top），
+  // 否则右侧药效比例尺与左侧刻度会整体比曲线/网格偏高
+  const padTop = parseFloat(getComputedStyle(wrap).paddingTop) || 0;
+  overlay.style.top = `${padTop}px`;
   overlay.style.height = `${height}px`;
 
   const svg = createSVGElement('svg', {
@@ -136,15 +140,31 @@ function renderYAxisOverlay(wrap, side, labels, textColor, height) {
     viewBox: `0 0 ${width} ${height}`
   });
 
-  labels.forEach(({ value, y }) => {
+  labels.forEach(labelData => {
+    if (labelData.isBar) {
+      // 可交互的药效比例尺背景条
+      const rect = createSVGElement('rect', {
+        x: labelData.x - labelData.barWidth / 2,
+        y: labelData.barY,
+        width: labelData.barWidth,
+        height: labelData.barHeight,
+        fill: labelData.barColor,
+        opacity: '0.15',
+        class: 'effect-axis-bar',
+        'data-med-idx': labelData.medIdx
+      });
+      svg.appendChild(rect);
+      return;
+    }
+    const x = labelData.x !== undefined ? labelData.x : (isLeft ? width - 10 : 10);
     const label = createSVGElement('text', {
-      x: isLeft ? width - 10 : 10,
-      y: y + 4,
-      'text-anchor': isLeft ? 'end' : 'start',
-      fill: textColor,
+      x,
+      y: labelData.y + 4,
+      'text-anchor': labelData.x !== undefined ? 'middle' : (isLeft ? 'end' : 'start'),
+      fill: labelData.color || textColor,
       'font-size': '11'
     });
-    label.textContent = value;
+    label.textContent = labelData.value;
     svg.appendChild(label);
   });
 
@@ -905,37 +925,50 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         });
         return { t: ts, upper, lower };
       });
-      return { ...g, color: medColor(idx), data, activeInView: hasDoseInView(g) };
-    });
+      const maxUpper = Math.max(0.1, ...data.map(p => p.upper));
+      const yMax = Math.ceil(maxUpper * 1.1);
+      const yEffectFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
+      const visible = truncateSeriesData(data, EFFECT_VISIBLE_THRESHOLD);
+      return {
+        ...g,
+        color: medColor(idx),
+        data,
+        activeInView: hasDoseInView(g),
+        yMax,
+        yEffectFor,
+        visible
+      };
+    }).filter(s => s.visible);
 
-    const maxEffect = Math.max(0.1, ...series.flatMap(s => s.data.map(p => p.upper)));
-    const yMax = Math.ceil(maxEffect * 1.1);
-    const yEffectFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
-
-    // 右侧 Y 轴标签
-    const effectYLabels = [];
-    for (let v = 0; v <= yMax; v += Math.max(1, Math.round(yMax / 4))) {
-      const y = yEffectFor(v);
-      effectYLabels.push({ value: String(v), y });
-    }
-    renderYAxisOverlay(wrap, 'right', effectYLabels, colors.textMuted, height);
-
-    const unitSet = new Set(groups.map(g => g.doseMassUnit));
-    const effectUnit = unitSet.size === 1 ? [...unitSet][0] : t('chart.effectUnit');
-    if (effectUnit) {
-      const unitLabel = createSVGElement('text', {
-        x: width - PADDING.right + 4, y: PADDING.top - 6, 'text-anchor': 'start',
-        fill: colors.textMuted, 'font-size': '10'
+    // 右侧简化比例尺：每种药独立一根小横线，使用药品颜色，绘制在右侧 overlay 上跟随滚动
+    const axisYTop = PADDING.top;
+    const axisYBottom = height - PADDING.bottom;
+    const axisBarWidth = Math.max(6, Math.floor(PADDING.right / Math.max(series.length, 1)));
+    const effectScaleLabels = [];
+    series.forEach((s, seriesIdx) => {
+      const offsetX = seriesIdx * axisBarWidth;
+      const tickX = offsetX + axisBarWidth / 2;
+      const tickCount = 4;
+      const step = s.yMax / tickCount;
+      for (let i = 0; i <= tickCount; i++) {
+        const value = i * step;
+        const y = s.yEffectFor(value);
+        if (y < axisYTop || y > axisYBottom) continue;
+        effectScaleLabels.push({ value: String(Math.round(value * 10) / 10), y, color: s.color, x: tickX, isTick: true });
+      }
+      // 可交互的轴线，悬停/长按显示该药品剂量
+      effectScaleLabels.push({
+        value: '', y: 0, color: 'transparent', x: tickX,
+        isBar: true, barY: axisYTop, barHeight: axisYBottom - axisYTop,
+        barWidth: axisBarWidth, medIdx: seriesIdx, barColor: s.color
       });
-      unitLabel.textContent = effectUnit;
-      container.appendChild(unitLabel);
-    }
+    });
+    renderYAxisOverlay(wrap, 'right', effectScaleLabels, colors.textMuted, height);
 
     // 绘制药效区间（最高/最低两条曲线）
     series.forEach(s => {
-      // 浓度低于阈值时截断曲线，不再继续渲染
-      const visible = truncateSeriesData(s.data, EFFECT_VISIBLE_THRESHOLD);
-      if (!visible) return;
+      const visible = s.visible;
+      const yEffectFor = s.yEffectFor;
 
       let bandD = `M ${xFor(visible[0].t)} ${yEffectFor(visible[0].upper)}`;
       for (let i = 1; i < visible.length; i++) {
@@ -982,6 +1015,43 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         item.innerHTML = `<i class="dot" style="background:${s.color}"></i><span>${s.name}</span>`;
         legendContainer.appendChild(item);
       }
+    });
+
+    // 为右侧简化比例尺添加悬停/长按 tooltip
+    const effectAxisBars = wrap.querySelectorAll('.y-axis-overlay.right .effect-axis-bar');
+    const showEffectAxisTooltip = (bar, clientX, clientY) => {
+      const idx = Number(bar.getAttribute('data-med-idx'));
+      const s = series[idx];
+      if (!s) return;
+      const unit = s.doseMassUnit || 'mg';
+      const label = t('chart.effectAxisTooltip', { name: s.name, max: s.yMax.toFixed(2), unit });
+      tooltip.innerHTML = `<div style="color:${s.color}; font-weight:600;">${label}</div>`;
+      tooltip.classList.add('visible');
+      tooltip.style.position = 'fixed';
+      const tRect = tooltip.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let left = clientX + 12;
+      let top = clientY - tRect.height - 12;
+      if (left + tRect.width + 12 > vw) left = clientX - tRect.width - 12;
+      if (left < 8) left = 8;
+      if (top < 8) top = clientY + 12;
+      if (top + tRect.height + 8 > vh) top = vh - tRect.height - 8;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    };
+    const hideEffectAxisTooltip = () => {
+      tooltip.classList.remove('visible');
+    };
+    effectAxisBars.forEach(bar => {
+      bar.addEventListener('mouseenter', e => showEffectAxisTooltip(bar, e.clientX, e.clientY));
+      bar.addEventListener('mousemove', e => showEffectAxisTooltip(bar, e.clientX, e.clientY));
+      bar.addEventListener('mouseleave', hideEffectAxisTooltip);
+      bar.addEventListener('touchstart', e => {
+        const touch = e.touches[0];
+        showEffectAxisTooltip(bar, touch.clientX, touch.clientY);
+      }, { passive: true });
+      bar.addEventListener('touchend', hideEffectAxisTooltip, { passive: true });
     });
   }
 
