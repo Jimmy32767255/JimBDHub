@@ -432,10 +432,16 @@ function renderRecords() {
     all = all.filter(item => itemText(item).includes(searchQuery));
   }
 
+  // 记录越多，渐入动画步长越小，避免末尾项目等待过久
+  let animStep = 50;
+  if (getTheme().dynamicAnimationSpeed !== false && all.length > 10) {
+    animStep = Math.max(8, Math.min(animStep, Math.floor(3000 / all.length)));
+  }
+
   all.forEach((item, idx) => {
     const el = document.createElement('div');
     el.className = 'record-item';
-    el.style.animationDelay = `${idx * 50}ms`;
+    el.style.animationDelay = `${idx * animStep}ms`;
     el.dataset.kind = item.kind;
     el.dataset.id = item.data.id;
 

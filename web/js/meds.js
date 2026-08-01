@@ -415,10 +415,15 @@ function renderLogs() {
     });
   }
   const maxDelta = Math.max(1, ...logs.map(l => Math.abs(l.delta)));
+  // 记录越多，渐入动画步长越小，避免末尾项目等待过久
+  let animStep = 60;
+  if (getTheme().dynamicAnimationSpeed !== false && logs.length > 10) {
+    animStep = Math.max(8, Math.min(animStep, Math.floor(3000 / logs.length)));
+  }
   logs.forEach((log, idx) => {
     const item = document.createElement('div');
     item.className = 'log-item';
-    item.style.animationDelay = `${idx * 60}ms`;
+    item.style.animationDelay = `${idx * animStep}ms`;
     const width = Math.max(4, (Math.abs(log.delta) / maxDelta) * 160);
     const sign = log.delta > 0 ? '+' : '';
     item.innerHTML = `
