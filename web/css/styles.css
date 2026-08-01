@@ -1075,6 +1075,15 @@ body {
 .event-line, .event-dot { pointer-events: none; }
 .depletion-line, .depletion-warning-line { pointer-events: none; }
 
+/* 无障碍：关闭所有动画与过渡 */
+html.no-animations *,
+html.no-animations *::before,
+html.no-animations *::after {
+  animation: none !important;
+  transition: none !important;
+  animation-delay: 0ms !important;
+}
+
 .records-filter-bar {
   display: flex;
   gap: 12px;

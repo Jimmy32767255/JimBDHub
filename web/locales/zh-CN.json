@@ -263,6 +263,8 @@
   "settings.display.edgeMarginHint": "在移动端增加屏幕两侧留白，避免边缘控件难以点击",
   "settings.display.dynamicAnimationSpeed": "动态动画速度",
   "settings.display.dynamicAnimationSpeedHint": "记录较多时自动加快列表渐入动画，避免末尾项目等待过久",
+  "settings.display.disableAnimations": "关闭动画（无障碍）",
+  "settings.display.disableAnimationsHint": "关闭后所有渐入、脉冲等动画与过渡立即完成，适合对动态效果敏感的用户",
   "settings.meds.title": "药物",
   "settings.meds.autoLog": "自动记录服药",
   "settings.meds.autoLogHint": "开启后，到达药品设定的每日服药时间将自动按每次剂量生成服药记录并扣减库存",

@@ -263,6 +263,8 @@
   "settings.display.edgeMarginHint": "Add side margins on mobile to avoid edge controls being hard to tap",
   "settings.display.dynamicAnimationSpeed": "Dynamic animation speed",
   "settings.display.dynamicAnimationSpeedHint": "Automatically speed up list fade-in animations when there are many records, so items at the end don't wait too long",
+  "settings.display.disableAnimations": "Disable animations (accessibility)",
+  "settings.display.disableAnimationsHint": "When enabled, all fade-in, pulse and other animations and transitions complete instantly",
   "settings.meds.title": "Medication",
   "settings.meds.autoLog": "Auto-log doses",
   "settings.meds.autoLogHint": "When enabled, doses are automatically logged at each scheduled time and stock is deducted",

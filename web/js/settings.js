@@ -261,11 +261,13 @@ function bindDisplayControls() {
   const scaleSelect = document.getElementById('ui-scale-select');
   const marginSelect = document.getElementById('edge-margin-select');
   const animCheckbox = document.getElementById('dynamic-animation-speed');
+  const disableAnimCheckbox = document.getElementById('disable-animations');
 
   function updateUIFromTheme(theme) {
     if (scaleSelect) scaleSelect.value = String(theme.uiScale);
     if (marginSelect) marginSelect.value = String(theme.edgeMargin);
     if (animCheckbox) animCheckbox.checked = theme.dynamicAnimationSpeed !== false;
+    if (disableAnimCheckbox) disableAnimCheckbox.checked = theme.disableAnimations === true;
   }
 
   scaleSelect?.addEventListener('change', () => {
@@ -276,6 +278,9 @@ function bindDisplayControls() {
   });
   animCheckbox?.addEventListener('change', () => {
     setTheme({ dynamicAnimationSpeed: animCheckbox.checked });
+  });
+  disableAnimCheckbox?.addEventListener('change', () => {
+    setTheme({ disableAnimations: disableAnimCheckbox.checked });
   });
 
   updateUIFromTheme(getTheme());

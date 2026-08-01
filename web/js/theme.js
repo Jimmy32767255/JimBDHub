@@ -27,7 +27,8 @@ const DEFAULT_THEME = {
   sleepDisplayMode: 'bar',
   depletionReminderDays: 3,
   medRemainingStyle: 'solid',
-  dynamicAnimationSpeed: true
+  dynamicAnimationSpeed: true,
+  disableAnimations: false
 };
 
 const SYSTEM_PRESETS = {
@@ -114,6 +115,8 @@ function applyCSS(theme) {
   root.style.setProperty('--theme-text-muted-rgb', hexToRgb(theme.textMutedColor));
   root.style.setProperty('--ui-scale-ratio', theme.uiScale / 100);
   root.style.setProperty('--edge-margin', `${theme.edgeMargin}px`);
+  // 无障碍：关闭所有动画/过渡
+  root.classList.toggle('no-animations', theme.disableAnimations === true);
   applyBackground(theme);
 }
 
