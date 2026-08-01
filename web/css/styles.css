@@ -874,6 +874,22 @@ body {
   border-color: var(--theme-accent);
 }
 
+#depletion-reminder-days {
+  appearance: none;
+  -webkit-appearance: none;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--theme-text);
+  font-family: inherit;
+  font-size: 14px;
+  outline: none;
+}
+#depletion-reminder-days:focus {
+  border-color: var(--theme-accent);
+}
+
 .form-tabs {
   display: inline-flex;
   background: var(--theme-bg);
