@@ -24,7 +24,8 @@ const DEFAULT_THEME = {
   edgeMargin: 0,
   simpleMode: false,
   simpleModeGranularity: 'day',
-  sleepDisplayMode: 'bar'
+  sleepDisplayMode: 'bar',
+  depletionReminderDays: 3
 };
 
 const SYSTEM_PRESETS = {

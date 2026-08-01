@@ -1014,6 +1014,7 @@ body {
 }
 
 .event-line, .event-dot { pointer-events: none; }
+.depletion-line, .depletion-warning-line { pointer-events: none; }
 
 .records-filter-bar {
   display: flex;

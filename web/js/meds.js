@@ -240,7 +240,7 @@ function getLogsCustomRange() {
   return start !== null && end !== null ? { start, end } : null;
 }
 
-function predictDepletion(med) {
+export function predictDepletion(med) {
   if (!Array.isArray(med.schedule) || med.schedule.length === 0) return null;
   if (med.remainingPills <= 0) return -1;
   const now = Date.now();
@@ -298,6 +298,7 @@ function renderMeds() {
     const depletionTs = predictDepletion(med);
     const depletionLine = depletionTs === null ? '' : formatDepletion(depletionTs);
     const tagsHtml = (med.tags || []).slice(0, 3).map(tag => `<span class="med-tag-chip">${tag}</span>`).join('');
+    const showDepletionBtn = platform.isAndroid() && depletionTs !== null && depletionTs > 0;
     tr.innerHTML = `
       <td><strong>${med.name}</strong></td>
       <td>${med.category || t('meds.table.emptyNote')}</td>
@@ -310,6 +311,7 @@ function renderMeds() {
       <td>${med.note || t('meds.table.emptyNote')}${tagsHtml ? `<div class="med-tags-cell">${tagsHtml}</div>` : ''}</td>
       <td>
         <div class="med-actions">
+          ${showDepletionBtn ? `<button class="btn btn-sm" data-action="add-depletion-reminder" data-id="${med.id}" title="${t('meds.table.addDepletionReminder')}">${t('meds.table.addDepletionReminder')}</button>` : ''}
           <button class="btn btn-icon" data-action="adjust" data-id="${med.id}" title="${t('meds.adjustTitle')}">${t('meds.adjust')}</button>
           <button class="btn btn-icon" data-action="edit" data-id="${med.id}">${t('common.edit')}</button>
           <button class="btn btn-danger" data-action="delete" data-id="${med.id}">${t('common.delete')}</button>
@@ -756,6 +758,19 @@ function initMeds() {
 
     if (action === 'adjust') {
       openStockModal(med);
+    } else if (action === 'add-depletion-reminder') {
+      const depletionTs = predictDepletion(med);
+      if (!depletionTs || depletionTs <= 0) {
+        await showAlert(t('meds.validation.requiredDepletionReminder'));
+        return;
+      }
+      await platform.addEventReminder({
+        title: t('meds.depletion.reminderTitle', { name: med.name }),
+        description: t('meds.depletion.reminderDesc', { name: med.name, remaining: med.remainingPills, unit: med.unit }),
+        beginTime: depletionTs,
+        endTime: depletionTs + 60 * 60 * 1000
+      });
+      await showAlert(t('meds.depletion.reminderAdded', { name: med.name }));
     } else if (action === 'edit') {
       openModal(med);
     } else if (action === 'delete') {

@@ -556,6 +556,11 @@
               </label>
               <small class="form-hint" data-i18n="settings.meds.autoLogHint">开启后，到达药品设定的每日服药时间将自动按每次剂量生成服药记录并扣减库存</small>
             </div>
+            <div class="setting-group">
+              <h4 data-i18n="settings.meds.depletionReminderDays">耗尽提醒提前天数</h4>
+              <input type="number" id="depletion-reminder-days" min="0" max="30" step="1" class="form-field" style="max-width: 100px">
+              <small class="form-hint" data-i18n="settings.meds.depletionReminderDaysHint">在聚合视图中，药品耗尽点前多少天开始显示虚线预警提示</small>
+            </div>
             <div class="setting-group" id="med-history-group">
               <h4 data-i18n="settings.meds.historyTitle">用药历史（补充药效）</h4>
               <small class="form-hint" data-i18n="settings.meds.historyHint">添加开始用药或变更用药的时间点，用于在首次服药记录之前估算药效。变更点后的实际服药记录优先于历史记录。</small>

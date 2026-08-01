@@ -722,7 +722,7 @@ function medColor(index) {
 export function renderCombinedChart(records, sleeps = [], events = [], container, tooltip, legendContainer, options = {}) {
   const allRecords = records;
   records = records.filter(isMoodRecord);
-  const { showMood = true, showEffect = true, showSleep = true, projectedDoses = [], pxPerHour, displayRange, boundaryRecords = [], doses: explicitDoses = null } = options;
+  const { showMood = true, showEffect = true, showSleep = true, projectedDoses = [], pxPerHour, displayRange, boundaryRecords = [], doses: explicitDoses = null, depletionData = [] } = options;
   const effectivePxPerHour = pxPerHour || PX_PER_HOUR;
   const theme = getTheme();
   const colors = {
@@ -1422,6 +1422,38 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     });
   }
 
+  // 药品耗尽点虚线（始终显示）
+  const reminderDays = theme.depletionReminderDays || 3;
+  if (depletionData.length > 0) {
+    const depletionGroup = createSVGElement('g', { class: 'depletion-lines' });
+    depletionData.forEach(dep => {
+      const lineColor = dep.color || medColor(dep.medIndex);
+      // 耗尽点虚线
+      const dx = xFor(dep.depletionTime);
+      if (dx >= PADDING.left && dx <= width - PADDING.right) {
+        depletionGroup.appendChild(createSVGElement('line', {
+          x1: dx, y1: PADDING.top, x2: dx, y2: height - PADDING.bottom,
+          stroke: lineColor, 'stroke-width': 2, 'stroke-dasharray': '6 4',
+          class: 'depletion-line'
+        }));
+      }
+      // 提前预警虚线
+      const warningTime = dep.depletionTime - reminderDays * DAY_MS;
+      if (warningTime > displayMinTime) {
+        const wx = xFor(warningTime);
+        if (wx >= PADDING.left && wx <= width - PADDING.right) {
+          depletionGroup.appendChild(createSVGElement('line', {
+            x1: wx, y1: PADDING.top, x2: wx, y2: height - PADDING.bottom,
+            stroke: lineColor, 'stroke-width': 1.5, 'stroke-dasharray': '3 6',
+            opacity: '0.6',
+            class: 'depletion-warning-line'
+          }));
+        }
+      }
+    });
+    container.appendChild(depletionGroup);
+  }
+
   // 服药记录点
   const doseMarkerMap = new Map();
   if (actualDoses.length > 0) {
@@ -1482,6 +1514,17 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     eventLegend.className = 'legend-item';
     eventLegend.innerHTML = `<i class="dot" style="background:${colors.accent}; width: 2px; border-radius: 0;"></i><span data-i18n="chart.legend.event">${t('chart.legend.event')}</span>`;
     legendContainer.appendChild(eventLegend);
+  }
+
+  if (depletionData.length > 0 && legendContainer) {
+    const depletionLegend = document.createElement('span');
+    depletionLegend.className = 'legend-item';
+    depletionLegend.innerHTML = `<i class="dot" style="background:${depletionData[0].color || medColor(0)}; width: 2px; height: 16px; border-radius: 0;"></i><span data-i18n="chart.legend.depletion">${t('chart.legend.depletion')}</span>`;
+    legendContainer.appendChild(depletionLegend);
+    const warningLegend = document.createElement('span');
+    warningLegend.className = 'legend-item';
+    warningLegend.innerHTML = `<i class="dot" style="background:${depletionData[0].color || medColor(0)}; width: 2px; height: 16px; border-radius: 0; opacity: 0.6;"></i><span data-i18n="chart.legend.depletionWarning">${t('chart.legend.depletionWarning')}</span>`;
+    legendContainer.appendChild(warningLegend);
   }
 
   if (actualDoses.length > 0 && legendContainer) {

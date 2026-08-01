@@ -353,6 +353,22 @@ function bindSimpleModeControls() {
   subscribeTheme(updateUIFromTheme);
 }
 
+function bindDepletionReminderDaysControl() {
+  const input = document.getElementById('depletion-reminder-days');
+  if (!input) return;
+
+  function updateUIFromTheme(theme) {
+    input.value = theme.depletionReminderDays ?? 3;
+  }
+
+  input.addEventListener('change', () => {
+    setTheme({ depletionReminderDays: Math.max(0, Math.min(30, Number(input.value) || 3)) });
+  });
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
 function bindMedHistoryControls() {
   const group = document.getElementById('med-history-group');
   const list = document.getElementById('med-history-list');
@@ -694,6 +710,7 @@ export function initSettings() {
   bindConnectMoodDotsControl();
   bindSleepOverlayModeControl();
   bindAutoMedLogControl();
+  bindDepletionReminderDaysControl();
   bindSimpleModeControls();
   bindMedHistoryControls();
   bindSyncControls();

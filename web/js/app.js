@@ -1,6 +1,6 @@
 import { store } from './store.js';
 import { renderCombinedChart, MAX_MOOD_RANGE_MS, getEffectiveDoses, effectEndTime, EFFECT_VISIBLE_THRESHOLD } from './chart.js';
-import { initMeds } from './meds.js';
+import { initMeds, predictDepletion } from './meds.js';
 import { initRecords } from './records.js';
 import { initSettings } from './settings.js';
 import { initI18n, t, subscribe, updateDOM } from './i18n.js';
@@ -313,6 +313,23 @@ function updateChartDisclaimer() {
   chartDisclaimer.textContent = t(moodKey) + ' ' + t('chart.disclaimer.effect');
 }
 
+function computeDepletionData() {
+  const theme = getTheme();
+  const medColors = theme.medColors || ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'];
+  return store.data.meds
+    .map((med, idx) => {
+      const depletionTs = predictDepletion(med);
+      if (!depletionTs || depletionTs <= 0) return null;
+      return {
+        medName: med.name,
+        depletionTime: depletionTs,
+        medIndex: idx,
+        color: medColors[idx % medColors.length]
+      };
+    })
+    .filter(Boolean);
+}
+
 function drawChart() {
   const records = store.getRecordsInRange('all');
   const sleeps = store.getSleepsInRange('all');
@@ -369,7 +386,8 @@ function drawChart() {
     pxPerHour: currentPxPerHour,
     displayRange: { min: pageData.pageStart, max: pageData.pageEnd, padStart: pageData.padStart, padEnd: pageData.padEnd },
     boundaryRecords: pageData.boundaryRecords,
-    doses: pageData.doses
+    doses: pageData.doses,
+    depletionData: computeDepletionData()
   });
 
   // 恢复视口中心到相同比例位置
