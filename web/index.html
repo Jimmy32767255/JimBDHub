@@ -376,8 +376,17 @@
       </section>
 
       <section class="view" id="settings-view" aria-labelledby="page-title">
-        <div class="card">
+        <div class="card settings-search-card">
           <div class="card-header">
+            <h3 data-i18n="settings.search.title">搜索设置</h3>
+          </div>
+          <div class="settings-actions">
+            <input type="text" id="settings-search" class="settings-search-input" data-i18n-placeholder="settings.search.placeholder" placeholder="输入关键词搜索设置项…">
+            <p id="settings-search-empty" class="form-hint settings-search-empty" data-i18n="settings.search.empty" hidden>未找到匹配的设置项</p>
+          </div>
+        </div>
+        <div class="card" data-settings-card="language">
+          <div class="card-header settings-card-header">
             <h3 data-i18n="settings.language">语言</h3>
           </div>
           <div class="settings-actions">
@@ -387,8 +396,8 @@
             </select>
           </div>
         </div>
-        <div class="card">
-          <div class="card-header">
+        <div class="card" data-settings-card="appearance">
+          <div class="card-header settings-card-header">
             <h3 data-i18n="settings.appearance.title">个性化</h3>
           </div>
           <div class="settings-section">
@@ -491,8 +500,8 @@
             </div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-header">
+        <div class="card" data-settings-card="display">
+          <div class="card-header settings-card-header">
             <h3 data-i18n="settings.display.title">显示</h3>
           </div>
           <div class="settings-section">
@@ -523,8 +532,8 @@
             </div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-header">
+        <div class="card" data-settings-card="simpleMode">
+          <div class="card-header settings-card-header">
             <h3 data-i18n="settings.simpleMode.title">简化模式</h3>
           </div>
           <div class="settings-section">
@@ -544,8 +553,8 @@
             </div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-header">
+        <div class="card" data-settings-card="meds">
+          <div class="card-header settings-card-header">
             <h3 data-i18n="settings.meds.title">药物</h3>
           </div>
           <div class="settings-section">
@@ -603,8 +612,8 @@
             </div>
           </div>
         </div>
-        <div class="card">
-          <div class="card-header">
+        <div class="card" data-settings-card="backup">
+          <div class="card-header settings-card-header">
             <h3 data-i18n="settings.backup.title">数据备份</h3>
           </div>
           <div class="settings-actions">
@@ -613,8 +622,8 @@
             <input type="file" id="import-backup-input" accept=".json,application/json" hidden>
           </div>
         </div>
-        <div class="card" id="syncthing-card">
-          <div class="card-header">
+        <div class="card" id="syncthing-card" data-settings-card="sync">
+          <div class="card-header settings-card-header">
             <h3 data-i18n="settings.sync.title">Syncthing 同步</h3>
           </div>
           <div class="settings-section">
@@ -632,8 +641,8 @@
           </div>
         </div>
 
-        <div class="card" id="widget-card">
-          <div class="card-header">
+        <div class="card" id="widget-card" data-settings-card="widget">
+          <div class="card-header settings-card-header">
             <h3 data-i18n="settings.widget.title">桌面小部件</h3>
           </div>
           <div class="settings-section">
@@ -646,8 +655,8 @@
           </div>
         </div>
 
-        <div class="card" id="data-card">
-          <div class="card-header">
+        <div class="card" id="data-card" data-settings-card="data">
+          <div class="card-header settings-card-header">
             <h3 data-i18n="settings.dangerZone.title">数据</h3>
           </div>
           <div class="settings-section">

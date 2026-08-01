@@ -690,6 +690,96 @@ function bindWipeControls() {
   });
 }
 
+const SETTINGS_COLLAPSE_KEY = 'jimbdhub_settings_collapsed';
+let settingsCollapseState = {};
+
+function loadSettingsCollapseState() {
+  try {
+    settingsCollapseState = JSON.parse(localStorage.getItem(SETTINGS_COLLAPSE_KEY)) || {};
+  } catch {
+    settingsCollapseState = {};
+  }
+}
+
+function saveSettingsCollapseState() {
+  try {
+    localStorage.setItem(SETTINGS_COLLAPSE_KEY, JSON.stringify(settingsCollapseState));
+  } catch { /* ignore */ }
+}
+
+function applyCollapsedState(card) {
+  const id = card.dataset.settingsCard;
+  if (!id) return;
+  // 默认折叠
+  const collapsed = settingsCollapseState[id] ?? true;
+  card.classList.toggle('collapsed', collapsed);
+}
+
+function initSettingsCollapse() {
+  loadSettingsCollapseState();
+  const cards = document.querySelectorAll('#settings-view [data-settings-card]');
+  cards.forEach(card => {
+    const id = card.dataset.settingsCard;
+    applyCollapsedState(card);
+    card.querySelector(':scope > .card-header')?.addEventListener('click', () => {
+      const collapsed = !card.classList.contains('collapsed');
+      card.classList.toggle('collapsed', collapsed);
+      settingsCollapseState[id] = collapsed;
+      saveSettingsCollapseState();
+    });
+  });
+}
+
+function bindSettingsSearch() {
+  const input = document.getElementById('settings-search');
+  const emptyHint = document.getElementById('settings-search-empty');
+  if (!input) return;
+  const cards = Array.from(document.querySelectorAll('#settings-view [data-settings-card]'));
+
+  input.addEventListener('input', () => {
+    const q = input.value.trim().toLowerCase();
+    if (emptyHint) emptyHint.hidden = true;
+    if (!q) {
+      cards.forEach(card => {
+        card.classList.remove('search-hidden');
+        card.querySelectorAll('.setting-group.search-hidden').forEach(g => g.classList.remove('search-hidden'));
+        applyCollapsedState(card);
+      });
+      return;
+    }
+
+    let anyMatch = false;
+    let firstMatch = null;
+    cards.forEach(card => {
+      const headerEl = card.querySelector(':scope > .card-header');
+      const titleMatch = headerEl ? headerEl.textContent.toLowerCase().includes(q) : false;
+      const groups = Array.from(card.querySelectorAll(':scope > .settings-section > .setting-group'));
+      let cardMatch = titleMatch;
+      if (groups.length) {
+        groups.forEach(g => {
+          const m = g.textContent.toLowerCase().includes(q);
+          g.classList.toggle('search-hidden', !m && !titleMatch);
+          if (m) {
+            cardMatch = true;
+            if (!firstMatch) firstMatch = g;
+          }
+        });
+      } else if (card.textContent.toLowerCase().includes(q)) {
+        cardMatch = true;
+      }
+      card.classList.toggle('search-hidden', !cardMatch);
+      if (cardMatch) {
+        card.classList.remove('collapsed');
+        anyMatch = true;
+      }
+    });
+    if (emptyHint) emptyHint.hidden = anyMatch;
+    if (firstMatch) {
+      firstMatch.scrollIntoView({ behavior: 'smooth', block: 'nearest' });
+    }
+  });
+}
+
 export function initSettings() {
   const exportBtn = document.getElementById('export-backup-btn');
   const importBtn = document.getElementById('import-backup-btn');
@@ -738,6 +828,8 @@ export function initSettings() {
   bindSyncControls();
   bindWidgetControls();
   bindWipeControls();
+  initSettingsCollapse();
+  bindSettingsSearch();
 
   subscribe(() => {
     updateDOM();
