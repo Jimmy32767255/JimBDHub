@@ -995,6 +995,25 @@ body {
   max-height: 600px;
   overflow-y: auto;
 }
+.records-limit-hint {
+  margin: 0;
+  padding: 10px 14px;
+  border-radius: var(--radius-sm);
+  background: var(--theme-surface-2);
+  border: 1px solid var(--theme-surface-3);
+  color: var(--theme-text-muted);
+  font-size: 13px;
+  line-height: 1.5;
+}
+#records-limit-hint {
+  margin: 0 16px 4px;
+}
+#logs-limit-hint {
+  margin: 0 16px 4px;
+}
+.chart-limit-hint {
+  margin: 0 20px 16px;
+}
 .record-item {
   background: var(--theme-bg);
   border-radius: var(--radius-sm);

@@ -41,6 +41,9 @@ function nowMinute() {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
+// 列表/图表单次最多加载的记录条数，防止记录过多导致卡顿或 OOM
+export const MAX_LOADED_RECORDS = 100;
+
 function recalcLogRemainingAfter(medId) {
   const med = store.data.meds.find(m => m.id === medId);
   const logs = store.data.logs.filter(l => l.medicationId === medId);

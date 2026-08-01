@@ -1,4 +1,4 @@
-import { store, formatDateTime, formatQuantity } from './store.js';
+import { store, formatDateTime, formatQuantity, MAX_LOADED_RECORDS } from './store.js';
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { platform } from './platform.js';
@@ -414,6 +414,13 @@ function renderLogs() {
       return med && medHasAnyTag(med, logsSelectedTags);
     });
   }
+  // 仅加载最近的日志，避免日志过多导致卡顿
+  const limitHint = document.getElementById('logs-limit-hint');
+  const limited = logs.length > MAX_LOADED_RECORDS;
+  if (limited) {
+    logs = logs.slice(0, MAX_LOADED_RECORDS);
+  }
+  if (limitHint) limitHint.hidden = !limited;
   const maxDelta = Math.max(1, ...logs.map(l => Math.abs(l.delta)));
   // 记录越多，渐入动画步长越小，避免末尾项目等待过久
   let animStep = 60;

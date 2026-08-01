@@ -1,4 +1,4 @@
-import { store, formatDateTime, formatDuration, nowMinute } from './store.js';
+import { store, formatDateTime, formatDuration, nowMinute, MAX_LOADED_RECORDS } from './store.js';
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { platform } from './platform.js';
@@ -431,6 +431,14 @@ function renderRecords() {
   if (searchQuery) {
     all = all.filter(item => itemText(item).includes(searchQuery));
   }
+
+  // 仅加载最近的记录，避免记录过多导致卡顿
+  const limitHint = document.getElementById('records-limit-hint');
+  const limited = all.length > MAX_LOADED_RECORDS;
+  if (limited) {
+    all = all.slice(0, MAX_LOADED_RECORDS);
+  }
+  if (limitHint) limitHint.hidden = !limited;
 
   // 记录越多，渐入动画步长越小，避免末尾项目等待过久
   let animStep = 50;

@@ -1,4 +1,4 @@
-import { store } from './store.js';
+import { store, MAX_LOADED_RECORDS } from './store.js';
 import { renderCombinedChart, MAX_MOOD_RANGE_MS, getEffectiveDoses, effectEndTime, EFFECT_VISIBLE_THRESHOLD } from './chart.js';
 import { initMeds, predictDepletion } from './meds.js';
 import { initRecords } from './records.js';
@@ -331,9 +331,17 @@ function computeDepletionData() {
 }
 
 function drawChart() {
-  const records = store.getRecordsInRange('all');
+  let records = store.getRecordsInRange('all');
   const sleeps = store.getSleepsInRange('all');
   const events = store.getEventsInRange('all');
+
+  // 仅加载最近的记录，避免记录过多导致卡顿
+  const chartLimitHint = document.getElementById('chart-limit-hint');
+  const recordsLimited = records.length > MAX_LOADED_RECORDS;
+  if (recordsLimited) {
+    records = records.slice(-MAX_LOADED_RECORDS);
+  }
+  if (chartLimitHint) chartLimitHint.hidden = !recordsLimited;
 
   // 计算分页边界并校正当前页（默认打开最新一页）
   const globalRange = getPaginationBounds(records, sleeps, events);

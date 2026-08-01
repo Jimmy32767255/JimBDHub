@@ -95,6 +95,7 @@
   "records.eventForm.addReminder": "Add to system calendar",
   "records.eventForm.save": "Save event",
   "records.history.title": "History",
+  "records.history.limitHint": "Too many records; only the latest 100 are loaded. Use a custom date range to view earlier records.",
   "records.history.searchPlaceholder": "Search history...",
   "records.history.period.all": "All time",
   "records.history.period.week": "Last 7 days",

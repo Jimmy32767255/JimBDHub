@@ -95,6 +95,7 @@
   "records.eventForm.addReminder": "添加到系统日程",
   "records.eventForm.save": "保存事件",
   "records.history.title": "历史记录",
+  "records.history.limitHint": "记录较多，仅加载最近 100 条。建议通过「自选时间段」查看更早的记录。",
   "records.history.searchPlaceholder": "搜索历史记录...",
   "records.history.period.all": "全部时间",
   "records.history.period.week": "最近 7 天",
