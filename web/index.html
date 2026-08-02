@@ -446,6 +446,10 @@
               <h4 data-i18n="settings.appearance.themeColors">界面主题</h4>
               <div class="color-row">
                 <label class="color-field">
+                  <span data-i18n="settings.appearance.backgroundColor">背景色</span>
+                  <input type="color" id="theme-background-color">
+                </label>
+                <label class="color-field">
                   <span data-i18n="settings.appearance.surfaceColor">卡片</span>
                   <input type="color" id="theme-surface-color">
                 </label>
@@ -470,14 +474,7 @@
                 <button type="button" class="segment-btn" data-type="image" data-i18n="settings.appearance.backgroundImage">图片</button>
                 <button type="button" class="segment-btn" data-type="gradient" data-i18n="settings.appearance.backgroundGradient">渐变</button>
               </div>
-              <div class="background-controls" id="background-solid-control">
-                <div class="color-row">
-                  <label class="color-field">
-                    <span data-i18n="settings.appearance.backgroundColor">背景色</span>
-                    <input type="color" id="theme-background-color">
-                  </label>
-                </div>
-              </div>
+              <div class="background-controls" id="background-solid-control"></div>
               <div class="background-controls" id="background-image-control" hidden>
                 <input type="file" id="theme-background-image" accept="image/*">
                 <button type="button" class="btn btn-ghost btn-sm" id="theme-clear-background-image" data-i18n="common.clear">清除</button>
