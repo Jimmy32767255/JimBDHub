@@ -559,7 +559,7 @@ body {
 .progress-bar {
   width: 120px;
   height: 8px;
-  background: var(--theme-surface-2);
+  background: var(--theme-surface-alt);
   border-radius: 4px;
   overflow: hidden;
 }
@@ -999,7 +999,7 @@ body {
   margin: 0;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
-  background: var(--theme-surface-2);
+  background: var(--theme-surface-alt);
   border: 1px solid var(--theme-surface-3);
   color: var(--theme-text-muted);
   font-size: 13px;

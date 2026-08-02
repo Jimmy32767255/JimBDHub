@@ -230,6 +230,7 @@
   "settings.appearance.themeColors": "Theme colors",
   "settings.appearance.backgroundColor": "Background",
   "settings.appearance.surfaceColor": "Surface",
+  "settings.appearance.surfaceAltColor": "Secondary",
   "settings.appearance.accentColor": "Accent",
   "settings.appearance.systemTheme": "Use system theme",
   "settings.appearance.reset": "Reset to default",

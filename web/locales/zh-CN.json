@@ -230,6 +230,7 @@
   "settings.appearance.themeColors": "界面主题",
   "settings.appearance.backgroundColor": "背景",
   "settings.appearance.surfaceColor": "卡片",
+  "settings.appearance.surfaceAltColor": "次要",
   "settings.appearance.accentColor": "强调色",
   "settings.appearance.systemTheme": "获取系统主题",
   "settings.appearance.reset": "恢复默认",

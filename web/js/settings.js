@@ -61,6 +61,7 @@ function bindThemeControls() {
   const negativeInput = document.getElementById('theme-negative-color');
   const neutralInput = document.getElementById('theme-neutral-color');
   const surfaceInput = document.getElementById('theme-surface-color');
+  const surfaceAltInput = document.getElementById('theme-surface-alt-color');
   const accentInput = document.getElementById('theme-accent-color');
   const curveLineGroup = document.getElementById('theme-curve-line');
   const systemBtn = document.getElementById('theme-system-btn');
@@ -71,6 +72,7 @@ function bindThemeControls() {
     if (negativeInput) negativeInput.value = theme.negativeColor;
     if (neutralInput) neutralInput.value = theme.neutralColor;
     if (surfaceInput) surfaceInput.value = theme.surfaceColor;
+    if (surfaceAltInput) surfaceAltInput.value = theme.surfaceAltColor;
     if (accentInput) accentInput.value = theme.accentColor;
     if (curveLineGroup) {
       curveLineGroup.querySelectorAll('.segment-btn').forEach(btn => {
@@ -84,6 +86,7 @@ function bindThemeControls() {
     [negativeInput, 'negativeColor'],
     [neutralInput, 'neutralColor'],
     [surfaceInput, 'surfaceColor'],
+    [surfaceAltInput, 'surfaceAltColor'],
     [accentInput, 'accentColor']
   ];
 

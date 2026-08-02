@@ -14,6 +14,7 @@ const DEFAULT_THEME = {
   surfaceColor: '#1e293b',
   surface2Color: '#334155',
   surface3Color: '#475569',
+  surfaceAltColor: '#334155',
   textColor: '#f8fafc',
   textMutedColor: '#94a3b8',
   accentColor: '#ef4444',
@@ -39,6 +40,7 @@ const SYSTEM_PRESETS = {
     surfaceColor: '#ffffff',
     surface2Color: '#e2e8f0',
     surface3Color: '#cbd5e1',
+    surfaceAltColor: '#e2e8f0',
     textColor: '#0f172a',
     textMutedColor: '#64748b',
     accentColor: '#dc2626',
@@ -110,6 +112,8 @@ function applyCSS(theme) {
   root.style.setProperty('--theme-surface-2-rgb', hexToRgb(theme.surface2Color));
   root.style.setProperty('--theme-surface-3', theme.surface3Color);
   root.style.setProperty('--theme-surface-3-rgb', hexToRgb(theme.surface3Color));
+  root.style.setProperty('--theme-surface-alt', theme.surfaceAltColor);
+  root.style.setProperty('--theme-surface-alt-rgb', hexToRgb(theme.surfaceAltColor));
   root.style.setProperty('--theme-text', theme.textColor);
   root.style.setProperty('--theme-text-rgb', hexToRgb(theme.textColor));
   root.style.setProperty('--theme-text-muted', theme.textMutedColor);
