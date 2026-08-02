@@ -158,7 +158,7 @@ body {
   transition: all 0.2s ease;
 }
 .nav-link:hover, .nav-link.active {
-  background: var(--theme-surface-2);
+  background: var(--theme-surface-alt);
   color: var(--theme-text);
 }
 .nav-link.active {
@@ -588,7 +588,7 @@ body {
   margin-top: 10px;
 }
 .med-db-tag {
-  background: var(--theme-bg);
+  background: var(--theme-surface-alt);
   border: 1px solid var(--theme-surface-2);
   color: var(--theme-text-muted);
   border-radius: 20px;
@@ -599,7 +599,7 @@ body {
   font-family: inherit;
 }
 .med-db-tag:hover {
-  background: var(--theme-surface-2);
+  background: var(--theme-surface-alt);
   color: var(--theme-text);
 }
 .med-db-tag.active {
@@ -972,7 +972,7 @@ body {
   color: var(--theme-text-muted);
   border: 1px solid var(--theme-surface-2);
 }
-.btn-ghost:hover { background: var(--theme-surface-2); color: var(--theme-text); }
+.btn-ghost:hover { background: var(--theme-surface-alt); color: var(--theme-text); }
 .btn-secondary {
   background: transparent;
   color: var(--theme-accent);
@@ -995,7 +995,7 @@ body {
   padding: 6px 10px;
   font-size: 12px;
 }
-.btn-icon:hover { background: var(--theme-surface-2); color: var(--theme-text); }
+.btn-icon:hover { background: var(--theme-surface-alt); color: var(--theme-text); }
 
 .records-list {
   padding: 16px;
@@ -1153,7 +1153,7 @@ html.no-animations *::after {
 }
 .med-tag-chip {
   display: inline-flex;
-  background: var(--theme-bg);
+  background: var(--theme-surface-alt);
   border: 1px solid var(--theme-surface-2);
   color: var(--theme-text-muted);
   border-radius: 20px;
@@ -1198,7 +1198,7 @@ html.no-animations *::after {
 }
 .dose-tag-btn {
   display: inline-flex;
-  background: var(--theme-bg);
+  background: var(--theme-surface-alt);
   border: 1px solid var(--theme-surface-2);
   color: var(--theme-text-muted);
   border-radius: 20px;
@@ -1424,7 +1424,7 @@ html.no-animations *::after {
   font-family: inherit;
 }
 .segment-btn.active, .segment-btn:hover {
-  background: var(--theme-surface-2);
+  background: var(--theme-surface-alt);
   color: var(--theme-text);
 }
 .theme-actions {
