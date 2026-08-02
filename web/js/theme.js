@@ -28,6 +28,8 @@ const DEFAULT_THEME = {
   edgeMargin: 0,
   simpleMode: false,
   simpleModeGranularity: 'day',
+  simpleModeMood: true,
+  simpleModeMedication: true,
   sleepDisplayMode: 'bar',
   depletionReminderDays: 3,
   dynamicAnimationSpeed: true,

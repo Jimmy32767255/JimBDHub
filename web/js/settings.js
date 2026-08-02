@@ -352,20 +352,42 @@ function bindAutoMedLogControl() {
 
 function bindSimpleModeControls() {
   const enableCheckbox = document.getElementById('simple-mode-enable');
+  const moodCheckbox = document.getElementById('simple-mode-mood');
+  const medicationCheckbox = document.getElementById('simple-mode-medication');
+  const scopeGroup = document.getElementById('simple-mode-scope-group');
   const granularityGroup = document.getElementById('simple-mode-granularity');
+  const granularityGroupContainer = document.getElementById('simple-mode-granularity-group');
   if (!enableCheckbox || !granularityGroup) return;
 
   function updateUIFromTheme(theme) {
-    enableCheckbox.checked = theme.simpleMode === true;
+    const enabled = theme.simpleMode === true;
+    enableCheckbox.checked = enabled;
+    if (moodCheckbox) moodCheckbox.checked = theme.simpleModeMood !== false;
+    if (medicationCheckbox) medicationCheckbox.checked = theme.simpleModeMedication !== false;
     granularityGroup.querySelectorAll('.segment-btn').forEach(btn => {
       btn.classList.toggle('active', btn.dataset.granularity === theme.simpleModeGranularity);
     });
-    granularityGroup.disabled = !enableCheckbox.checked;
-    granularityGroup.style.opacity = enableCheckbox.checked ? '1' : '0.5';
+    granularityGroup.disabled = !enabled;
+    granularityGroup.style.opacity = enabled ? '1' : '0.5';
+    if (scopeGroup) {
+      scopeGroup.style.opacity = enabled ? '1' : '0.5';
+      scopeGroup.querySelectorAll('input[type="checkbox"]').forEach(cb => { cb.disabled = !enabled; });
+    }
+    if (granularityGroupContainer) {
+      granularityGroupContainer.hidden = !enabled || moodCheckbox === null || theme.simpleModeMood === false;
+    }
   }
 
   enableCheckbox.addEventListener('change', () => {
     setTheme({ simpleMode: enableCheckbox.checked });
+  });
+
+  moodCheckbox?.addEventListener('change', () => {
+    setTheme({ simpleModeMood: moodCheckbox.checked });
+  });
+
+  medicationCheckbox?.addEventListener('change', () => {
+    setTheme({ simpleModeMedication: medicationCheckbox.checked });
   });
 
   granularityGroup.addEventListener('click', (e) => {

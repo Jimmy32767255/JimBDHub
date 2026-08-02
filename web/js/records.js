@@ -28,6 +28,12 @@ const recordPeriodGroup = document.getElementById('record-period-group');
 const medicationForm = document.getElementById('medication-form');
 const medicationIdInput = document.getElementById('medication-id');
 const medicationTimeInput = document.getElementById('medication-time');
+const medicationTimeNormal = document.getElementById('medication-time-normal');
+const medicationTimeSimpleDay = document.getElementById('medication-time-simple-day');
+const medicationTimeSimplePeriod = document.getElementById('medication-time-simple-period');
+const medicationDate = document.getElementById('medication-date');
+const medicationDatePeriod = document.getElementById('medication-date-period');
+const medicationPeriodGroup = document.getElementById('medication-period-group');
 const medicationDosesList = document.getElementById('medication-doses-list');
 const medicationNoteInput = document.getElementById('medication-note');
 const medicationCancelBtn = document.getElementById('medication-cancel');
@@ -92,9 +98,28 @@ function parseLocalDate(dateStr) {
   return d;
 }
 
+function getDatePeriodTimestamp(dateInput, periodGroup) {
+  if (!dateInput || !dateInput.value) return Number.NaN;
+  const activeBtn = periodGroup?.querySelector('.segment-btn.active');
+  const period = activeBtn?.dataset.period || 'morning';
+  const d = parseLocalDate(dateInput.value);
+  d.setHours(PERIOD_HOURS[period], 0, 0, 0);
+  return d.getTime();
+}
+
+function setDatePeriodForm(ts, dateDayInput, datePeriodInput, periodGroup) {
+  const dateVal = toDateInputValue(ts);
+  if (dateDayInput) dateDayInput.value = dateVal;
+  if (datePeriodInput) datePeriodInput.value = dateVal;
+  const period = getPeriodFromHour(new Date(ts).getHours());
+  periodGroup?.querySelectorAll('.segment-btn').forEach(btn => {
+    btn.classList.toggle('active', btn.dataset.period === period);
+  });
+}
+
 function getMoodTimestampFromForm() {
   const theme = getTheme();
-  if (theme.simpleMode) {
+  if (theme.simpleMode && theme.simpleModeMood !== false) {
     if (theme.simpleModeGranularity === 'day') {
       const dateVal = recordDate.value;
       if (!dateVal) return Number.NaN;
@@ -102,42 +127,70 @@ function getMoodTimestampFromForm() {
       d.setHours(12, 0, 0, 0);
       return d.getTime();
     }
-    const dateVal = recordDatePeriod.value;
-    const activeBtn = recordPeriodGroup?.querySelector('.segment-btn.active');
-    const period = activeBtn?.dataset.period || 'morning';
-    if (!dateVal) return Number.NaN;
-    const d = parseLocalDate(dateVal);
-    d.setHours(PERIOD_HOURS[period], 0, 0, 0);
-    return d.getTime();
+    return getDatePeriodTimestamp(recordDatePeriod, recordPeriodGroup);
   }
   return new Date(timeInput.value).getTime();
 }
 
 function setMoodFormTimestamp(ts) {
   const theme = getTheme();
-  if (theme.simpleMode) {
-    const dateVal = toDateInputValue(ts);
-    if (recordDate) recordDate.value = dateVal;
-    if (recordDatePeriod) recordDatePeriod.value = dateVal;
-    const period = getPeriodFromHour(new Date(ts).getHours());
-    recordPeriodGroup?.querySelectorAll('.segment-btn').forEach(btn => {
-      btn.classList.toggle('active', btn.dataset.period === period);
-    });
+  if (theme.simpleMode && theme.simpleModeMood !== false) {
+    if (theme.simpleModeGranularity === 'day') {
+      if (recordDate) recordDate.value = toDateInputValue(ts);
+    } else {
+      setDatePeriodForm(ts, null, recordDatePeriod, recordPeriodGroup);
+    }
   } else if (timeInput) {
     timeInput.value = toDatetimeLocal(ts);
+  }
+}
+
+function getMedicationTimestampFromForm() {
+  const theme = getTheme();
+  if (theme.simpleMode && theme.simpleModeMedication !== false) {
+    if (theme.simpleModeGranularity === 'day') {
+      const dateVal = medicationDate.value;
+      if (!dateVal) return Number.NaN;
+      const d = parseLocalDate(dateVal);
+      d.setHours(12, 0, 0, 0);
+      return d.getTime();
+    }
+    return getDatePeriodTimestamp(medicationDatePeriod, medicationPeriodGroup);
+  }
+  return new Date(medicationTimeInput.value).getTime();
+}
+
+function setMedicationFormTimestamp(ts) {
+  const theme = getTheme();
+  if (theme.simpleMode && theme.simpleModeMedication !== false) {
+    if (theme.simpleModeGranularity === 'day') {
+      if (medicationDate) medicationDate.value = toDateInputValue(ts);
+    } else {
+      setDatePeriodForm(ts, null, medicationDatePeriod, medicationPeriodGroup);
+    }
+  } else if (medicationTimeInput) {
+    medicationTimeInput.value = toDatetimeLocal(ts);
   }
 }
 
 function applySimpleModeUI() {
   const theme = getTheme();
   const simple = theme.simpleMode === true;
+  const simpleMood = simple && theme.simpleModeMood !== false;
+  const simpleMedication = simple && theme.simpleModeMedication !== false;
   const granularity = theme.simpleModeGranularity || 'day';
-  if (moodTimeNormal) moodTimeNormal.hidden = simple;
-  if (moodTimeSimpleDay) moodTimeSimpleDay.hidden = !simple || granularity !== 'day';
-  if (moodTimeSimplePeriod) moodTimeSimplePeriod.hidden = !simple || granularity !== 'period';
-  if (timeInput) timeInput.required = !simple;
-  if (recordDate) recordDate.required = simple && granularity === 'day';
-  if (recordDatePeriod) recordDatePeriod.required = simple && granularity === 'period';
+  if (moodTimeNormal) moodTimeNormal.hidden = simpleMood;
+  if (moodTimeSimpleDay) moodTimeSimpleDay.hidden = !simpleMood || granularity !== 'day';
+  if (moodTimeSimplePeriod) moodTimeSimplePeriod.hidden = !simpleMood || granularity !== 'period';
+  if (timeInput) timeInput.required = !simpleMood;
+  if (recordDate) recordDate.required = simpleMood && granularity === 'day';
+  if (recordDatePeriod) recordDatePeriod.required = simpleMood && granularity === 'period';
+  if (medicationTimeNormal) medicationTimeNormal.hidden = simpleMedication;
+  if (medicationTimeSimpleDay) medicationTimeSimpleDay.hidden = !simpleMedication || granularity !== 'day';
+  if (medicationTimeSimplePeriod) medicationTimeSimplePeriod.hidden = !simpleMedication || granularity !== 'period';
+  if (medicationTimeInput) medicationTimeInput.required = !simpleMedication;
+  if (medicationDate) medicationDate.required = simpleMedication && granularity === 'day';
+  if (medicationDatePeriod) medicationDatePeriod.required = simpleMedication && granularity === 'period';
 }
 
 function updateRangeOutputs() {
@@ -633,14 +686,14 @@ function editEvent(event) {
 function resetMedicationForm() {
   medicationForm.reset();
   medicationIdInput.value = '';
-  medicationTimeInput.value = toDatetimeLocal(nowMinute());
+  setMedicationFormTimestamp(nowMinute());
   renderDoses([]);
   medicationNoteInput.value = '';
 }
 
 function editMedicationRecord(record) {
   medicationIdInput.value = record.id;
-  medicationTimeInput.value = toDatetimeLocal(record.timestamp);
+  setMedicationFormTimestamp(record.timestamp);
   renderDoses(record.doses || []);
   medicationNoteInput.value = record.note || '';
   switchForm('medication');
@@ -649,7 +702,7 @@ function editMedicationRecord(record) {
 function handleMedicationSubmit(e) {
   e.preventDefault();
   const doses = collectDoses();
-  const timestamp = new Date(medicationTimeInput.value).getTime();
+  const timestamp = getMedicationTimestampFromForm();
   const payload = {
     timestamp,
     doses,
@@ -705,7 +758,7 @@ function refreshCurrentTimes() {
     setMoodFormTimestamp(nowMinute());
   }
   if (!medicationIdInput.value && medicationForm && !medicationForm.hidden) {
-    medicationTimeInput.value = toDatetimeLocal(nowMinute());
+    setMedicationFormTimestamp(nowMinute());
   }
   if (!eventIdInput.value && !eventForm.hidden) {
     eventTimeInput.value = toDatetimeLocal(nowMinute());
@@ -737,6 +790,13 @@ function initRecords() {
     const btn = e.target.closest('.segment-btn');
     if (!btn) return;
     recordPeriodGroup.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
+    btn.classList.add('active');
+  });
+
+  medicationPeriodGroup?.addEventListener('click', e => {
+    const btn = e.target.closest('.segment-btn');
+    if (!btn) return;
+    medicationPeriodGroup.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
   });
 
