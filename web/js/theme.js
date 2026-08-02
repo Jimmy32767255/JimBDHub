@@ -1,3 +1,5 @@
+import { platform } from './platform.js';
+
 const STORAGE_KEY = 'jimbdhub_theme';
 
 const DEFAULT_THEME = {
@@ -154,9 +156,20 @@ export function resetTheme() {
   setTheme({ ...DEFAULT_THEME });
 }
 
-export function applySystemTheme() {
+export async function applySystemTheme() {
   const scheme = getSystemScheme();
-  setTheme({ ...SYSTEM_PRESETS[scheme], useSystemTheme: true });
+  const theme = { ...SYSTEM_PRESETS[scheme], useSystemTheme: true };
+  try {
+    // 拉取系统强调色与背景色，获取不到则回退到亮/暗预设
+    const sys = await platform.getSystemTheme();
+    if (sys) {
+      if (sys.accentColor) theme.accentColor = sys.accentColor;
+      if (sys.backgroundColor) theme.backgroundColor = sys.backgroundColor;
+    }
+  } catch (e) {
+    // 忽略异常，使用预设
+  }
+  setTheme(theme);
 }
 
 export function initTheme() {
@@ -164,6 +177,8 @@ export function initTheme() {
   if (currentTheme.useSystemTheme) {
     const scheme = getSystemScheme();
     currentTheme = { ...currentTheme, ...SYSTEM_PRESETS[scheme], useSystemTheme: true };
+    // 异步拉取系统强调色/背景色增强，失败则保持预设
+    applySystemTheme();
   }
   applyCSS(currentTheme);
 

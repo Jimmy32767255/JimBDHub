@@ -154,6 +154,37 @@ function waitForAndroidBackgroundImageCallback() {
   });
 }
 
+function waitForAndroidSystemThemeCallback() {
+  return new Promise((resolve) => {
+    const previousCallback = window.__androidSystemThemeCallback;
+    const previousError = window.__androidSystemThemeError;
+    const timeout = setTimeout(() => {
+      cleanup();
+      resolve(null);
+    }, 5000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      window.__androidSystemThemeCallback = previousCallback;
+      window.__androidSystemThemeError = previousError;
+    };
+
+    window.__androidSystemThemeCallback = (json) => {
+      cleanup();
+      try {
+        resolve(JSON.parse(json));
+      } catch {
+        resolve(null);
+      }
+    };
+
+    window.__androidSystemThemeError = () => {
+      cleanup();
+      resolve(null);
+    };
+  });
+}
+
 export const platform = {
   isAndroid() {
     return typeof window.AndroidBridge !== 'undefined';
@@ -241,6 +272,23 @@ export const platform = {
       return { ok: true };
     }
     return { ok: false, error: t('platform.reminderUnsupported') };
+  },
+
+  async getSystemTheme() {
+    if (this.isAndroid() && typeof window.AndroidBridge.getSystemTheme === 'function') {
+      window.AndroidBridge.getSystemTheme();
+      const data = await waitForAndroidSystemThemeCallback();
+      return data && typeof data === 'object' ? data : null;
+    }
+    if (this.isDesktop() && typeof window.pywebview.api.getSystemTheme === 'function') {
+      try {
+        const data = await window.pywebview.api.getSystemTheme();
+        return data && typeof data === 'object' ? data : null;
+      } catch {
+        return null;
+      }
+    }
+    return null;
   },
 
   async enableSync() {

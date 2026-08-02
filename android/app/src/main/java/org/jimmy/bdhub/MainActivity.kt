@@ -10,6 +10,7 @@ import android.os.Bundle
 import android.provider.AlarmClock
 import android.provider.CalendarContract
 import android.util.Base64
+import android.util.TypedValue
 import android.webkit.JavascriptInterface
 import android.webkit.WebChromeClient
 import android.webkit.WebResourceRequest
@@ -609,5 +610,43 @@ class MainActivity : AppCompatActivity() {
                 }
             }
         }
+
+        @JavascriptInterface
+        fun getSystemTheme() {
+            runOnUiThread {
+                val accent = resolveThemeColor(android.R.attr.colorAccent)
+                val background = resolveThemeColor(android.R.attr.colorBackground)
+                val parts = mutableListOf<String>()
+                if (accent != null) parts.add("\"accentColor\":\"$accent\"")
+                if (background != null) parts.add("\"backgroundColor\":\"$background\"")
+                val json = "{${parts.joinToString(",")}}"
+                webView.evaluateJavascript(
+                    "if (window.__androidSystemThemeCallback) window.__androidSystemThemeCallback('$json');",
+                    null
+                )
+            }
+        }
+    }
+
+    /** 从当前主题中解析指定属性的颜色值，解析失败返回 null。 */
+    private fun resolveThemeColor(attr: Int): String? {
+        return try {
+            val tv = TypedValue()
+            if (theme.resolveAttribute(attr, tv, true)) {
+                if (tv.type == TypedValue.TYPE_STRING) {
+                    tv.string?.toString()
+                } else {
+                    colorToHex(tv.data)
+                }
+            } else {
+                null
+            }
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun colorToHex(color: Int): String {
+        return String.format("#%06X", 0xFFFFFF and color)
     }
 }

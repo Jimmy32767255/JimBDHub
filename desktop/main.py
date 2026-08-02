@@ -394,6 +394,27 @@ class DesktopBridge:
             print(f"保存备份失败: {e}", file=sys.stderr)
             return False
 
+    def getSystemTheme(self):
+        """从系统调色板获取强调色与背景色，获取失败时返回 None。"""
+        try:
+            from PyQt6.QtGui import QGuiApplication, QPalette
+
+            app = QGuiApplication.instance()
+            if app is None:
+                return None
+            palette = app.palette()
+            accent = palette.color(QPalette.ColorRole.Highlight)
+            background = palette.color(QPalette.ColorRole.Window)
+            result = {}
+            if accent.isValid():
+                result["accentColor"] = accent.name()
+            if background.isValid():
+                result["backgroundColor"] = background.name()
+            return result or None
+        except Exception as e:
+            print(f"获取系统主题失败: {e}", file=sys.stderr)
+            return None
+
     def pickBackup(self):
         if not self.window:
             return None
