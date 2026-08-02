@@ -960,13 +960,16 @@ body {
   font-weight: 500;
   cursor: pointer;
   transition: all 0.2s;
+  background: var(--theme-surface-alt);
+  color: var(--theme-text);
 }
+.btn:hover { background: var(--theme-surface-2); color: var(--theme-text); }
 .btn-primary {
   background: linear-gradient(135deg, var(--theme-accent), var(--theme-accent-dark));
   color: white;
   box-shadow: 0 4px 14px rgba(var(--theme-accent-rgb), 0.25);
 }
-.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(var(--theme-accent-rgb), 0.35); }
+.btn-primary:hover { transform: translateY(-1px); box-shadow: 0 6px 18px rgba(var(--theme-accent-rgb), 0.35); background: linear-gradient(135deg, var(--theme-accent), var(--theme-accent-dark)); }
 .btn-ghost {
   background: transparent;
   color: var(--theme-text-muted);
