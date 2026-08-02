@@ -192,7 +192,7 @@ export function renderChart(records, container, tooltip) {
     neutral: theme.neutralColor,
     accent: theme.accentColor,
     bg: theme.backgroundColor,
-    textMuted: theme.textMutedColor
+    textMuted: cssVar('--theme-surface-text-muted') || theme.textMutedColor
   };
   const useCurve = theme.curveLine !== 'line';
   const connectMoodDots = theme.connectMoodDots !== false;
@@ -719,6 +719,10 @@ function medColor(index) {
   return colors[index % colors.length];
 }
 
+function cssVar(name) {
+  return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
+}
+
 export function renderCombinedChart(records, sleeps = [], events = [], container, tooltip, legendContainer, options = {}) {
   const allRecords = records;
   records = records.filter(isMoodRecord);
@@ -731,7 +735,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     neutral: theme.neutralColor,
     accent: theme.accentColor,
     bg: theme.backgroundColor,
-    textMuted: theme.textMutedColor
+    textMuted: cssVar('--theme-surface-text-muted') || theme.textMutedColor
   };
   const useCurve = theme.curveLine !== 'line';
   const connectMoodDots = theme.connectMoodDots !== false;
@@ -1764,7 +1768,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
 export function renderEffectChart(records, container, tooltip, legendContainer) {
   const theme = getTheme();
-  const textMuted = theme.textMutedColor;
+  const textMuted = cssVar('--theme-surface-text-muted') || theme.textMutedColor;
   const wrap = container.parentElement;
   container.innerHTML = '';
   clearYAxisOverlays(wrap);

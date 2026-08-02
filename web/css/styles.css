@@ -72,6 +72,11 @@ body {
 }
 
 .sidebar {
+  --theme-text: var(--theme-surface-text);
+  --theme-text-rgb: var(--theme-surface-text-rgb);
+  --theme-text-muted: var(--theme-surface-text-muted);
+  --theme-text-muted-rgb: var(--theme-surface-text-muted-rgb);
+  color: var(--theme-text);
   width: 240px;
   flex-shrink: 0;
   background: rgba(var(--theme-surface-rgb), 0.7);
@@ -219,6 +224,11 @@ body {
 }
 
 .card {
+  --theme-text: var(--theme-surface-text);
+  --theme-text-rgb: var(--theme-surface-text-rgb);
+  --theme-text-muted: var(--theme-surface-text-muted);
+  --theme-text-muted-rgb: var(--theme-surface-text-muted-rgb);
+  color: var(--theme-text);
   background: var(--theme-surface);
   border-radius: var(--radius);
   box-shadow: var(--shadow);
@@ -996,6 +1006,8 @@ body {
   overflow-y: auto;
 }
 .records-limit-hint {
+  --theme-text-muted: var(--theme-surface-alt-text-muted);
+  --theme-text-muted-rgb: var(--theme-surface-alt-text-muted-rgb);
   margin: 0;
   padding: 10px 14px;
   border-radius: var(--radius-sm);
@@ -1396,6 +1408,9 @@ html.no-animations *::after {
   border-radius: 10px;
   padding: 4px;
   gap: 4px;
+}
+.font-color-mode {
+  margin-top: 12px;
 }
 .segment-btn {
   background: transparent;

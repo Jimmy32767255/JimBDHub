@@ -17,6 +17,7 @@ const DEFAULT_THEME = {
   surfaceAltColor: '#334155',
   textColor: '#f8fafc',
   textMutedColor: '#94a3b8',
+  fontColorMode: 'auto',
   accentColor: '#ef4444',
   backgroundType: 'solid',
   backgroundImage: '',
@@ -59,6 +60,26 @@ function hexToRgb(hex) {
   const g = parseInt(clean.slice(2, 4), 16);
   const b = parseInt(clean.slice(4, 6), 16);
   return `${r}, ${g}, ${b}`;
+}
+
+/** 按相对亮度判断颜色是否偏亮。 */
+function isLightColor(hex) {
+  const clean = (hex || '').replace('#', '');
+  if (clean.length !== 6) return false;
+  const r = parseInt(clean.slice(0, 2), 16) / 255;
+  const g = parseInt(clean.slice(2, 4), 16) / 255;
+  const b = parseInt(clean.slice(4, 6), 16) / 255;
+  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
+  return luminance > 0.5;
+}
+
+/** 计算与指定背景色形成对比的文字颜色组：auto 按背景亮度，black/white 强制指定。 */
+function contrastColorsFor(bg, mode) {
+  if (mode === 'black') return { text: '#000000', muted: '#475569' };
+  if (mode === 'white') return { text: '#ffffff', muted: '#94a3b8' };
+  return isLightColor(bg)
+    ? { text: '#000000', muted: '#475569' }
+    : { text: '#ffffff', muted: '#94a3b8' };
 }
 
 function shadeColor(hex, percent) {
@@ -114,10 +135,23 @@ function applyCSS(theme) {
   root.style.setProperty('--theme-surface-3-rgb', hexToRgb(theme.surface3Color));
   root.style.setProperty('--theme-surface-alt', theme.surfaceAltColor);
   root.style.setProperty('--theme-surface-alt-rgb', hexToRgb(theme.surfaceAltColor));
-  root.style.setProperty('--theme-text', theme.textColor);
-  root.style.setProperty('--theme-text-rgb', hexToRgb(theme.textColor));
-  root.style.setProperty('--theme-text-muted', theme.textMutedColor);
-  root.style.setProperty('--theme-text-muted-rgb', hexToRgb(theme.textMutedColor));
+  const mode = theme.fontColorMode || 'auto';
+  // 为整体背景、卡片、次要背景分别计算对比文字色（含 muted），供各层元素使用
+  const bgPair = contrastColorsFor(theme.backgroundColor, mode);
+  const surfacePair = contrastColorsFor(theme.surfaceColor, mode);
+  const altPair = contrastColorsFor(theme.surfaceAltColor, mode);
+  root.style.setProperty('--theme-text', bgPair.text);
+  root.style.setProperty('--theme-text-rgb', hexToRgb(bgPair.text));
+  root.style.setProperty('--theme-text-muted', bgPair.muted);
+  root.style.setProperty('--theme-text-muted-rgb', hexToRgb(bgPair.muted));
+  root.style.setProperty('--theme-surface-text', surfacePair.text);
+  root.style.setProperty('--theme-surface-text-rgb', hexToRgb(surfacePair.text));
+  root.style.setProperty('--theme-surface-text-muted', surfacePair.muted);
+  root.style.setProperty('--theme-surface-text-muted-rgb', hexToRgb(surfacePair.muted));
+  root.style.setProperty('--theme-surface-alt-text', altPair.text);
+  root.style.setProperty('--theme-surface-alt-text-rgb', hexToRgb(altPair.text));
+  root.style.setProperty('--theme-surface-alt-text-muted', altPair.muted);
+  root.style.setProperty('--theme-surface-alt-text-muted-rgb', hexToRgb(altPair.muted));
   root.style.setProperty('--ui-scale-ratio', theme.uiScale / 100);
   root.style.setProperty('--edge-margin', `${theme.edgeMargin}px`);
   // 无障碍：关闭所有动画/过渡

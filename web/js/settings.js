@@ -64,6 +64,7 @@ function bindThemeControls() {
   const surfaceAltInput = document.getElementById('theme-surface-alt-color');
   const accentInput = document.getElementById('theme-accent-color');
   const curveLineGroup = document.getElementById('theme-curve-line');
+  const fontColorModeGroup = document.getElementById('theme-font-color-mode');
   const systemBtn = document.getElementById('theme-system-btn');
   const resetBtn = document.getElementById('theme-reset-btn');
 
@@ -77,6 +78,11 @@ function bindThemeControls() {
     if (curveLineGroup) {
       curveLineGroup.querySelectorAll('.segment-btn').forEach(btn => {
         btn.classList.toggle('active', btn.dataset.line === theme.curveLine);
+      });
+    }
+    if (fontColorModeGroup) {
+      fontColorModeGroup.querySelectorAll('.segment-btn').forEach(btn => {
+        btn.classList.toggle('active', btn.dataset.mode === (theme.fontColorMode || 'auto'));
       });
     }
   }
@@ -101,6 +107,12 @@ function bindThemeControls() {
     const btn = e.target.closest('.segment-btn');
     if (!btn) return;
     setTheme({ curveLine: btn.dataset.line, useSystemTheme: false });
+  });
+
+  fontColorModeGroup?.addEventListener('click', (e) => {
+    const btn = e.target.closest('.segment-btn');
+    if (!btn) return;
+    setTheme({ fontColorMode: btn.dataset.mode, useSystemTheme: false });
   });
 
   systemBtn?.addEventListener('click', applySystemTheme);
