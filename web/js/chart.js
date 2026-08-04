@@ -553,7 +553,7 @@ export function extractDoses(records) {
   const doses = [];
   records.forEach(r => {
     (r.doses || []).forEach(d => {
-      doses.push({ ...d, timestamp: r.timestamp });
+      doses.push({ ...d, timestamp: r.timestamp, note: r.note });
     });
   });
   return doses;
@@ -1622,6 +1622,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     if (showDoseDetail) {
       const color = doseMarkerMap.get(nearestDose) || medColor(0);
       content += `<div style="color:${color}; font-weight:600;">${t('chart.tooltip.dose')}: ${nearestDose.name} ${nearestDose.amount}${nearestDose.unit}</div>`;
+      if (nearestDose.note) content += `<div class="note">${nearestDose.note}</div>`;
     }
 
     // 情绪信息

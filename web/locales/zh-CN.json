@@ -75,6 +75,7 @@
   "records.medicationForm.period": "时段",
   "records.medicationForm.doses": "本次服用",
   "records.medicationForm.note": "备注",
+  "records.medicationForm.notePlaceholder": "记录用药说明，如漏服补记等",
   "records.medicationForm.save": "保存服药记录",
   "records.sleepForm.start": "入睡时间",
   "records.sleepForm.end": "清醒时间",

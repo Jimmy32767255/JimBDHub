@@ -75,6 +75,7 @@
   "records.medicationForm.period": "Period",
   "records.medicationForm.doses": "Doses taken",
   "records.medicationForm.note": "Note",
+  "records.medicationForm.notePlaceholder": "Notes about this dose, e.g. missed and backfilled",
   "records.medicationForm.save": "Save medication record",
   "records.sleepForm.start": "Fell asleep",
   "records.sleepForm.end": "Woke up",
