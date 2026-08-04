@@ -580,7 +580,15 @@ function renderRecords() {
   });
 }
 
-function handleSubmit(e) {
+function hasDuplicateRecord(timestamp, excludeId, isMedication) {
+  return store.data.records.some(r =>
+    r.id !== excludeId &&
+    (r.type === 'medication') === isMedication &&
+    Math.abs(r.timestamp - timestamp) < 60000
+  );
+}
+
+async function handleSubmit(e) {
   e.preventDefault();
   const payload = {
     timestamp: getMoodTimestampFromForm(),
@@ -590,6 +598,10 @@ function handleSubmit(e) {
     note: noteInput.value.trim(),
     type: 'mood'
   };
+  if (hasDuplicateRecord(payload.timestamp, idInput.value, false)) {
+    await showAlert(t('records.validation.duplicateMood'));
+    return;
+  }
   if (idInput.value) {
     store.updateRecord(idInput.value, payload);
   } else {
@@ -626,7 +638,7 @@ function adjustStockForEdit(oldRecord, newRecord) {
   });
 }
 
-async function validateSleep(payload, interruptions) {
+async function validateSleep(payload, interruptions, excludeId = '') {
   if (payload.endTime <= payload.startTime) {
     await showAlert(t('records.validation.endAfterStart'));
     return false;
@@ -640,6 +652,26 @@ async function validateSleep(payload, interruptions) {
       await showAlert(t('records.validation.interruptionRange'));
       return false;
     }
+  }
+  if (payload.bedTime !== null && payload.startTime < payload.bedTime) {
+    await showAlert(t('records.validation.startBeforeBed'));
+    return false;
+  }
+  if (payload.getOutOfBedTime !== null && payload.endTime > payload.getOutOfBedTime) {
+    await showAlert(t('records.validation.endAfterOutOfBed'));
+    return false;
+  }
+  const newBedStart = payload.bedTime || payload.startTime;
+  const newBedEnd = payload.getOutOfBedTime || payload.endTime;
+  const overlapping = store.data.sleeps.some(s => {
+    if (s.id === excludeId) return false;
+    const bedStart = s.bedTime || s.startTime;
+    const bedEnd = s.getOutOfBedTime || s.endTime;
+    return newBedStart < bedEnd && bedStart < newBedEnd;
+  });
+  if (overlapping) {
+    await showAlert(t('records.validation.sleepOverlap'));
+    return false;
   }
   return true;
 }
@@ -656,7 +688,7 @@ async function handleSleepSubmit(e) {
     interruptions,
     note: sleepNoteInput.value.trim()
   };
-  if (!(await validateSleep(payload, interruptions))) return;
+  if (!(await validateSleep(payload, interruptions, sleepIdInput.value))) return;
   if (sleepIdInput.value) {
     store.updateSleep(sleepIdInput.value, payload);
   } else {
@@ -699,10 +731,14 @@ function editMedicationRecord(record) {
   switchForm('medication');
 }
 
-function handleMedicationSubmit(e) {
+async function handleMedicationSubmit(e) {
   e.preventDefault();
   const doses = collectDoses();
   const timestamp = getMedicationTimestampFromForm();
+  if (hasDuplicateRecord(timestamp, medicationIdInput.value, true)) {
+    await showAlert(t('records.validation.duplicateMedication'));
+    return;
+  }
   const payload = {
     timestamp,
     doses,
