@@ -56,6 +56,85 @@ async function onImportClick() {
   }
 }
 
+// 主题分享：仅导出外观相关设置，不含任何个人数据
+// 功能类设置（缩放、边距、动画、自动记录、睡眠显示方式等）不随主题导出
+const THEME_EXPORT_KEYS = [
+  'curveLine', 'connectMoodDots',
+  'positiveColor', 'negativeColor', 'neutralColor',
+  'backgroundColor', 'surfaceColor', 'surface2Color', 'surface3Color', 'surfaceAltColor',
+  'textColor', 'textMutedColor', 'fontColorMode', 'accentColor',
+  'backgroundType', 'backgroundImage', 'backgroundGradient', 'medColors'
+];
+
+function themeFileName() {
+  const d = new Date();
+  const pad = n => String(n).padStart(2, '0');
+  return `jimbdhub_theme_${d.getFullYear()}${pad(d.getMonth() + 1)}${pad(d.getDate())}_${pad(d.getHours())}${pad(d.getMinutes())}${pad(d.getSeconds())}.json`;
+}
+
+function buildThemePreset() {
+  const theme = getTheme();
+  const preset = {};
+  THEME_EXPORT_KEYS.forEach(key => {
+    if (theme[key] !== undefined) preset[key] = theme[key];
+  });
+  return {
+    type: 'jimbdhub-theme',
+    version: 1,
+    exportedAt: new Date().toISOString(),
+    theme: preset
+  };
+}
+
+async function exportTheme() {
+  try {
+    const json = JSON.stringify(buildThemePreset(), null, 2);
+    await platform.saveBackup(json, themeFileName());
+  } catch (err) {
+    await showAlert(t('settings.backup.exportError', { message: err.message }));
+  }
+}
+
+function validateTheme(data) {
+  return !!data && typeof data === 'object'
+    && data.type === 'jimbdhub-theme'
+    && data.version === 1
+    && !!data.theme && typeof data.theme === 'object';
+}
+
+async function importTheme(text) {
+  try {
+    const data = JSON.parse(text);
+    if (!validateTheme(data)) {
+      await showAlert(t('settings.appearance.invalidTheme'));
+      return;
+    }
+    if (!(await showConfirm(t('settings.appearance.themeImportConfirm')))) {
+      return;
+    }
+    const preset = {};
+    THEME_EXPORT_KEYS.forEach(key => {
+      if (data.theme[key] !== undefined) preset[key] = data.theme[key];
+    });
+    // 功能类设置（自动记录、简化模式、缩放、边距等）保持本机现状，仅覆盖外观
+    setTheme({ ...preset, useSystemTheme: false });
+    await showAlert(t('settings.appearance.themeImportSuccess'));
+  } catch (err) {
+    await showAlert(t('settings.backup.exportError', { message: err.message }));
+  }
+}
+
+async function onThemeImportClick() {
+  try {
+    const text = await platform.pickBackup();
+    if (text) {
+      await importTheme(text);
+    }
+  } catch (err) {
+    await showAlert(t('settings.backup.readError', { message: err.message }));
+  }
+}
+
 function bindThemeControls() {
   const positiveInput = document.getElementById('theme-positive-color');
   const negativeInput = document.getElementById('theme-negative-color');
@@ -834,6 +913,31 @@ export function initSettings() {
     try {
       const text = await file.text();
       await importBackup(text);
+    } catch (err) {
+      await showAlert(t('settings.backup.readError', { message: err.message }));
+    }
+    e.target.value = '';
+  });
+
+  const themeExportBtn = document.getElementById('export-theme-btn');
+  const themeImportBtn = document.getElementById('import-theme-btn');
+  const themeImportInput = document.getElementById('import-theme-input');
+
+  themeExportBtn?.addEventListener('click', exportTheme);
+  themeImportBtn?.addEventListener('click', () => {
+    if (platform.isAndroid()) {
+      onThemeImportClick();
+    } else {
+      themeImportInput?.click();
+    }
+  });
+
+  themeImportInput?.addEventListener('change', async (e) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    try {
+      const text = await file.text();
+      await importTheme(text);
     } catch (err) {
       await showAlert(t('settings.backup.readError', { message: err.message }));
     }

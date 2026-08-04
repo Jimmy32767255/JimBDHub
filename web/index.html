@@ -528,6 +528,15 @@
               <div class="color-row" id="theme-med-colors"></div>
               <button type="button" class="btn btn-ghost btn-sm" id="theme-reset-med-colors" data-i18n="settings.appearance.resetMedColors">恢复默认</button>
             </div>
+            <div class="setting-group">
+              <h4 data-i18n="settings.appearance.themeShare">主题分享</h4>
+              <div class="settings-actions">
+                <button type="button" class="btn btn-primary" id="export-theme-btn" data-i18n="settings.appearance.exportTheme">导出主题</button>
+                <button type="button" class="btn btn-ghost" id="import-theme-btn" data-i18n="settings.appearance.importTheme">导入主题</button>
+                <input type="file" id="import-theme-input" accept=".json,application/json" hidden>
+              </div>
+              <small class="form-hint" data-i18n="settings.appearance.themeShareHint">导出仅包含外观设置，不含任何个人数据，可放心分享</small>
+            </div>
           </div>
         </div>
         <div class="card" data-settings-card="display">
