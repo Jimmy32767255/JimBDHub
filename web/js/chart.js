@@ -1458,9 +1458,9 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     container.appendChild(depletionGroup);
   }
 
-  // 服药记录点
+  // 服药记录点（与药效显示开关同步）
   const doseMarkerMap = new Map();
-  if (actualDoses.length > 0) {
+  if (hasEffectData) {
     const doseGroups = groupDosesByMed(actualDoses);
     doseGroups.forEach((g, idx) => {
       const color = medColor(idx);
@@ -1531,7 +1531,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     legendContainer.appendChild(warningLegend);
   }
 
-  if (actualDoses.length > 0 && legendContainer) {
+  if (hasEffectData && legendContainer) {
     const doseLegend = document.createElement('span');
     doseLegend.className = 'legend-item';
     doseLegend.innerHTML = `<i class="dot" style="background:${colors.textMuted}; transform: rotate(45deg); border-radius: 0;"></i><span data-i18n="chart.legend.dose">${t('chart.legend.dose')}</span>`;
@@ -1585,7 +1585,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       const dist = Math.abs(xFor(d.timestamp) - xFor(ts));
       if (dist < nearestDosePxDist) { nearestDosePxDist = dist; nearestDose = d; }
     });
-    const showDoseDetail = nearestDose && (cursorX === null || nearestDosePxDist <= NEAR_THRESHOLD_PX);
+    const showDoseDetail = hasEffectData && nearestDose && (cursorX === null || nearestDosePxDist <= NEAR_THRESHOLD_PX);
 
     // 仅当光标与情绪数据点足够接近时才显示情绪详情，并吸附到该点
     const snapToPoint = hasMoodData && nearest && (cursorX === null || nearestPxDist <= NEAR_THRESHOLD_PX);
