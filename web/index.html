@@ -691,6 +691,29 @@
             <button class="btn btn-ghost" id="import-backup-btn" data-i18n="settings.backup.import">导入备份</button>
             <input type="file" id="import-backup-input" accept=".json,application/json" hidden>
           </div>
+          <div class="settings-section">
+            <div class="setting-group">
+              <label class="checkbox-field">
+                <input type="checkbox" id="autobackup-enable">
+                <span data-i18n="settings.backup.autoEnable">启用自动备份</span>
+              </label>
+              <small class="form-hint" data-i18n="settings.backup.autoHint">记录数据发生变化后自动备份到所选文件夹，备份有数量上限，超出后自动删除最旧的备份。不做定时备份，避免后台常驻。</small>
+              <button type="button" class="btn btn-ghost" id="autobackup-choose-folder" hidden>
+                <span data-i18n="settings.backup.autoChooseFolder">选择备份文件夹</span>
+              </button>
+              <p id="autobackup-path" class="form-hint"></p>
+              <div class="form-field" style="max-width: 220px">
+                <label class="form-label" for="autobackup-max-count" data-i18n="settings.backup.autoMaxCount">备份数量上限</label>
+                <input type="number" id="autobackup-max-count" min="1" max="100" step="1">
+              </div>
+              <div class="settings-actions" style="padding: 0">
+                <button type="button" class="btn btn-ghost btn-sm" id="autobackup-now-btn">
+                  <span data-i18n="settings.backup.autoNow">立即备份</span>
+                </button>
+              </div>
+              <div id="autobackup-list" class="autobackup-list"></div>
+            </div>
+          </div>
         </div>
         <div class="card" id="syncthing-card" data-settings-card="sync">
           <div class="card-header settings-card-header">

@@ -1374,6 +1374,47 @@ html.no-animations *::after {
   gap: 8px;
   flex-shrink: 0;
 }
+.autobackup-list {
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+}
+.autobackup-empty {
+  font-size: 13px;
+  color: var(--theme-text-muted);
+  padding: 8px 0;
+}
+.autobackup-item {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  gap: 12px;
+  padding: 10px 12px;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+}
+.autobackup-info {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  min-width: 0;
+}
+.autobackup-name {
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text);
+  word-break: break-all;
+}
+.autobackup-meta {
+  font-size: 12px;
+  color: var(--theme-text-muted);
+}
+.autobackup-actions {
+  display: flex;
+  gap: 8px;
+  flex-shrink: 0;
+}
 .med-history-form {
   padding: 12px;
   background: var(--theme-bg);

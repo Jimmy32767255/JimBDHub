@@ -41,6 +41,7 @@
 | `js/settings.js` | 设置模块 |
 | `js/theme.js` | 主题系统（情绪颜色、背景、缩放等） |
 | `js/sync.js` | Syncthing 同步 |
+| `js/autobackup.js` | 自动备份（事件钩子、数量上限、恢复/删除确认） |
 | `js/platform.js` | 平台检测与原生桥接 |
 | `js/i18n.js` | 国际化引擎 |
 | `locales/*.json` | 语言文件（`zh-CN` / `en-US`） |
@@ -64,7 +65,7 @@
 | 键名 | 内容 | 位置 |
 |---|---|---|
 | `jimbdhub_memo` | 备忘录 | `records.js` |
-| `jimbdhub_theme` | 主题设置（含睡眠显示模式 `sleepDisplayMode`） | `theme.js` |
+| `jimbdhub_theme` | 主题设置（含睡眠显示模式 `sleepDisplayMode`、自动备份设置 `autoBackupEnabled` / `autoBackupFolder` / `autoBackupMaxCount`） | `theme.js` |
 | `jimbdhub_language` | 语言设置 | `i18n.js` |
 | `jimbdhub_syncthing_enabled` | Syncthing 同步开关 | `sync.js` |
 | `jimbdhub_sidebar_collapsed` / `jimbdhub_show_forward` / `jimbdhub_chart_page` / `jimbdhub_chart_view` | 视图状态 | `app.js` |
@@ -81,6 +82,7 @@
 | `pickBackup()` | 通过 SAF 选择备份文件 |
 | `pickBackgroundImage()` | 系统图片选择器，返回 Base64 data URL |
 | `enableSync()` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（SAF 目录，3 秒轮询） |
+| `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | 自动备份（SAF 目录，见下文「自动备份机制」） |
 | `addWidget()` | 请求添加启动器小部件 |
 | `addCalendarEvent(...)` | 添加系统日历事件（`CalendarContract`） |
 | `setAlarm(hour, minute, message)` | 添加系统闹钟（`AlarmClock`） |
@@ -95,6 +97,7 @@
 | `isDesktop()` | 平台标识 |
 | `saveBackup(json, file_name)` / `pickBackup()` | 原生文件对话框 |
 | `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（`SyncManager` 2 秒轮询 mtime） |
+| `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10)` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | 自动备份（`FOLDER_DIALOG` 选择目录，见下文「自动备份机制」） |
 | `addWidgetShortcut()` | 桌面创建 `.lnk`（Windows）/ `.desktop`（GNU/Linux） |
 | `onWidgetReady()` | 前端 store 就绪回调，注入快捷方式产生的睡眠记录 |
 
@@ -108,6 +111,14 @@
 - 桌面端 `SyncManager` 每 2 秒轮询同步文件 mtime，变更时通过 `window.__syncthingCallback` 通知前端导入覆盖。
 - 桌面端默认同步文件：`~/.JimBDHub/sync/JimBDHub.sync.json`；Android 端在设置中选择同步文件夹（SAF），轮询间隔 3 秒。
 - 同步文件内容为完整备份 JSON（含 `syncedAt` 时间戳）。
+
+## 自动备份机制
+
+- 数据存到软件外：备份文件夹由用户选择，Android 端用 SAF 目录（`OpenDocumentTree` + 持久化权限，存 URI），桌面端用 `FOLDER_DIALOG` 选目录（存绝对路径）。
+- 事件钩子形式：`autobackup.js` 通过 `store.subscribe()` 监听数据变化，变更后经 **3 秒防抖** 触发一次写入（`jimbdhub_auto_YYYYMMDD_HHMMSS_SSS.json`，内容为 `store.buildBackup()`），运行锁防止并发。刻意不做定时备份，避免后台保活。
+- 数量上限：默认 10（可设 1~100），写入后按文件名排序删除超出上限的最旧文件；设置存于 `jimbdhub_theme`（`autoBackupEnabled` / `autoBackupFolder` / `autoBackupMaxCount`）。
+- 恢复/删除均有确认弹窗（`showConfirm`）；恢复走 `store.validateBackup()` + `store.restoreBackup()`。
+- 浏览器降级：`isAutoBackupSupported()` 为 false，自动备份 UI 禁用。
 
 ## 国际化机制
 

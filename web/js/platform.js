@@ -185,6 +185,37 @@ function waitForAndroidSystemThemeCallback() {
   });
 }
 
+function waitForAndroidAutoBackup() {
+  return new Promise((resolve, reject) => {
+    const previousCallback = window.__androidAutoBackupCallback;
+    const previousError = window.__androidAutoBackupError;
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(t('platform.androidTimeout')));
+    }, 60000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      window.__androidAutoBackupCallback = previousCallback;
+      window.__androidAutoBackupError = previousError;
+    };
+
+    window.__androidAutoBackupCallback = (json) => {
+      cleanup();
+      try {
+        resolve(JSON.parse(json));
+      } catch {
+        resolve({ ok: false, error: t('platform.androidError') });
+      }
+    };
+
+    window.__androidAutoBackupError = (message) => {
+      cleanup();
+      reject(new Error(message || t('platform.androidError')));
+    };
+  });
+}
+
 export const platform = {
   isAndroid() {
     return typeof window.AndroidBridge !== 'undefined';
@@ -217,6 +248,65 @@ export const platform = {
       return text || null;
     }
     return pickFileWithInput();
+  },
+
+  isAutoBackupSupported() {
+    return this.isAndroid() || this.isDesktop();
+  },
+
+  async chooseBackupFolder() {
+    if (this.isAndroid() && typeof window.AndroidBridge.chooseBackupFolder === 'function') {
+      window.AndroidBridge.chooseBackupFolder();
+      return waitForAndroidAutoBackup();
+    }
+    if (this.isDesktop() && typeof window.pywebview.api.chooseBackupFolder === 'function') {
+      return window.pywebview.api.chooseBackupFolder() || { ok: false, error: t('platform.desktopError') };
+    }
+    return { ok: false, error: t('platform.backupUnsupported') };
+  },
+
+  async listAutoBackups(folder) {
+    if (this.isAndroid() && typeof window.AndroidBridge.listAutoBackups === 'function') {
+      window.AndroidBridge.listAutoBackups(folder);
+      return waitForAndroidAutoBackup();
+    }
+    if (this.isDesktop() && typeof window.pywebview.api.listAutoBackups === 'function') {
+      return window.pywebview.api.listAutoBackups(folder) || { ok: false, error: t('platform.desktopError') };
+    }
+    return { ok: false, error: t('platform.backupUnsupported') };
+  },
+
+  async writeAutoBackup(folder, jsonString, maxCount) {
+    if (this.isAndroid() && typeof window.AndroidBridge.writeAutoBackup === 'function') {
+      window.AndroidBridge.writeAutoBackup(folder, jsonString, maxCount);
+      return waitForAndroidAutoBackup();
+    }
+    if (this.isDesktop() && typeof window.pywebview.api.writeAutoBackup === 'function') {
+      return window.pywebview.api.writeAutoBackup(folder, jsonString, maxCount) || { ok: false, error: t('platform.desktopError') };
+    }
+    return { ok: false, error: t('platform.backupUnsupported') };
+  },
+
+  async readAutoBackup(folder, fileName) {
+    if (this.isAndroid() && typeof window.AndroidBridge.readAutoBackup === 'function') {
+      window.AndroidBridge.readAutoBackup(folder, fileName);
+      return waitForAndroidAutoBackup();
+    }
+    if (this.isDesktop() && typeof window.pywebview.api.readAutoBackup === 'function') {
+      return window.pywebview.api.readAutoBackup(folder, fileName) || { ok: false, error: t('platform.desktopError') };
+    }
+    return { ok: false, error: t('platform.backupUnsupported') };
+  },
+
+  async deleteAutoBackup(folder, fileName) {
+    if (this.isAndroid() && typeof window.AndroidBridge.deleteAutoBackup === 'function') {
+      window.AndroidBridge.deleteAutoBackup(folder, fileName);
+      return waitForAndroidAutoBackup();
+    }
+    if (this.isDesktop() && typeof window.pywebview.api.deleteAutoBackup === 'function') {
+      return window.pywebview.api.deleteAutoBackup(folder, fileName) || { ok: false, error: t('platform.desktopError') };
+    }
+    return { ok: false, error: t('platform.backupUnsupported') };
   },
 
   isSyncSupported() {

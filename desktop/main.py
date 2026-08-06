@@ -23,6 +23,7 @@ import sys
 import tempfile
 import threading
 import time
+from datetime import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
@@ -46,6 +47,30 @@ import argparse
 WIDGET_STATE_FILE = "widget_sleep_state.json"
 WIDGET_PENDING_FILE = "widget_pending_sleeps.json"
 WIDGET_MIN_DURATION_MS = 60_000
+
+# 自动备份：备份文件名前缀，用于识别与数量上限清理
+AUTO_BACKUP_PREFIX = "jimbdhub_auto_"
+
+
+def _list_auto_backups(folder: Path) -> list:
+    """列出备份文件夹中按名字倒序（最新在前）的自动备份文件信息。"""
+    if not folder.is_dir():
+        return []
+    backups = []
+    for p in folder.glob(f"{AUTO_BACKUP_PREFIX}*.json"):
+        try:
+            stat = p.stat()
+            backups.append(
+                {
+                    "name": p.name,
+                    "size": stat.st_size,
+                    "modified": int(stat.st_mtime * 1000),
+                }
+            )
+        except OSError:
+            continue
+    backups.sort(key=lambda b: b["name"], reverse=True)
+    return backups
 
 
 def widget_data_dir() -> Path:
@@ -435,6 +460,72 @@ class DesktopBridge:
         except Exception as e:
             print(f"选择备份失败: {e}", file=sys.stderr)
             return None
+
+    def chooseBackupFolder(self):
+        """弹出文件夹选择框，返回用户选定的自动备份目录。"""
+        if not self.window:
+            return {"ok": False, "error": "window not ready"}
+        try:
+            result = self.window.create_file_dialog(
+                dialog_type=webview.FOLDER_DIALOG,
+                directory=str(Path.home()),
+            )
+            if not result:
+                return {"ok": False, "cancelled": True}
+            path = result[0] if isinstance(result, (list, tuple)) else result
+            if not path:
+                return {"ok": False, "cancelled": True}
+            return {"ok": True, "path": str(path)}
+        except Exception as e:
+            print(f"选择备份文件夹失败: {e}", file=sys.stderr)
+            return {"ok": False, "error": str(e)}
+
+    def listAutoBackups(self, folder_path: str):
+        folder = Path(folder_path)
+        return {"ok": True, "backups": _list_auto_backups(folder)}
+
+    def writeAutoBackup(self, folder_path: str, json_string: str, max_count: int = 10):
+        """写入自动备份文件，并按数量上限删除最旧的备份。"""
+        try:
+            folder = Path(folder_path)
+            folder.mkdir(parents=True, exist_ok=True)
+            name = f"{AUTO_BACKUP_PREFIX}{datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]}.json"
+            (folder / name).write_text(json_string, encoding="utf-8")
+            trimmed = []
+            limit = max(1, int(max_count))
+            backups = sorted(_list_auto_backups(folder), key=lambda b: b["name"])
+            over = len(backups) - limit
+            for b in backups[:over]:
+                try:
+                    (folder / b["name"]).unlink()
+                    trimmed.append(b["name"])
+                except OSError:
+                    continue
+            return {"ok": True, "name": name, "trimmed": trimmed}
+        except Exception as e:
+            print(f"写入自动备份失败: {e}", file=sys.stderr)
+            return {"ok": False, "error": str(e)}
+
+    def readAutoBackup(self, folder_path: str, file_name: str):
+        try:
+            # 只取文件名部分，防止目录穿越
+            path = Path(folder_path) / Path(file_name).name
+            if not path.is_file():
+                return {"ok": False, "error": "备份文件不存在"}
+            return {"ok": True, "content": path.read_text(encoding="utf-8")}
+        except Exception as e:
+            print(f"读取自动备份失败: {e}", file=sys.stderr)
+            return {"ok": False, "error": str(e)}
+
+    def deleteAutoBackup(self, folder_path: str, file_name: str):
+        try:
+            path = Path(folder_path) / Path(file_name).name
+            if path.exists():
+                path.unlink()
+            return {"ok": True}
+        except Exception as e:
+            print(f"删除自动备份失败: {e}", file=sys.stderr)
+            return {"ok": False, "error": str(e)}
 
 
 def main() -> None:

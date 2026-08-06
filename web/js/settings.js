@@ -4,6 +4,16 @@ import { t, setLanguage, getLanguage, subscribe, updateDOM } from './i18n.js';
 import { getTheme, setTheme, resetTheme, applySystemTheme, subscribe as subscribeTheme } from './theme.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { enable as enableSync, disable as disableSync, subscribeStatus, getStatus } from './sync.js';
+import {
+  subscribeAutoBackup,
+  chooseBackupFolder,
+  restoreAutoBackup,
+  deleteAutoBackup,
+  backupNow,
+  setAutoBackupEnabled,
+  setAutoBackupMaxCount,
+  getAutoBackupMaxCount
+} from './autobackup.js';
 
 function defaultFileName() {
   const d = new Date();
@@ -758,6 +768,157 @@ function bindSyncControls() {
   }, 100);
 }
 
+function bindAutoBackupControls() {
+  const enableCheckbox = document.getElementById('autobackup-enable');
+  const chooseBtn = document.getElementById('autobackup-choose-folder');
+  const pathText = document.getElementById('autobackup-path');
+  const maxCountInput = document.getElementById('autobackup-max-count');
+  const backupNowBtn = document.getElementById('autobackup-now-btn');
+  const listEl = document.getElementById('autobackup-list');
+  if (!enableCheckbox) return;
+
+  let lastStatus = null;
+
+  function setI18nText(el, key, params) {
+    if (!el) return;
+    el.dataset.i18n = key;
+    if (params) {
+      el.dataset.i18nParams = JSON.stringify(params);
+    } else {
+      delete el.dataset.i18nParams;
+    }
+    el.textContent = t(key, params);
+  }
+
+  function escapeHtml(str) {
+    return String(str).replace(/[&<>"']/g, c => ({
+      '&': '&amp;', '<': '&lt;', '>': '&gt;', '"': '&quot;', "'": '&#39;'
+    }[c]));
+  }
+
+  function formatBackupDate(ms) {
+    const d = new Date(ms);
+    if (Number.isNaN(d.getTime())) return '';
+    const pad = n => String(n).padStart(2, '0');
+    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+  }
+
+  function formatSize(bytes) {
+    if (!Number.isFinite(bytes) || bytes <= 0) return '';
+    if (bytes < 1024) return `${bytes} B`;
+    return `${(bytes / 1024).toFixed(1)} KB`;
+  }
+
+  function renderList(status) {
+    lastStatus = status;
+    if (!listEl) return;
+    const theme = getTheme();
+    const enabled = theme.autoBackupEnabled === true;
+    const folder = theme.autoBackupFolder || '';
+    if (!enabled || !folder || !status.loaded) {
+      listEl.innerHTML = '';
+      return;
+    }
+    if (!status.list.length) {
+      listEl.innerHTML = `<div class="autobackup-empty">${t('settings.backup.autoEmpty')}</div>`;
+      return;
+    }
+    listEl.innerHTML = status.list.map(item => `
+      <div class="autobackup-item">
+        <div class="autobackup-info">
+          <span class="autobackup-name">${escapeHtml(item.name)}</span>
+          <span class="autobackup-meta">${formatBackupDate(item.modified)} · ${formatSize(item.size)}</span>
+        </div>
+        <div class="autobackup-actions">
+          <button type="button" class="btn btn-icon btn-sm" data-action="restore" data-name="${escapeHtml(item.name)}">${t('settings.backup.autoRestore')}</button>
+          <button type="button" class="btn btn-danger btn-sm" data-action="delete" data-name="${escapeHtml(item.name)}">${t('settings.backup.autoDelete')}</button>
+        </div>
+      </div>
+    `).join('');
+  }
+
+  function updateUI(theme) {
+    const supported = platform.isAutoBackupSupported();
+    const enabled = theme.autoBackupEnabled === true;
+    const folder = theme.autoBackupFolder || '';
+    enableCheckbox.checked = enabled;
+    enableCheckbox.disabled = !supported;
+    if (chooseBtn) chooseBtn.hidden = !supported || !enabled;
+    if (backupNowBtn) backupNowBtn.disabled = !supported || !enabled || !folder;
+    if (maxCountInput) {
+      maxCountInput.disabled = !supported || !enabled;
+      maxCountInput.value = String(getAutoBackupMaxCount());
+    }
+    if (pathText) {
+      if (!supported) {
+        setI18nText(pathText, 'settings.backup.autoWebHint');
+      } else if (folder) {
+        setI18nText(pathText, 'settings.backup.autoFolder', { path: folder });
+      } else if (enabled) {
+        setI18nText(pathText, 'settings.backup.autoChooseHint');
+      } else {
+        delete pathText.dataset.i18n;
+        delete pathText.dataset.i18nParams;
+        pathText.textContent = '';
+      }
+    }
+  }
+
+  enableCheckbox.addEventListener('change', () => {
+    setAutoBackupEnabled(enableCheckbox.checked);
+  });
+
+  chooseBtn?.addEventListener('click', async () => {
+    chooseBtn.disabled = true;
+    try {
+      await chooseBackupFolder();
+    } finally {
+      chooseBtn.disabled = false;
+    }
+  });
+
+  maxCountInput?.addEventListener('change', () => {
+    const n = setAutoBackupMaxCount(Number(maxCountInput.value));
+    maxCountInput.value = String(n);
+  });
+
+  backupNowBtn?.addEventListener('click', async () => {
+    backupNowBtn.disabled = true;
+    try {
+      await backupNow();
+    } finally {
+      backupNowBtn.disabled = false;
+    }
+  });
+
+  listEl?.addEventListener('click', async (e) => {
+    const btn = e.target.closest('button[data-action]');
+    if (!btn) return;
+    const name = btn.dataset.name;
+    if (btn.dataset.action === 'restore') {
+      await restoreAutoBackup(name);
+    } else if (btn.dataset.action === 'delete') {
+      await deleteAutoBackup(name);
+    }
+  });
+
+  subscribeTheme(updateUI);
+  subscribeAutoBackup(renderList);
+  // 语言切换时用新文案重绘备份列表
+  subscribe(() => renderList(lastStatus));
+  updateUI(getTheme());
+
+  // 打包后的桌面端（如 AppImage）中 pywebview 可能晚注入，轮询等待能力就绪
+  let checks = 0;
+  const platformTimer = setInterval(() => {
+    checks++;
+    updateUI(getTheme());
+    if (platform.isAutoBackupSupported() || checks >= 30) {
+      clearInterval(platformTimer);
+    }
+  }, 100);
+}
+
 function bindWidgetControls() {
   const addBtn = document.getElementById('widget-add-btn');
   if (!addBtn) return;
@@ -960,6 +1121,7 @@ export function initSettings() {
   bindSimpleModeControls();
   bindMedHistoryControls();
   bindSyncControls();
+  bindAutoBackupControls();
   bindWidgetControls();
   bindWipeControls();
   initSettingsCollapse();

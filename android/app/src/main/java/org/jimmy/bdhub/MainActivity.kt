@@ -26,9 +26,14 @@ import androidx.documentfile.provider.DocumentFile
 import androidx.webkit.WebViewAssetLoader
 import java.io.BufferedReader
 import java.io.InputStreamReader
+import java.text.SimpleDateFormat
+import java.util.Date
+import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import org.json.JSONArray
+import org.json.JSONObject
 
 class MainActivity : AppCompatActivity() {
 
@@ -39,6 +44,7 @@ class MainActivity : AppCompatActivity() {
     private val PREF_SYNC_FOLDER = "sync_folder_uri"
     private val SYNC_FILE_NAME = "JimBDHub.sync.json"
     private val SYNC_POLL_INTERVAL_SECONDS = 3L
+    private val AUTO_BACKUP_PREFIX = "jimbdhub_auto_"
 
     private var syncFolderUri: Uri? = null
     private var syncFile: DocumentFile? = null
@@ -155,6 +161,37 @@ class MainActivity : AppCompatActivity() {
                 val errorJson = escapeJson(e.message ?: "获取文件夹权限失败")
                 notifySyncCallback("""{"ok":false,"error":${errorJson}}""")
             }
+        }
+    }
+
+    private val autoBackupFolderLauncher = registerForActivityResult(
+        ActivityResultContracts.OpenDocumentTree()
+    ) { uri ->
+        if (uri == null) {
+            notifyAutoBackupCallback("""{"ok":false,"cancelled":true}""")
+            return@registerForActivityResult
+        }
+        try {
+            contentResolver.takePersistableUriPermission(
+                uri,
+                Intent.FLAG_GRANT_READ_URI_PERMISSION or
+                        Intent.FLAG_GRANT_WRITE_URI_PERMISSION
+            )
+            val folderName = DocumentFile.fromTreeUri(this, uri)?.name ?: ""
+            notifyAutoBackupCallback(
+                JSONObject()
+                    .put("ok", true)
+                    .put("uri", uri.toString())
+                    .put("folderName", folderName)
+                    .toString()
+            )
+        } catch (e: Exception) {
+            notifyAutoBackupCallback(
+                JSONObject()
+                    .put("ok", false)
+                    .put("error", e.message ?: "获取文件夹权限失败")
+                    .toString()
+            )
         }
     }
 
@@ -400,6 +437,15 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    private fun notifyAutoBackupCallback(json: String) {
+        runOnUiThread {
+            webView.evaluateJavascript(
+                "if (window.__androidAutoBackupCallback) window.__androidAutoBackupCallback(${escapeJson(json)})",
+                null
+            )
+        }
+    }
+
     fun enableSync() {
         runOnUiThread {
             enableSyncInternal()
@@ -431,6 +477,139 @@ class MainActivity : AppCompatActivity() {
             } else {
                 notifySyncCallback("""{"ok":false,"error":${escapeJson("写入同步文件失败")}}""")
             }
+        }
+    }
+
+    private fun backupFolderFromUri(uriString: String): DocumentFile? {
+        return try {
+            val folder = DocumentFile.fromTreeUri(this, uriString.toUri())
+            if (folder != null && folder.exists() && folder.isDirectory) folder else null
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun listAutoBackupsIn(folder: DocumentFile): JSONArray {
+        val result = JSONArray()
+        folder.listFiles()
+            .filter {
+                it.isFile &&
+                    (it.name ?: "").startsWith(AUTO_BACKUP_PREFIX) &&
+                    (it.name ?: "").endsWith(".json")
+            }
+            .sortedByDescending { it.name ?: "" }
+            .forEach { file ->
+                result.put(
+                    JSONObject()
+                        .put("name", file.name)
+                        .put("size", file.length())
+                        .put("modified", file.lastModified())
+                )
+            }
+        return result
+    }
+
+    private fun chooseAutoBackupFolder() {
+        runOnUiThread {
+            autoBackupFolderLauncher.launch(null)
+        }
+    }
+
+    private fun listAutoBackups(uriString: String) {
+        syncExecutor.execute {
+            val folder = backupFolderFromUri(uriString)
+            if (folder == null) {
+                notifyAutoBackupCallback(
+                    JSONObject().put("ok", false).put("error", "无法访问备份文件夹").toString()
+                )
+                return@execute
+            }
+            notifyAutoBackupCallback(
+                JSONObject().put("ok", true).put("backups", listAutoBackupsIn(folder)).toString()
+            )
+        }
+    }
+
+    private fun writeAutoBackup(uriString: String, json: String, maxCount: Int) {
+        syncExecutor.execute {
+            val folder = backupFolderFromUri(uriString)
+            if (folder == null) {
+                notifyAutoBackupCallback(
+                    JSONObject().put("ok", false).put("error", "无法访问备份文件夹").toString()
+                )
+                return@execute
+            }
+            try {
+                val name = AUTO_BACKUP_PREFIX +
+                    SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date()) + ".json"
+                val file = folder.createFile("application/json", name)
+                    ?: throw Exception("创建备份文件失败")
+                val stream = contentResolver.openOutputStream(file.uri)
+                    ?: throw Exception("无法写入备份文件")
+                stream.use { output ->
+                    output.write(json.toByteArray(Charsets.UTF_8))
+                }
+                // 数量上限：删除最旧的超限备份
+                val trimmed = JSONArray()
+                val all = folder.listFiles()
+                    .filter {
+                        it.isFile &&
+                            (it.name ?: "").startsWith(AUTO_BACKUP_PREFIX) &&
+                            (it.name ?: "").endsWith(".json")
+                    }
+                    .sortedBy { it.name ?: "" }
+                val over = all.size - maxCount.coerceAtLeast(1)
+                for (i in 0 until over) {
+                    if (all[i].delete()) trimmed.put(all[i].name)
+                }
+                notifyAutoBackupCallback(
+                    JSONObject()
+                        .put("ok", true)
+                        .put("name", name)
+                        .put("trimmed", trimmed)
+                        .toString()
+                )
+            } catch (e: Exception) {
+                notifyAutoBackupCallback(
+                    JSONObject().put("ok", false).put("error", e.message ?: "写入备份失败").toString()
+                )
+            }
+        }
+    }
+
+    private fun readAutoBackup(uriString: String, fileName: String) {
+        syncExecutor.execute {
+            val folder = backupFolderFromUri(uriString)
+            val file = folder?.findFile(fileName)
+            if (folder == null || file == null || !file.isFile) {
+                notifyAutoBackupCallback(
+                    JSONObject().put("ok", false).put("error", "备份文件不存在").toString()
+                )
+                return@execute
+            }
+            val content = readTextFromUri(file.uri)
+            if (content == null) {
+                notifyAutoBackupCallback(
+                    JSONObject().put("ok", false).put("error", "读取备份文件失败").toString()
+                )
+                return@execute
+            }
+            notifyAutoBackupCallback(
+                JSONObject().put("ok", true).put("content", content).toString()
+            )
+        }
+    }
+
+    private fun deleteAutoBackup(uriString: String, fileName: String) {
+        syncExecutor.execute {
+            val folder = backupFolderFromUri(uriString)
+            val file = folder?.findFile(fileName)
+            val ok = file != null && file.delete()
+            notifyAutoBackupCallback(
+                JSONObject().put("ok", ok).let { obj ->
+                    if (ok) obj else obj.put("error", "删除备份失败")
+                }.toString()
+            )
         }
     }
 
@@ -509,6 +688,31 @@ class MainActivity : AppCompatActivity() {
             runOnUiThread {
                 this@MainActivity.pickBackup()
             }
+        }
+
+        @JavascriptInterface
+        fun chooseBackupFolder() {
+            this@MainActivity.chooseAutoBackupFolder()
+        }
+
+        @JavascriptInterface
+        fun listAutoBackups(uriString: String) {
+            this@MainActivity.listAutoBackups(uriString)
+        }
+
+        @JavascriptInterface
+        fun writeAutoBackup(uriString: String, json: String, maxCount: Int) {
+            this@MainActivity.writeAutoBackup(uriString, json, maxCount)
+        }
+
+        @JavascriptInterface
+        fun readAutoBackup(uriString: String, fileName: String) {
+            this@MainActivity.readAutoBackup(uriString, fileName)
+        }
+
+        @JavascriptInterface
+        fun deleteAutoBackup(uriString: String, fileName: String) {
+            this@MainActivity.deleteAutoBackup(uriString, fileName)
         }
 
         @JavascriptInterface

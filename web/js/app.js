@@ -6,6 +6,7 @@ import { initSettings } from './settings.js';
 import { initI18n, t, subscribe, updateDOM } from './i18n.js';
 import { initTheme, getTheme, setTheme, subscribe as subscribeTheme } from './theme.js';
 import { initSync } from './sync.js';
+import { initAutoBackup } from './autobackup.js';
 
 const views = {
   overview: document.getElementById('overview-view'),
@@ -594,6 +595,7 @@ async function init() {
   initRecords();
   initSettings();
   initSync();
+  initAutoBackup();
   initResize();
   scheduleAutoMedLog();
   drawChart();

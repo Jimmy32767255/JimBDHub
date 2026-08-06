@@ -41,6 +41,7 @@ See [DirInfo.txt](../../DirInfo.txt) for the full structure. `android/app/src/ma
 | `js/settings.js` | Settings module |
 | `js/theme.js` | Theme system (mood colors, background, scaling, etc.) |
 | `js/sync.js` | Syncthing sync |
+| `js/autobackup.js` | Auto backup (event hooks, count cap, restore/delete confirmation) |
 | `js/platform.js` | Platform detection & native bridge |
 | `js/i18n.js` | Internationalization engine |
 | `locales/*.json` | Language files (`zh-CN` / `en-US`) |
@@ -64,7 +65,7 @@ Other persisted keys:
 | Key | Contents | Location |
 |---|---|---|
 | `jimbdhub_memo` | Memo | `records.js` |
-| `jimbdhub_theme` | Theme settings (incl. sleep display mode `sleepDisplayMode`) | `theme.js` |
+| `jimbdhub_theme` | Theme settings (incl. sleep display mode `sleepDisplayMode`, auto backup settings `autoBackupEnabled` / `autoBackupFolder` / `autoBackupMaxCount`) | `theme.js` |
 | `jimbdhub_language` | Language setting | `i18n.js` |
 | `jimbdhub_syncthing_enabled` | Syncthing sync toggle | `sync.js` |
 | `jimbdhub_sidebar_collapsed` / `jimbdhub_show_forward` / `jimbdhub_chart_page` / `jimbdhub_chart_view` | View state | `app.js` |
@@ -81,6 +82,7 @@ Desktop WebView storage persists under `~/.JimBDHub` (see the desktop section be
 | `pickBackup()` | Pick a backup file via SAF |
 | `pickBackgroundImage()` | System image picker, returns a Base64 data URL |
 | `enableSync()` / `disableSync()` / `writeSyncFile(json)` | Syncthing file sync (SAF folder, 3s polling) |
+| `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | Auto backup (SAF folder; see "Auto Backup Mechanism" below) |
 | `addWidget()` | Request adding a launcher widget |
 | `addCalendarEvent(...)` | Add a system calendar event (`CalendarContract`) |
 | `setAlarm(hour, minute, message)` | Add a system alarm (`AlarmClock`) |
@@ -95,6 +97,7 @@ The frontend receives async results via global callbacks `window.__xxxCallback` 
 | `isDesktop()` | Platform marker |
 | `saveBackup(json, file_name)` / `pickBackup()` | Native file dialogs |
 | `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)` | Syncthing file sync (`SyncManager` polls mtime every 2s) |
+| `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10)` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | Auto backup (`FOLDER_DIALOG`; see "Auto Backup Mechanism" below) |
 | `addWidgetShortcut()` | Create a desktop shortcut — `.lnk` (Windows) / `.desktop` (GNU/Linux) |
 | `onWidgetReady()` | Called when the frontend store is ready; injects sleep records produced by the shortcut |
 
@@ -108,6 +111,14 @@ Without a bridge: export uses Blob + `<a download>`, import uses a hidden `<inpu
 - On desktop, `SyncManager` polls the sync file mtime every 2 seconds and notifies the frontend via `window.__syncthingCallback` to import and overwrite on change.
 - Desktop default sync file: `~/.JimBDHub/sync/JimBDHub.sync.json`; on Android, a sync folder is chosen in Settings (SAF), polled every 3 seconds.
 - The sync file contains a complete backup JSON (with a `syncedAt` timestamp).
+
+## Auto Backup Mechanism
+
+- Data is stored outside the app: the backup folder is chosen by the user — a SAF folder on Android (`OpenDocumentTree` + persisted permission, stored as a URI) and a `FOLDER_DIALOG` directory on desktop (stored as an absolute path).
+- Event-hook style: `autobackup.js` listens to data changes via `store.subscribe()` and writes a backup after a **3-second debounce** (`jimbdhub_auto_YYYYMMDD_HHMMSS_SSS.json`, contents from `store.buildBackup()`); a running lock prevents concurrent writes. Deliberately no scheduled backups, to avoid background keep-alive.
+- Count cap: default 10 (configurable 1–100); after each write, the oldest files beyond the cap are removed by filename order. Settings live in `jimbdhub_theme` (`autoBackupEnabled` / `autoBackupFolder` / `autoBackupMaxCount`).
+- Restore and delete both require a confirmation dialog (`showConfirm`); restore goes through `store.validateBackup()` + `store.restoreBackup()`.
+- Browser fallback: `isAutoBackupSupported()` is false and the auto backup UI is disabled.
 
 ## Internationalization
 
