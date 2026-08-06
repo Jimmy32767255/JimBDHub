@@ -19,8 +19,26 @@ android {
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
 
+    // 签名配置
+    signingConfigs {
+        create("release") {
+            // 从环境变量读取，如果不存在则使用默认路径（本地开发用）
+            val keystorePath = System.getenv("KEYSTORE_PATH") ?: "keystore.jks"
+            storeFile = file(keystorePath)
+            storePassword = System.getenv("KEYSTORE_PASSWORD")
+            keyAlias = System.getenv("KEY_ALIAS")
+            keyPassword = System.getenv("KEY_PASSWORD")
+        }
+    }
+
     buildTypes {
         release {
+            // 如果有签名环境变量则使用签名，否则不签名（本地 debug 用）
+            signingConfig = if (System.getenv("KEYSTORE_PASSWORD") != null) {
+                signingConfigs.getByName("release")
+            } else {
+                null
+            }
             optimization {
                 enable = false
             }

@@ -76,14 +76,35 @@ jobs:
       - name: 设置 Android SDK
         uses: android-actions/setup-android@v3
 
+      # 仅当四个签名 secrets 都配齐时才签名，否则自动构建未签名 APK
+      - name: 配置签名（secrets 齐全时）
+        if: ${{ secrets.KEYSTORE_BASE64 != '' && secrets.KEYSTORE_PASSWORD != '' && secrets.KEY_ALIAS != '' && secrets.KEY_PASSWORD != '' }}
+        env:
+          KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          echo "$KEYSTORE_BASE64" | base64 -d > android/app/keystore.jks
+          # gradle 的 file() 相对模块目录 android/app/ 解析
+          echo "KEYSTORE_PATH=keystore.jks" >> "$GITHUB_ENV"
+          echo "KEYSTORE_PASSWORD=$KEYSTORE_PASSWORD" >> "$GITHUB_ENV"
+          echo "KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
+          echo "KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
+
       - name: 构建 release APK
         working-directory: android
         run: ./gradlew --no-daemon assembleRelease
 
+      - name: 清理签名文件
+        if: always()
+        run: rm -f android/app/keystore.jks
+
       - name: 收集并重命名 APK
         run: |
           mkdir -p dist
-          find android/app/build/outputs/apk -name "*.apk" -exec cp {} dist/Google-Android-arm64.apk \;
+          # AGP 9 输出到 android/app/release/，广搜 app-release* 兼容签名/未签名命名
+          find android/app -name "app-release*.apk" -exec cp {} dist/Google-Android-arm64.apk \;
           ls -la dist/
 
       - name: 上传产物
