@@ -9,7 +9,6 @@
     android:padding="8dp">
 
     <ImageView
-        android:id="@+id/widget_icon"
         android:layout_width="32dp"
         android:layout_height="32dp"
         android:src="@drawable/jim_bdhub_icon"

@@ -5,7 +5,4 @@
         如果 AndroidManifest.xml 中的 theme 没有生效，
         请将本文件放到 app/src/main/res/values/themes.xml。
     -->
-    <style name="Theme.JimBDHub" parent="Theme.AppCompat.NoActionBar">
-        <!-- 可在此覆盖颜色、状态栏等属性 -->
-    </style>
 </resources>
