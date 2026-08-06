@@ -356,12 +356,14 @@ function bindDisplayControls() {
   const marginSelect = document.getElementById('edge-margin-select');
   const animCheckbox = document.getElementById('dynamic-animation-speed');
   const disableAnimCheckbox = document.getElementById('disable-animations');
+  const recordAddToastCheckbox = document.getElementById('record-add-toast');
 
   function updateUIFromTheme(theme) {
     if (scaleSelect) scaleSelect.value = String(theme.uiScale);
     if (marginSelect) marginSelect.value = String(theme.edgeMargin);
     if (animCheckbox) animCheckbox.checked = theme.dynamicAnimationSpeed !== false;
     if (disableAnimCheckbox) disableAnimCheckbox.checked = theme.disableAnimations === true;
+    if (recordAddToastCheckbox) recordAddToastCheckbox.checked = theme.recordAddToast !== false;
   }
 
   scaleSelect?.addEventListener('change', () => {
@@ -375,6 +377,9 @@ function bindDisplayControls() {
   });
   disableAnimCheckbox?.addEventListener('change', () => {
     setTheme({ disableAnimations: disableAnimCheckbox.checked });
+  });
+  recordAddToastCheckbox?.addEventListener('change', () => {
+    setTheme({ recordAddToast: recordAddToastCheckbox.checked });
   });
 
   updateUIFromTheme(getTheme());

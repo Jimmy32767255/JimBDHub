@@ -33,7 +33,8 @@ const DEFAULT_THEME = {
   sleepDisplayMode: 'bar',
   depletionReminderDays: 3,
   dynamicAnimationSpeed: true,
-  disableAnimations: false
+  disableAnimations: false,
+  recordAddToast: true
 };
 
 const SYSTEM_PRESETS = {

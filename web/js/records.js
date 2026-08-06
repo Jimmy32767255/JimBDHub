@@ -588,6 +588,11 @@ function hasDuplicateRecord(timestamp, excludeId, isMedication) {
   );
 }
 
+async function notifyAdded(key) {
+  if (getTheme().recordAddToast === false) return;
+  await showAlert(t(key));
+}
+
 async function handleSubmit(e) {
   e.preventDefault();
   const payload = {
@@ -606,6 +611,7 @@ async function handleSubmit(e) {
     store.updateRecord(idInput.value, payload);
   } else {
     store.addRecord(payload);
+    await notifyAdded('records.toast.addedMood');
   }
   resetForm();
 }
@@ -693,6 +699,7 @@ async function handleSleepSubmit(e) {
     store.updateSleep(sleepIdInput.value, payload);
   } else {
     store.addSleep(payload);
+    await notifyAdded('records.toast.addedSleep');
   }
   resetSleepForm();
 }
@@ -752,6 +759,7 @@ async function handleMedicationSubmit(e) {
   } else {
     store.addRecord(payload);
     adjustStockForDoses(doses, 'records.moodForm.doseLogNote', -1);
+    await notifyAdded('records.toast.addedMedication');
   }
   resetMedicationForm();
 }
@@ -946,7 +954,7 @@ function initRecords() {
   renderRecords();
 }
 
-function handleEventSubmit(e) {
+async function handleEventSubmit(e) {
   e.preventDefault();
   const timestamp = new Date(eventTimeInput.value).getTime();
   const payload = {
@@ -959,6 +967,7 @@ function handleEventSubmit(e) {
     store.updateEvent(eventIdInput.value, payload);
   } else {
     store.addEvent(payload);
+    await notifyAdded('records.toast.addedEvent');
   }
   resetEventForm();
 }
