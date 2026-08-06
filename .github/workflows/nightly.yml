@@ -1,0 +1,138 @@
+name: Nightly Build
+
+# 自动夜间构建：dev 分支有变动时编译三端并发布到滚动 nightly 预发布
+on:
+  push:
+    branches:
+      - dev
+  workflow_dispatch:
+
+concurrency:
+  group: nightly-build
+  cancel-in-progress: true
+
+permissions:
+  contents: write
+  actions: write
+
+jobs:
+  windows:
+    name: Windows exe (PyInstaller)
+    runs-on: windows-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 打包 Windows exe
+        shell: cmd
+        # < NUL 防止 CI 中出错路径上的 pause 挂起
+        run: Build.bat < NUL
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: windows-exe
+          path: dist/Microsoft-Windows-amd64.exe
+          if-no-files-found: error
+
+  linux:
+    name: GNU/Linux AppImage
+    runs-on: ubuntu-latest
+    env:
+      # 让 appimagetool 以自解压方式运行，避免 CI 上无 FUSE 的问题
+      APPIMAGE_EXTRACT_AND_RUN: "1"
+      # ubuntu-24.04 的 pip 受 PEP 668 外部管理环境限制
+      PIP_BREAK_SYSTEM_PACKAGES: "1"
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 安装系统依赖
+        run: |
+          sudo apt-get update
+          sudo apt-get install -y --no-install-recommends \
+            libegl1 libgl1 libxkbcommon0 libxcb-cursor0 \
+            libnss3 libasound2t64 libxcomposite1 libxdamage1 libxrandr2
+
+      - name: 打包 AppImage
+        run: ./Build.sh
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: linux-appimage
+          path: dist/GNU-Linux-amd64.AppImage
+          if-no-files-found: error
+
+  android:
+    name: Android APK (assembleRelease)
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: actions/setup-java@v4
+        with:
+          distribution: temurin
+          java-version: "17"
+
+      - name: 设置 Android SDK
+        uses: android-actions/setup-android@v3
+
+      - name: 构建 release APK
+        working-directory: android
+        run: ./gradlew --no-daemon assembleRelease
+
+      - name: 收集并重命名 APK
+        run: |
+          mkdir -p dist
+          find android/app/build/outputs/apk -name "*.apk" -exec cp {} dist/Google-Android-arm64.apk \;
+          ls -la dist/
+
+      - name: 上传产物
+        uses: actions/upload-artifact@v4
+        with:
+          name: android-apk
+          path: dist/Google-Android-arm64.apk
+          if-no-files-found: error
+
+  release:
+    name: 发布到 Nightly 预发布
+    needs: [windows, linux, android]
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - name: 生成构建信息
+        id: info
+        run: |
+          echo "build_date=$(date -u +'%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
+          echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+
+      - name: 将 Nightly 标签 指向最新 dev 提交
+        run: |
+          git tag -f nightly "${GITHUB_SHA}"
+          git push origin --force refs/tags/nightly
+
+      - name: 下载三端产物
+        uses: actions/download-artifact@v4
+        with:
+          path: dist
+          merge-multiple: true
+
+      - name: 创建/更新 nightly Release
+        uses: softprops/action-gh-release@v2
+        with:
+          tag_name: nightly
+          name: JimBDHub Nightly 构建 ${{ steps.info.outputs.build_date }}
+          body: |
+            ## 自动夜间构建（Nightly Build）
+
+            - 分支：`dev`
+            - 提交：`${{ steps.info.outputs.short_sha }}`
+            - 构建时间：${{ steps.info.outputs.build_date }}
+
+            该版本由 CI 自动构建，未经过完整测试，可能不稳定，仅供体验与反馈。正式版请在 Releases 页查找非预发布版本。
+
+          prerelease: true
+          files: |
+            dist/Microsoft-Windows-amd64.exe
+            dist/GNU-Linux-amd64.AppImage
+            dist/Google-Android-arm64.apk
