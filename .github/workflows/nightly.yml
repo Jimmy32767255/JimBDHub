@@ -95,6 +95,42 @@ jobs:
             echo "::warning::签名 secrets 未配齐，本次将构建未签名 APK"
           fi
 
+      # 在耗时构建前先用 keytool 快速校验签名配置，避免 build 到最后才报密码错误
+      - name: 校验签名配置（快速定位密码/别名问题）
+        if: hashFiles('android/app/keystore.jks') != ''
+        env:
+          KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
+          KEY_ALIAS: ${{ secrets.KEY_ALIAS }}
+          KEY_PASSWORD: ${{ secrets.KEY_PASSWORD }}
+        run: |
+          set -e
+          KS=android/app/keystore.jks
+
+          # 1) 校验 store 密码 + 别名是否存在
+          echo "==> 校验 store 密码与别名"
+          if ! keytool -list -keystore "$KS" -storepass "$KEYSTORE_PASSWORD" -alias "$KEY_ALIAS" >/dev/null 2>&1; then
+            echo "::error::KEYSTORE_PASSWORD 或 KEY_ALIAS 校验失败"
+            if keytool -list -keystore "$KS" -storepass "$KEYSTORE_PASSWORD" >/tmp/aliases.txt 2>/dev/null; then
+              echo "keystore 实际包含的别名如下（请检查 KEY_ALIAS 是否填写一致）："
+              sed -n '1,25p' /tmp/aliases.txt
+            else
+              echo "KEYSTORE_PASSWORD 无法打开该 keystore。请检查 GitHub Secret 中 KEYSTORE_PASSWORD。"
+            fi
+            exit 1
+          fi
+
+          # 2) 两者相同则无需再校验（PKCS12 / 同密码 JKS 均成立）；
+          #    不同时用 keytool -keypasswd 原地改回同密码来验证 key 密码是否正确（CI 每次都会重新解出 keystore，无副作用）
+          if [ "$KEY_PASSWORD" != "$KEYSTORE_PASSWORD" ]; then
+            echo "==> KEY_PASSWORD 与 KEYSTORE_PASSWORD 不同，额外校验 key 密码"
+            if ! keytool -keypasswd -keystore "$KS" -storepass "$KEYSTORE_PASSWORD" \
+                -alias "$KEY_ALIAS" -keypass "$KEY_PASSWORD" -new "$KEY_PASSWORD" >/dev/null 2>&1; then
+              echo "::error::KEY_PASSWORD 与该别名的私钥密码不匹配（Get Key failed: Given final block not properly padded）"
+              exit 1
+            fi
+          fi
+          echo "::notice::签名配置校验通过，开始构建"
+
       - name: 构建 release APK
         working-directory: android
         run: ./gradlew --no-daemon assembleRelease
