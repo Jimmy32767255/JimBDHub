@@ -1,6 +1,6 @@
 name: Nightly Build
 
-# 自动夜间构建：dev 分支有变动时编译三端并发布到滚动 nightly 预发布
+# 自动夜间构建：dev 分支有变动时编译三端并发布到滚动 Nightly 预发布
 on:
   push:
     branches:
@@ -76,8 +76,8 @@ jobs:
       - name: 设置 Android SDK
         uses: android-actions/setup-android@v3
 
-      # secrets 不能在 if 条件中引用，改为脚本内判断；未配齐时自动构建未签名 APK
-      - name: 配置签名（secrets 齐全时）
+      # 机密不能在 if 条件中引用，改为脚本内判断；未配齐时自动构建未签名 APK
+      - name: 配置签名（机密齐全时）
         env:
           KEYSTORE_BASE64: ${{ secrets.KEYSTORE_BASE64 }}
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -92,11 +92,11 @@ jobs:
             echo "KEY_ALIAS=$KEY_ALIAS" >> "$GITHUB_ENV"
             echo "KEY_PASSWORD=$KEY_PASSWORD" >> "$GITHUB_ENV"
           else
-            echo "::warning::签名 secrets 未配齐，本次将构建未签名 APK"
+            echo "::warning::签名 机密未配齐，本次将构建未签名 APK"
           fi
 
       # 在耗时构建前先用 keytool 快速校验签名配置，避免 build 到最后才报密码错误
-      - name: 校验签名配置（快速定位密码/别名问题）
+      - name: 校验签名配置
         if: hashFiles('android/app/keystore.jks') != ''
         env:
           KEYSTORE_PASSWORD: ${{ secrets.KEYSTORE_PASSWORD }}
@@ -164,12 +164,12 @@ jobs:
         id: info
         run: |
           echo "build_date=$(date -u +'%Y-%m-%d %H:%M UTC')" >> "$GITHUB_OUTPUT"
-          echo "short_sha=${GITHUB_SHA::7}" >> "$GITHUB_OUTPUT"
+          echo "build_sha=${GITHUB_SHA}" >> "$GITHUB_OUTPUT"
 
       - name: 将 Nightly 标签 指向最新 dev 提交
         run: |
-          git tag -f nightly "${GITHUB_SHA}"
-          git push origin --force refs/tags/nightly
+          git tag -f Nightly "${GITHUB_SHA}"
+          git push origin --force refs/tags/Nightly
 
       - name: 下载三端产物
         uses: actions/download-artifact@v4
@@ -177,16 +177,16 @@ jobs:
           path: dist
           merge-multiple: true
 
-      - name: 创建/更新 nightly Release
+      - name: 创建/更新 Nightly Release
         uses: softprops/action-gh-release@v2
         with:
-          tag_name: nightly
-          name: JimBDHub Nightly 构建 ${{ steps.info.outputs.build_date }}
+          tag_name: Nightly
+          name: 自动夜间构建（Nightly Build）
           body: |
-            ## 自动夜间构建（Nightly Build）
+            # 自动夜间构建（Nightly Build）
 
             - 分支：`dev`
-            - 提交：`${{ steps.info.outputs.short_sha }}`
+            - 提交：`${{ steps.info.outputs.build_sha }}`
             - 构建时间：${{ steps.info.outputs.build_date }}
 
             该版本由 CI 自动构建，未经过完整测试，可能不稳定，仅供体验与反馈。正式版请在 Releases 页查找非预发布版本。
