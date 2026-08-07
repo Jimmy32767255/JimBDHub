@@ -9,8 +9,8 @@ function isLegacyMoodWithMedication(r) {
   return r && (r.medication || r.medicationName || r.medicationAmount !== undefined || r.medicationUnit) && !Array.isArray(r.doses);
 }
 
-function hasLegacyDoses(r) {
-  return r && Array.isArray(r.doses) && r.doses.some(isLegacyDose);
+function hasLegacyDoses(r, medMap) {
+  return r && Array.isArray(r.doses) && r.doses.some(d => isLegacyDose(d) || isMisconvertedDose(d, medMap));
 }
 
 const MASS_UNITS = ['mg', 'g', 'mcg', 'ug', 'kg'];
@@ -19,14 +19,27 @@ function isMassUnit(unit) {
   return MASS_UNITS.includes(String(unit || '').toLowerCase());
 }
 
+const COUNTABLE_UNIT_RE = /^(片|粒|颗|pill|tablet|cap)$/i;
+
+function isCountableUnit(unit) {
+  return COUNTABLE_UNIT_RE.test(String(unit || ''));
+}
+
+// 剂量字段缺失即视为旧格式。amount 始终表示“片/粒”数量，unit 为药品单位；
+// 可数单位（片/粒/颗）本身是当前格式，不应被当作旧数据。
 function isLegacyDose(d) {
   if (!d) return false;
-  // 旧数据：剂量以“片/粒/颗”为单位记录 amount=1，药品库以 dosePerTablet 表示每片质量。
-  // 升级目标：把 amount 改为质量（amount * dosePerTablet），unit 改为 doseMassUnit。
-  const isCountableUnit = /^(片|粒|颗|pill|tablet|cap)$/i.test(String(d.unit || ''));
   return d.dosePerTablet === undefined || d.doseMassUnit === undefined ||
-    d.onsetMinHours === undefined || d.peakMinHours === undefined || d.halfLifeMinHours === undefined ||
-    isCountableUnit;
+    d.onsetMinHours === undefined || d.peakMinHours === undefined || d.halfLifeMinHours === undefined;
+}
+
+// 上一版升级曾把“片数 × 每片质量”写进 amount 并把单位改成质量单位（如 250mg/片被记成一次吃 250）。
+// 药品单位是可数单位、记录单位却是质量单位的剂量属于误换算，需要还原为片数。
+function isMisconvertedDose(d, medMap) {
+  if (!d || !d.medicationId) return false;
+  const med = medMap[d.medicationId];
+  if (!med) return false;
+  return isMassUnit(d.unit) && isCountableUnit(med.unit) && Number(med.dosePerTablet) > 0;
 }
 
 function isLegacyMed(m) {
@@ -37,10 +50,15 @@ function isLegacyMed(m) {
 
 function isLegacyMedHistory(h) {
   if (!h) return false;
-  const isCountableUnit = /^(片|粒|颗|pill|tablet|cap)$/i.test(String(h.unit || ''));
   return h.dosePerTablet === undefined || h.doseMassUnit === undefined ||
-    h.onsetMinHours === undefined || h.peakMinHours === undefined || h.halfLifeMinHours === undefined ||
-    isCountableUnit;
+    h.onsetMinHours === undefined || h.peakMinHours === undefined || h.halfLifeMinHours === undefined;
+}
+
+function isMisconvertedMedHistory(h, medMap) {
+  if (!h || !h.medicationId) return false;
+  const med = medMap[h.medicationId];
+  if (!med) return false;
+  return isMassUnit(h.unit) && isCountableUnit(med.unit) && Number(med.dosePerTablet) > 0;
 }
 
 // 旧格式：药物标记颜色保存在主题的 medColors 数组（按药品列表索引上色）。
@@ -52,11 +70,16 @@ function extractMedColors(data) {
 }
 
 function hasLegacyFormats(data) {
-  const hasLegacy = (data.records || []).some(r => isLegacyMoodWithMedication(r) || hasLegacyDoses(r));
+  const medMap = buildMedMap(data.meds);
+  const hasLegacy = (data.records || []).some(r => isLegacyMoodWithMedication(r) || hasLegacyDoses(r, medMap));
   const hasLegacyMeds = (data.meds || []).some(isLegacyMed);
-  const hasLegacyHistory = (data.medHistory || []).some(isLegacyMedHistory);
+  const hasLegacyHistory = (data.medHistory || []).some(h => isLegacyMedHistory(h) || isMisconvertedMedHistory(h, medMap));
   const hasLegacyMedColors = extractMedColors(data) != null;
   return hasLegacy || hasLegacyMeds || hasLegacyHistory || hasLegacyMedColors;
+}
+
+function buildMedMap(meds) {
+  return Object.fromEntries((meds || []).map(m => [m.id, m]).filter(Boolean));
 }
 
 function normalizeMed(m) {
@@ -81,16 +104,17 @@ function normalizeMed(m) {
 function normalizeDose(d, medMap) {
   if (!d) return d;
   const med = d.medicationId ? medMap[d.medicationId] : null;
-  const dosePerTablet = d.dosePerTablet ?? (med ? med.dosePerTablet : 1);
+  let amount = d.amount ?? 1;
+  let unit = d.unit || (med ? med.unit : '片');
+  let dosePerTablet = d.dosePerTablet ?? (med ? med.dosePerTablet : 1);
   const doseMassUnit = d.doseMassUnit ?? (med ? med.doseMassUnit : 'mg');
-  // 只有unit是片/粒/颗等非质量单位，并且药品库明确给了每片质量，才做换算。
-  // 如果本身就是质量单位（mg/g...），保持原值；如果没有药品库信息，也保持原值。
-  const isCountableUnit = /^(片|粒|颗|pill|tablet|cap)$/i.test(String(d.unit || ''));
-  const needsConvert = isCountableUnit && med && med.dosePerTablet != null && med.dosePerTablet !== 0;
-  const amount = needsConvert
-    ? ((d.amount ?? 1) * med.dosePerTablet)
-    : (d.amount ?? 1);
-  const unit = needsConvert ? doseMassUnit : (isMassUnit(d.unit) ? d.unit : doseMassUnit);
+  // 修复上一版升级的误换算：amount 已被写成质量（amount × 每片质量），这里还原为片数。
+  // amount 在全应用里始终表示“片/粒”数量，质量由 doseMass = amount × dosePerTablet 换算。
+  if (med && isMassUnit(unit) && isCountableUnit(med.unit) && Number(med.dosePerTablet) > 0) {
+    amount = Math.round((amount / med.dosePerTablet) * 100) / 100;
+    unit = med.unit;
+    dosePerTablet = med.dosePerTablet;
+  }
   const onset = d.onsetHours ?? (med ? med.onsetMinHours : 1);
   const peak = d.peakHours ?? (med ? med.peakMinHours : 2);
   const halfLife = d.halfLifeHours ?? (med ? med.halfLifeMinHours : 12);
@@ -112,14 +136,16 @@ function normalizeDose(d, medMap) {
 function normalizeMedHistory(h, medMap) {
   if (!h) return h;
   const med = h.medicationId ? medMap[h.medicationId] : null;
-  const dosePerTablet = h.dosePerTablet ?? (med ? med.dosePerTablet : 1);
+  let amount = h.amount ?? (med ? med.doseAmount : 1);
+  let unit = h.unit || (med ? med.unit : '片');
+  let dosePerTablet = h.dosePerTablet ?? (med ? med.dosePerTablet : 1);
   const doseMassUnit = h.doseMassUnit ?? (med ? med.doseMassUnit : 'mg');
-  const isCountableUnit = /^(片|粒|颗|pill|tablet|cap)$/i.test(String(h.unit || ''));
-  const needsConvert = isCountableUnit && med && med.dosePerTablet != null && med.dosePerTablet !== 0;
-  const amount = needsConvert
-    ? ((h.amount ?? (med ? med.doseAmount : 1)) * med.dosePerTablet)
-    : (h.amount ?? (med ? med.doseAmount : 1));
-  const unit = needsConvert ? doseMassUnit : (isMassUnit(h.unit) ? h.unit : doseMassUnit);
+  // 与 normalizeDose 相同：还原被误换算为质量的 amount
+  if (med && isMassUnit(unit) && isCountableUnit(med.unit) && Number(med.dosePerTablet) > 0) {
+    amount = Math.round((amount / med.dosePerTablet) * 100) / 100;
+    unit = med.unit;
+    dosePerTablet = med.dosePerTablet;
+  }
   return {
     ...h,
     name: h.name || (med ? med.name : ''),
@@ -199,20 +225,27 @@ function upgradeData(data) {
     });
   }
 
-  const medMap = Object.fromEntries(result.meds.map(m => [m.id, m]).filter(Boolean));
+  const medMap = buildMedMap(result.meds);
 
   result.medHistory = (data.medHistory || []).map(h => normalizeMedHistory(h, medMap));
 
   const legacyMedications = [];
   (data.records || []).forEach(r => {
     if (isLegacyMoodWithMedication(r)) {
+      // 旧格式：情绪记录内嵌单条服药信息 → 拆分为独立的服药记录
       const { moodRecord, medicationRecord } = splitMoodAndMedication(r, medMap);
       legacyMedications.push(medicationRecord);
       result.records.push(moodRecord);
-    } else if (hasLegacyDoses(r)) {
-      const { moodRecord, medicationRecord } = splitRecordDoses(r, medMap);
-      legacyMedications.push(medicationRecord);
-      result.records.push(moodRecord);
+    } else if (hasLegacyDoses(r, medMap)) {
+      if (r.type === 'medication') {
+        // 已是独立服药记录：仅修复/补齐字段，避免重复拆分
+        result.records.push(r);
+      } else {
+        // 旧格式：情绪记录携带 doses → 拆分为服药记录
+        const { moodRecord, medicationRecord } = splitRecordDoses(r, medMap);
+        legacyMedications.push(medicationRecord);
+        result.records.push(moodRecord);
+      }
     } else {
       result.records.push(r);
     }

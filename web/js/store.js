@@ -522,6 +522,12 @@ export const store = {
 
   restoreBackup(data) {
     if (!this.validateBackup(data)) return false;
+    // 导入/同步/自动备份恢复统一先走升级与修复，避免旧格式或上次误换算过的数据回流，
+    // 否则每次启动都会因结构检测再次弹出升级提示。
+    const upgradeResult = runUpgrade(data);
+    if (upgradeResult.success && upgradeResult.upgraded) {
+      data = upgradeResult.data;
+    }
     const version = data.version || 0;
     // version < 2 的旧备份在这里只做兜底；导入流程中 settings.js 会先用 runUpgrade 升级，
     // 但如果直接调用 restoreBackup，仍需能正确还原旧数据。
