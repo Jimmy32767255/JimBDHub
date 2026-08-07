@@ -476,6 +476,12 @@ export const store = {
   },
 
   buildBackup() {
+    const theme = { ...getTheme() };
+    // 自动备份相关设置是设备专属的（路径随操作系统而异），不写入备份/同步文件，
+    // 避免跨设备同步时把自动备份写入不该写的目录
+    delete theme.autoBackupFolder;
+    delete theme.autoBackupEnabled;
+    delete theme.autoBackupMaxCount;
     return {
       version: CURRENT_DB_VERSION,
       exportedAt: new Date().toISOString(),
@@ -486,7 +492,7 @@ export const store = {
       events: this.data.events,
       medHistory: this.data.medHistory,
       language: getLanguage(),
-      theme: getTheme()
+      theme
     };
   },
 
@@ -540,6 +546,10 @@ export const store = {
       const theme = { ...data.theme };
       // 旧调色板已写入对应药品，不再写入主题
       delete theme.medColors;
+      // 自动备份相关设置是设备专属的，不随备份/同步恢复，避免覆盖本机路径
+      delete theme.autoBackupFolder;
+      delete theme.autoBackupEnabled;
+      delete theme.autoBackupMaxCount;
       setTheme(theme);
     }
     this.persist();
