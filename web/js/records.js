@@ -241,7 +241,7 @@ function renderDoses(selectedDoses = []) {
     row.innerHTML = `
       <input type="checkbox" class="dose-check" data-id="${med.id}" ${existing ? 'checked' : ''}>
       <span class="dose-name">${med.name}</span>
-      <input type="number" class="dose-amount" data-id="${med.id}" min="0.1" step="0.1" value="${existing ? existing.amount : 1}" ${existing ? '' : 'disabled'}>
+      <input type="number" class="dose-amount" data-id="${med.id}" min="0.1" step="0.01" value="${existing ? existing.amount : 1}" ${existing ? '' : 'disabled'}>
       <span class="dose-unit">${med.unit}</span>
     `;
     medicationDosesList.appendChild(row);
