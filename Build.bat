@@ -1,23 +1,23 @@
 @echo off
 chcp 65001 >nul
 
-REM JimBDHub Windows 打包脚本
-REM 用法: Build.bat [选项]
+REM JimBDHub Windows ����ű�
+REM �÷�: Build.bat [ѡ��]
 REM
-REM 选项:
-REM   --wine   使用 venv-wine 虚拟环境（用于在 Wine 中打包）
-REM   -g       跳过虚拟环境，使用系统全局 Python（不建议）
+REM ѡ��:
+REM   --wine   ʹ�� venv-wine ���⻷���������� Wine �д����
+REM   -g       �������⻷����ʹ��ϵͳȫ�� Python�������飩
 
 echo ==========================================
-echo JimBDHub Windows 打包工具
+echo JimBDHub Windows �������
 echo ==========================================
 
-REM 初始化变量
+REM ��ʼ������
 set "USE_WINE=false"
 set "USE_GLOBAL=false"
 set "VENV_DIR=desktop\venv"
 
-REM 解析参数
+REM ��������
 :parse_args
 if "%~1"=="" goto :done_parsing
 if "%~1"=="--wine" (
@@ -31,72 +31,72 @@ if "%~1"=="-g" (
     shift
     goto :parse_args
 )
-echo [警告] 未知参数: %~1
+echo [����] δ֪����: %~1
 shift
 goto :parse_args
 :done_parsing
 
-REM 检查 Python 是否安装
+REM ��� Python �Ƿ�װ
 python --version >nul 2>&1
 if errorlevel 1 (
-    echo [错误] 未检测到 Python，请先安装 Python
+    echo [����] δ��⵽ Python�����Ȱ�װ Python
     pause
     exit /b 1
 )
 
-REM 处理虚拟环境
+REM �������⻷��
 if "%USE_GLOBAL%"=="true" (
-    echo [信息] 使用系统全局 Python（-g 模式）
+    echo [��Ϣ] ʹ��ϵͳȫ�� Python��-g ģʽ��
     goto :skip_venv
 )
 
 if "%USE_WINE%"=="true" (
-    echo [信息] Wine 模式，使用 %VENV_DIR% 虚拟环境
+    echo [��Ϣ] Wine ģʽ��ʹ�� %VENV_DIR% ���⻷��
 ) else (
-    echo [信息] 使用 %VENV_DIR% 虚拟环境
+    echo [��Ϣ] ʹ�� %VENV_DIR% ���⻷��
 )
 
 if exist "%VENV_DIR%" (
-    echo [信息] 激活虚拟环境...
+    echo [��Ϣ] �������⻷��...
     call %VENV_DIR%\Scripts\activate.bat
 ) else (
-    echo [信息] 创建虚拟环境...
+    echo [��Ϣ] �������⻷��...
     python -m venv %VENV_DIR%
     call %VENV_DIR%\Scripts\activate.bat
 )
 
 :skip_venv
 
-REM 安装/更新依赖
-echo [信息] 安装依赖...
+REM ��װ/��������
+echo [��Ϣ] ��װ����...
 pip install -r desktop\requirements.txt -q
 
-REM 安装 PyInstaller
-echo [信息] 安装 PyInstaller...
+REM ��װ PyInstaller
+echo [��Ϣ] ��װ PyInstaller...
 pip install pyinstaller -q
 
-REM 清理本次构建的临时目录（只清理 build，保留 dist）
-echo [信息] 清理临时构建目录...
+REM �������ι�������ʱĿ¼��ֻ���� build������ dist��
+echo [��Ϣ] ������ʱ����Ŀ¼...
 if exist "build" rmdir /s /q build
 
-REM 执行打包
-echo [信息] 开始打包...
+REM ִ�д��
+echo [��Ϣ] ��ʼ���...
 pyinstaller Build.spec --clean
 
 if errorlevel 1 (
-    echo [错误] 打包失败
+    echo [����] ���ʧ��
     pause
     exit /b 1
 )
 
-REM 退出虚拟环境
+REM �˳����⻷��
 
 if "%USE_GLOBAL%"=="false" (
     call %VENV_DIR%\Scripts\deactivate.bat
-    echo [信息] 退出虚拟环境...
+    echo [��Ϣ] �˳����⻷��...
 )
 
 echo ==========================================
-echo [成功] 打包完成！
-echo 输出文件: dist\Microsoft-Windows-amd64.exe
+echo [�ɹ�] �����ɣ�
+echo ����ļ�: dist\Microsoft-Windows-amd64.exe
 echo ==========================================

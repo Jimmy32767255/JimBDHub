@@ -44,7 +44,20 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=[],
+    # 排除多余的 Qt 绑定：环境里可能残留 PyQt5，
+    # 而 PyInstaller 不允许同时收集 PyQt5 与 PyQt6。
+    excludes=[
+        'PyQt5',
+        'PyQt5.QtCore',
+        'PyQt5.QtGui',
+        'PyQt5.QtWidgets',
+        'PyQt5.QtNetwork',
+        'PyQt5.QtWebEngineWidgets',
+        'PyQt5.QtWebEngineCore',
+        'PyQt5.sip',
+        'PyQt5.Qt5',
+        'PyQt5_sip',
+    ],
     win_no_prefer_redirects=False,
     win_private_assemblies=False,
     cipher=block_cipher,
