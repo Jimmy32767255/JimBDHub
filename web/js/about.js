@@ -10,6 +10,17 @@ const RELEASES_URL = 'https://github.com/Jimmy32767255/JimBDHub/releases';
 const contributorsModal = document.getElementById('contributors-modal');
 const contributorsListEl = document.getElementById('contributors-list');
 
+// 议题/拉取请求 类型 → i18n 键
+const CONTRIB_TYPE_MAP = {
+  '议题-功能请求': 'about.contribType.feature',
+  '议题-改进建议': 'about.contribType.suggestion',
+  '议题-程序缺陷': 'about.contribType.bug',
+  '拉取请求-缺陷修复': 'about.contribType.fix',
+  '拉取请求-新功能/增强': 'about.contribType.enhance',
+  '拉取请求-重构/清理': 'about.contribType.refactor',
+  '拉取请求-文档/翻译': 'about.contribType.docs'
+};
+
 function showContributorsModal() {
   if (!contributorsModal) return;
   if (contributorsListEl && !contributorsListEl.children.length) {
@@ -99,12 +110,14 @@ function renderContributors(md) {
       continue;
     }
 
-    if (line.startsWith('类型：议题')) {
-      const isFeature = line.includes('功能请求');
-      const typeBadge = document.createElement('span');
-      typeBadge.className = 'contributor-item-type';
-      typeBadge.textContent = t(isFeature ? 'about.contribType.feature' : 'about.contribType.suggestion');
-      item.querySelector('.contributor-item-title').appendChild(typeBadge);
+    if (line.startsWith('类型：')) {
+      const typeKey = CONTRIB_TYPE_MAP[line.slice(3).trim()];
+      if (typeKey) {
+        const typeBadge = document.createElement('span');
+        typeBadge.className = 'contributor-item-type';
+        typeBadge.textContent = t(typeKey);
+        item.querySelector('.contributor-item-title').appendChild(typeBadge);
+      }
       continue;
     }
 
