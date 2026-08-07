@@ -42,6 +42,7 @@
   "chart.prevPage": "Previous page",
   "chart.nextPage": "Next page",
   "chart.pageInfo": "{current} / {total}",
+  "chart.limitHint": "This page has too many records; only the latest 100 are shown.",
   "chart.tooltip.value": "Mood",
   "chart.tooltip.dose": "Dose",
   "chart.effectTooltip": "Estimated effect",

@@ -42,6 +42,7 @@
   "chart.prevPage": "上一页",
   "chart.nextPage": "下一页",
   "chart.pageInfo": "{current} / {total}",
+  "chart.limitHint": "该页记录较多，仅显示最近 100 条。",
   "chart.tooltip.value": "情绪值",
   "chart.tooltip.dose": "服药",
   "chart.effectTooltip": "估算药效",

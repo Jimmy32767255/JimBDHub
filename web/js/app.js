@@ -332,19 +332,12 @@ function computeDepletionData() {
 }
 
 function drawChart() {
-  let records = store.getRecordsInRange('all');
+  const records = store.getRecordsInRange('all');
   const sleeps = store.getSleepsInRange('all');
   const events = store.getEventsInRange('all');
 
-  // 仅加载最近的记录，避免记录过多导致卡顿
-  const chartLimitHint = document.getElementById('chart-limit-hint');
-  const recordsLimited = records.length > MAX_LOADED_RECORDS;
-  if (recordsLimited) {
-    records = records.slice(-MAX_LOADED_RECORDS);
-  }
-  if (chartLimitHint) chartLimitHint.hidden = !recordsLimited;
-
-  // 计算分页边界并校正当前页（默认打开最新一页）
+  // 分页基于全量数据计算并校正当前页（默认打开最新一页）。
+  // 不再全局截断记录：每页独立加载，翻到哪页只处理哪页的数据，旧页面也能正常访问
   const globalRange = getPaginationBounds(records, sleeps, events);
   totalPages = globalRange.totalPages;
   if (currentPage === null) {
@@ -361,6 +354,14 @@ function drawChart() {
 
   // 过滤当前页数据
   const pageData = filterDataForPage(records, sleeps, events, currentPage, globalRange);
+
+  // 单页记录数上限（每页独立）：仅当该页数据过多时截取该页最近部分，不影响其他页
+  const chartLimitHint = document.getElementById('chart-limit-hint');
+  const pageRecordsLimited = pageData.records.length > MAX_LOADED_RECORDS;
+  if (pageRecordsLimited) {
+    pageData.records = pageData.records.slice(-MAX_LOADED_RECORDS);
+  }
+  if (chartLimitHint) chartLimitHint.hidden = !pageRecordsLimited;
 
   const wrap = combinedChartSvg.parentElement;
 
