@@ -528,11 +528,6 @@
               </div>
             </div>
             <div class="setting-group">
-              <h4 data-i18n="settings.appearance.medColors">药物标记颜色</h4>
-              <div class="color-row" id="theme-med-colors"></div>
-              <button type="button" class="btn btn-ghost btn-sm" id="theme-reset-med-colors" data-i18n="settings.appearance.resetMedColors">恢复默认</button>
-            </div>
-            <div class="setting-group">
               <h4 data-i18n="settings.appearance.themeShare">主题分享</h4>
               <div class="settings-actions">
                 <button type="button" class="btn btn-primary" id="export-theme-btn" data-i18n="settings.appearance.exportTheme">导出主题</button>
@@ -810,8 +805,9 @@
             <label class="form-field"><span class="form-label" data-i18n="meds.form.name">名称</span><input type="text" id="med-name" required></label>
             <label class="form-field"><span class="form-label" data-i18n="meds.form.category">分类</span><input type="text" id="med-category" data-i18n-placeholder="meds.form.categoryPlaceholder" placeholder="如：心境稳定剂"></label>
           </div>
-          <div class="form-row">
+          <div class="form-row two-col">
             <label class="form-field"><span class="form-label" data-i18n="meds.form.tags">标签</span><input type="text" id="med-tags" data-i18n-placeholder="meds.form.tagsPlaceholder" placeholder="多个标签用逗号分隔"></label>
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.color">标记颜色</span><input type="color" id="med-color" value="#22c55e"></label>
           </div>
           <div class="form-row three-col">
             <label class="form-field"><span class="form-label" data-i18n="meds.form.boxCount">盒数</span><input type="number" id="med-box" min="0" value="0" required></label>

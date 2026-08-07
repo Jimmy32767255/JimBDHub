@@ -1,6 +1,6 @@
 import { store, formatDateTime, formatDuration } from './store.js';
 import { t } from './i18n.js';
-import { getTheme } from './theme.js';
+import { getTheme, DEFAULT_MED_COLORS } from './theme.js';
 
 const PADDING = { top: 30, right: 40, bottom: 40, left: 44 };
 const PX_PER_HOUR = 12;
@@ -547,8 +547,6 @@ export function renderChart(records, container, tooltip) {
   container.addEventListener('touchend', hideTooltip, { passive: true });
 }
 
-const DEFAULT_MED_COLORS = ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'];
-
 export function extractDoses(records) {
   const doses = [];
   records.forEach(r => {
@@ -711,12 +709,13 @@ function groupDosesByMed(doses) {
   return Object.values(groups);
 }
 
-function medColor(index) {
-  const theme = getTheme();
-  const colors = Array.isArray(theme.medColors) && theme.medColors.length > 0
-    ? theme.medColors
-    : DEFAULT_MED_COLORS;
-  return colors[index % colors.length];
+function medColor(index, medId) {
+  // 优先使用药品自身的标记颜色，未设置时回退到默认调色板（按顺序循环）
+  if (medId) {
+    const med = store.data.meds.find(m => m.id === medId);
+    if (med && med.color) return med.color;
+  }
+  return DEFAULT_MED_COLORS[index % DEFAULT_MED_COLORS.length];
 }
 
 function cssVar(name) {
@@ -935,7 +934,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       const visible = truncateSeriesData(data, EFFECT_VISIBLE_THRESHOLD);
       return {
         ...g,
-        color: medColor(idx),
+        color: medColor(idx, g.medicationId),
         data,
         activeInView: hasDoseInView(g),
         yMax,
@@ -1463,7 +1462,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   if (hasEffectData) {
     const doseGroups = groupDosesByMed(actualDoses);
     doseGroups.forEach((g, idx) => {
-      const color = medColor(idx);
+      const color = medColor(idx, g.medicationId);
       g.doses.forEach(d => doseMarkerMap.set(d, color));
     });
 
@@ -1650,7 +1649,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         });
         if (upper >= EFFECT_VISIBLE_THRESHOLD) {
           const unit = g.doseMassUnit || 'mg';
-          content += `<div style="color:${medColor(idx)}">${g.name}: ${lower.toFixed(2)} ~ ${upper.toFixed(2)} ${unit}</div>`;
+          content += `<div style="color:${medColor(idx, g.medicationId)}">${g.name}: ${lower.toFixed(2)} ~ ${upper.toFixed(2)} ${unit}</div>`;
         }
       });
     }
@@ -1839,7 +1838,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
       });
       return { t, upper, lower };
     });
-    return { ...g, color: medColor(idx), data };
+    return { ...g, color: medColor(idx, g.medicationId), data };
   });
 
   const maxEffect = Math.max(0.1, ...series.flatMap(s => s.data.map(p => p.upper)));

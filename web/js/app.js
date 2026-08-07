@@ -4,7 +4,7 @@ import { initMeds, predictDepletion } from './meds.js';
 import { initRecords } from './records.js';
 import { initSettings } from './settings.js';
 import { initI18n, t, subscribe, updateDOM } from './i18n.js';
-import { initTheme, getTheme, setTheme, subscribe as subscribeTheme } from './theme.js';
+import { initTheme, getTheme, setTheme, subscribe as subscribeTheme, DEFAULT_MED_COLORS } from './theme.js';
 import { initSync } from './sync.js';
 import { initAutoBackup } from './autobackup.js';
 
@@ -315,8 +315,6 @@ function updateChartDisclaimer() {
 }
 
 function computeDepletionData() {
-  const theme = getTheme();
-  const medColors = theme.medColors || ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'];
   return store.data.meds
     .map((med, idx) => {
       const depletionTs = predictDepletion(med);
@@ -325,7 +323,7 @@ function computeDepletionData() {
         medName: med.name,
         depletionTime: depletionTs,
         medIndex: idx,
-        color: medColors[idx % medColors.length]
+        color: med.color || DEFAULT_MED_COLORS[idx % DEFAULT_MED_COLORS.length]
       };
     })
     .filter(Boolean);

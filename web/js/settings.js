@@ -73,7 +73,7 @@ const THEME_EXPORT_KEYS = [
   'positiveColor', 'negativeColor', 'neutralColor',
   'backgroundColor', 'surfaceColor', 'surface2Color', 'surface3Color', 'surfaceAltColor',
   'textColor', 'textMutedColor', 'fontColorMode', 'accentColor',
-  'backgroundType', 'backgroundImage', 'backgroundGradient', 'medColors'
+  'backgroundType', 'backgroundImage', 'backgroundGradient'
 ];
 
 function themeFileName() {
@@ -319,43 +319,6 @@ function bindBackgroundControls() {
   gradientStart?.addEventListener('input', updateGradient);
   gradientEnd?.addEventListener('input', updateGradient);
   gradientDirection?.addEventListener('change', updateGradient);
-
-  updateUIFromTheme(getTheme());
-  subscribeTheme(updateUIFromTheme);
-}
-
-function bindMedColorControls() {
-  const container = document.getElementById('theme-med-colors');
-  const resetBtn = document.getElementById('theme-reset-med-colors');
-  if (!container) return;
-
-  function updateUIFromTheme(theme) {
-    const colors = Array.isArray(theme.medColors) ? theme.medColors : [];
-    container.innerHTML = '';
-    colors.forEach((color, idx) => {
-      const label = document.createElement('label');
-      label.className = 'color-field';
-      const span = document.createElement('span');
-      span.dataset.i18n = 'settings.appearance.medColorN';
-      span.dataset.i18nParams = JSON.stringify({ n: idx + 1 });
-      span.textContent = t('settings.appearance.medColorN', { n: idx + 1 });
-      const input = document.createElement('input');
-      input.type = 'color';
-      input.value = color;
-      input.addEventListener('input', () => {
-        const next = [...colors];
-        next[idx] = input.value;
-        setTheme({ medColors: next, useSystemTheme: false });
-      });
-      label.appendChild(span);
-      label.appendChild(input);
-      container.appendChild(label);
-    });
-  }
-
-  resetBtn?.addEventListener('click', () => {
-    setTheme({ medColors: undefined, useSystemTheme: false });
-  });
 
   updateUIFromTheme(getTheme());
   subscribeTheme(updateUIFromTheme);
@@ -1112,7 +1075,6 @@ export function initSettings() {
 
   bindThemeControls();
   bindBackgroundControls();
-  bindMedColorControls();
   bindDisplayControls();
   bindConnectMoodDotsControl();
   bindSleepOverlayModeControl();

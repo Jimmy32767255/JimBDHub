@@ -2,7 +2,7 @@ import { store, formatDateTime, formatQuantity, MAX_LOADED_RECORDS } from './sto
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { platform } from './platform.js';
-import { getTheme } from './theme.js';
+import { getTheme, DEFAULT_MED_COLORS } from './theme.js';
 
 const medModal = document.getElementById('med-modal');
 const medForm = document.getElementById('med-form');
@@ -11,6 +11,7 @@ const medIdInput = document.getElementById('med-id');
 const medNameInput = document.getElementById('med-name');
 const medCategoryInput = document.getElementById('med-category');
 const medTagsInput = document.getElementById('med-tags');
+const medColorInput = document.getElementById('med-color');
 const medBoxInput = document.getElementById('med-box');
 const medBoardInput = document.getElementById('med-board');
 const medPillsInput = document.getElementById('med-pills');
@@ -186,6 +187,7 @@ function fillMedForm(med) {
   medHalfLifeMinInput.value = halfLifeMin;
   medHalfLifeMaxInput.value = halfLifeMax;
   medNoteInput.value = med.note || '';
+  medColorInput.value = defaultMedColor();
   resetSchedule();
   selectedDbMed = med;
   medDbSearch.value = '';
@@ -490,6 +492,10 @@ function resetSchedule() {
   renderScheduleList();
 }
 
+function defaultMedColor() {
+  return DEFAULT_MED_COLORS[store.data.meds.length % DEFAULT_MED_COLORS.length];
+}
+
 function setManualFieldsVisible(visible) {
   manualFieldsVisible = visible;
   medManualFields.hidden = !visible;
@@ -550,6 +556,10 @@ function openModal(med = null) {
     medHalfLifeMinInput.value = halfLifeMin;
     medHalfLifeMaxInput.value = halfLifeMax;
     medNoteInput.value = med.note;
+    if (medColorInput) {
+      const medIdx = store.data.meds.findIndex(m => m.id === med.id);
+      medColorInput.value = med.color || DEFAULT_MED_COLORS[medIdx % DEFAULT_MED_COLORS.length];
+    }
     currentSchedule = Array.isArray(med.schedule) ? [...med.schedule] : [];
     renderScheduleList();
     setManualFieldsVisible(true);
@@ -565,6 +575,7 @@ function openModal(med = null) {
     medPeakMaxInput.value = 2;
     medHalfLifeMinInput.value = 12;
     medHalfLifeMaxInput.value = 12;
+    medColorInput.value = defaultMedColor();
     resetSchedule();
     setManualFieldsVisible(false);
   }
@@ -673,6 +684,7 @@ function handleFormSubmit(e) {
     peakMaxHours: Math.max(peakMin, Number(medPeakMaxInput.value) || peakMin),
     halfLifeMinHours: halfLifeMin,
     halfLifeMaxHours: Math.max(halfLifeMin, Number(medHalfLifeMaxInput.value) || halfLifeMin),
+    color: medColorInput.value,
     schedule: [...currentSchedule],
     note: medNoteInput.value.trim()
   };

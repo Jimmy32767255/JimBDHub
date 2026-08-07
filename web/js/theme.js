@@ -2,6 +2,9 @@ import { platform } from './platform.js';
 
 const STORAGE_KEY = 'jimbdhub_theme';
 
+// 药品未指定颜色时的默认调色板（按药品列表顺序循环分配）
+export const DEFAULT_MED_COLORS = ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'];
+
 const DEFAULT_THEME = {
   curveLine: 'curve',
   connectMoodDots: false,
@@ -22,7 +25,6 @@ const DEFAULT_THEME = {
   backgroundType: 'solid',
   backgroundImage: '',
   backgroundGradient: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
-  medColors: ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'],
   useSystemTheme: false,
   uiScale: 100,
   edgeMargin: 0,
