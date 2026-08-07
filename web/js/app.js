@@ -7,6 +7,7 @@ import { initI18n, t, subscribe, updateDOM } from './i18n.js';
 import { initTheme, getTheme, setTheme, subscribe as subscribeTheme, DEFAULT_MED_COLORS } from './theme.js';
 import { initSync } from './sync.js';
 import { initAutoBackup } from './autobackup.js';
+import { initAbout } from './about.js';
 import { platform } from './platform.js';
 import { showAlert } from './dialog.js';
 
@@ -14,7 +15,8 @@ const views = {
   overview: document.getElementById('overview-view'),
   meds: document.getElementById('meds-view'),
   records: document.getElementById('records-view'),
-  settings: document.getElementById('settings-view')
+  settings: document.getElementById('settings-view'),
+  about: document.getElementById('about-view')
 };
 const pageTitle = document.getElementById('page-title');
 const combinedChartSvg = document.getElementById('combined-chart');
@@ -638,6 +640,7 @@ function continueInit() {
   initMeds();
   initRecords();
   initSettings();
+  initAbout();
   initSync();
   initAutoBackup();
   initResize();
