@@ -1560,7 +1560,7 @@ html.no-animations *::after {
   display: none;
   position: fixed;
   inset: 0;
-  z-index: 50;
+  z-index: 10000;
   align-items: center;
   justify-content: center;
   padding: 16px;
@@ -1641,4 +1641,23 @@ html.no-animations *::after {
   .form-row.two-col, .form-row.three-col { grid-template-columns: 1fr; }
   .interruption-row { grid-template-columns: 1fr; }
   .sleep-bar { width: 100%; }
+}
+
+.upgrade-blocking {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  justify-content: center;
+  gap: 1rem;
+  background: var(--theme-bg);
+  color: var(--theme-text);
+  padding: 2rem;
+  text-align: center;
+}
+
+.upgrade-blocking[hidden] {
+  display: none;
 }

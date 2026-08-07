@@ -14,6 +14,7 @@ import {
   setAutoBackupMaxCount,
   getAutoBackupMaxCount
 } from './autobackup.js';
+import { runUpgrade } from './dbUpgrade.js';
 
 function defaultFileName() {
   const d = new Date();
@@ -33,11 +34,23 @@ async function exportBackup() {
 
 async function importBackup(text) {
   try {
-    const data = JSON.parse(text);
+    let data = JSON.parse(text);
     if (!store.validateBackup(data)) {
       await showAlert(t('settings.backup.invalidFormat'));
       return;
     }
+
+    const upgradeResult = runUpgrade(data);
+    if (!upgradeResult.success) {
+      await showAlert(t('settings.backup.upgradeFailed', { message: upgradeResult.error }));
+      return;
+    }
+    if (upgradeResult.upgraded) {
+      const proceed = await showConfirm(t('settings.backup.upgradeConfirm'));
+      if (!proceed) return;
+    }
+    data = upgradeResult.data;
+
     if (!(await showConfirm(t('settings.backup.importConfirm')))) {
       return;
     }

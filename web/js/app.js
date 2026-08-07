@@ -7,6 +7,8 @@ import { initI18n, t, subscribe, updateDOM } from './i18n.js';
 import { initTheme, getTheme, setTheme, subscribe as subscribeTheme, DEFAULT_MED_COLORS } from './theme.js';
 import { initSync } from './sync.js';
 import { initAutoBackup } from './autobackup.js';
+import { platform } from './platform.js';
+import { showAlert } from './dialog.js';
 
 const views = {
   overview: document.getElementById('overview-view'),
@@ -566,7 +568,50 @@ function scheduleAutoMedLog() {
 async function init() {
   await initI18n();
   initTheme();
+
+  const needs = store.checkNeedsUpgrade();
+  if (needs) {
+    const blockingEl = document.getElementById('upgrade-blocking');
+    const backupBtn = document.getElementById('upgrade-backup-btn');
+    if (blockingEl) blockingEl.hidden = false;
+
+    const performUpgrade = async () => {
+      try {
+        store.init();
+        if (blockingEl) blockingEl.hidden = true;
+        await showAlert(t('app.upgrade.success'));
+        continueInit();
+      } catch (err) {
+        await showAlert(t('app.upgrade.failed', { message: err.message }));
+        store.clearAll();
+        if (blockingEl) blockingEl.hidden = true;
+        await showAlert(t('app.upgrade.cleared'));
+        continueInit();
+      }
+    };
+
+    if (backupBtn) {
+      backupBtn.addEventListener('click', async () => {
+        try {
+          const data = store.buildBackup();
+          const json = JSON.stringify(data, null, 2);
+          await platform.saveBackup(json, `pre_upgrade_backup_${new Date().toISOString().slice(0, 19).replace(/:/g, '-')}.json`);
+          await showAlert(t('app.upgrade.backupSuccess'));
+          await performUpgrade();
+        } catch (err) {
+          await showAlert(t('app.upgrade.backupFailed', { message: err.message }));
+        }
+      });
+    }
+
+    return;
+  }
+
   store.init();
+  continueInit();
+}
+
+function continueInit() {
   showForwardCheckbox.checked = loadShowForward();
   currentPage = loadPage();
 

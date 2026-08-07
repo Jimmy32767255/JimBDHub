@@ -1,5 +1,6 @@
 import { getLanguage, t } from './i18n.js';
 import { getTheme, setTheme } from './theme.js';
+import { needsUpgrade, runUpgrade, CURRENT_DB_VERSION } from './dbUpgrade.js';
 
 const KEYS = {
   records: 'jimbdhub_mood_records',
@@ -9,6 +10,9 @@ const KEYS = {
   events: 'jimbdhub_events',
   medHistory: 'jimbdhub_med_history'
 };
+
+// 本地数据库版本标记：升级完成后持久化，避免每次启动都误判为旧格式
+const VERSION_KEY = 'jimbdhub_db_version';
 
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
@@ -25,6 +29,25 @@ function load(key, fallback) {
 
 function save(key, data) {
   localStorage.setItem(key, JSON.stringify(data));
+}
+
+function readVersion() {
+  const v = load(VERSION_KEY, 0);
+  return typeof v === 'number' && Number.isFinite(v) ? v : 0;
+}
+
+function readRawData() {
+  return {
+    meds: load(KEYS.meds, []),
+    medHistory: load(KEYS.medHistory, []),
+    records: load(KEYS.records, []),
+    logs: load(KEYS.logs, []),
+    sleeps: load(KEYS.sleeps, []),
+    events: load(KEYS.events, []),
+    version: readVersion(),
+    // 旧格式：药物标记颜色存在主题里，按药品列表索引上色
+    medColors: getTheme().medColors
+  };
 }
 
 function nowHourFloor() {
@@ -116,6 +139,30 @@ function migrateMedHistory(h, medMap) {
   };
 }
 
+function migrateRecord(r, medMap, keepCompat = false) {
+  let rec = r;
+  // 旧格式：情绪记录中同时包含单条服药信息。
+  // keepCompat=true 时保留在原记录内（仅用于 init 升级前的兜底，后续会被 runUpgrade 拆分）。
+  if (r.medication && !Array.isArray(r.doses)) {
+    rec = {
+      ...r,
+      doses: [migrateDose({
+        medicationId: null,
+        name: r.medicationName || t('records.moodForm.legacyMedication'),
+        amount: r.medicationAmount || 1,
+        unit: r.medicationUnit || '片',
+        onsetHours: 1,
+        peakHours: 2,
+        halfLifeHours: 12
+      }, medMap)]
+    };
+  }
+  if (Array.isArray(rec.doses)) {
+    rec = { ...rec, doses: rec.doses.map(d => migrateDose(d, medMap)) };
+  }
+  return rec;
+}
+
 export const store = {
   data: {
     records: [],
@@ -127,34 +174,42 @@ export const store = {
   },
   listeners: [],
 
+  checkNeedsUpgrade() {
+    return needsUpgrade(readRawData());
+  },
+
   init() {
-    this.data.meds = load(KEYS.meds, []).map(migrateMed);
+    const raw = readRawData();
+
+    if (needsUpgrade(raw)) {
+      const result = runUpgrade(raw);
+      if (!result.success) {
+        throw new Error(result.error || 'Database upgrade failed');
+      }
+      const upgraded = result.data;
+      this.data.meds = upgraded.meds;
+      this.data.medHistory = upgraded.medHistory;
+      this.data.records = upgraded.records;
+      this.data.logs = upgraded.logs;
+      this.data.sleeps = upgraded.sleeps;
+      this.data.events = upgraded.events;
+      // 旧调色板已按索引写入对应药品，从主题中移除，避免每次启动都触发升级
+      if (Array.isArray(raw.medColors) && raw.medColors.length) {
+        setTheme({ medColors: undefined });
+      }
+      this.persist();
+      return;
+    }
+
+    this.data.meds = raw.meds.map(migrateMed);
     const medMap = Object.fromEntries(this.data.meds.map(m => [m.id, m]));
-    this.data.medHistory = load(KEYS.medHistory, []).map(h => migrateMedHistory(h, medMap));
-    this.data.records = load(KEYS.records, []).map(r => {
-      let rec = r;
-      if (r.medication && !Array.isArray(r.doses)) {
-        rec = {
-          ...r,
-          doses: [migrateDose({
-            medicationId: null,
-            name: r.medicationName || t('records.moodForm.legacyMedication'),
-            amount: r.medicationAmount || 1,
-            unit: r.medicationUnit || '片',
-            onsetHours: 1,
-            peakHours: 2,
-            halfLifeHours: 12
-          }, medMap)]
-        };
-      }
-      if (Array.isArray(rec.doses)) {
-        rec = { ...rec, doses: rec.doses.map(d => migrateDose(d, medMap)) };
-      }
-      return rec;
-    });
-    this.data.logs = load(KEYS.logs, []);
-    this.data.sleeps = load(KEYS.sleeps, []);
-    this.data.events = load(KEYS.events, []);
+    this.data.medHistory = raw.medHistory.map(h => migrateMedHistory(h, medMap));
+    this.data.records = raw.records.map(r => migrateRecord(r, medMap, true));
+    this.data.logs = raw.logs;
+    this.data.sleeps = raw.sleeps;
+    this.data.events = raw.events;
+    // 补写版本标记，避免下次启动误判为旧格式
+    this.persist();
   },
 
   persist() {
@@ -164,6 +219,7 @@ export const store = {
     save(KEYS.sleeps, this.data.sleeps);
     save(KEYS.events, this.data.events);
     save(KEYS.medHistory, this.data.medHistory);
+    save(VERSION_KEY, CURRENT_DB_VERSION);
   },
 
   subscribe(fn) {
@@ -421,7 +477,7 @@ export const store = {
 
   buildBackup() {
     return {
-      version: 1,
+      version: CURRENT_DB_VERSION,
       exportedAt: new Date().toISOString(),
       records: this.data.records,
       meds: this.data.meds,
@@ -434,9 +490,19 @@ export const store = {
     };
   },
 
+  clearAll() {
+    this.data.records = [];
+    this.data.meds = [];
+    this.data.logs = [];
+    this.data.sleeps = [];
+    this.data.events = [];
+    this.data.medHistory = [];
+    this.persist();
+    this.notify();
+  },
+
   validateBackup(data) {
     if (!data || typeof data !== 'object') return false;
-    if (data.version !== 1) return false;
     if (!Array.isArray(data.records)) return false;
     if (!Array.isArray(data.meds)) return false;
     if (!Array.isArray(data.logs)) return false;
@@ -450,15 +516,20 @@ export const store = {
 
   restoreBackup(data) {
     if (!this.validateBackup(data)) return false;
+    const version = data.version || 0;
+    // version < 2 的旧备份在这里只做兜底；导入流程中 settings.js 会先用 runUpgrade 升级，
+    // 但如果直接调用 restoreBackup，仍需能正确还原旧数据。
+    const needSplitOldMood = version < 2;
     const meds = (data.meds || []).map(migrateMed);
+    // 旧备份兜底：主题里的药物标记颜色按索引写入对应药品
+    const legacyColors = data.theme && Array.isArray(data.theme.medColors) ? data.theme.medColors : null;
+    if (legacyColors && legacyColors.length) {
+      meds.forEach((m, i) => {
+        if (m) m.color = legacyColors[i % legacyColors.length];
+      });
+    }
     const medMap = Object.fromEntries(meds.map(m => [m.id, m]));
-    const records = (data.records || []).map(r => {
-      let rec = r;
-      if (Array.isArray(rec.doses)) {
-        rec = { ...rec, doses: rec.doses.map(d => migrateDose(d, medMap)) };
-      }
-      return rec;
-    });
+    const records = (data.records || []).map(r => migrateRecord(r, medMap, needSplitOldMood));
     this.data.records = records;
     this.data.meds = meds;
     this.data.logs = data.logs;
@@ -466,40 +537,35 @@ export const store = {
     this.data.events = data.events || [];
     this.data.medHistory = (data.medHistory || []).map(h => migrateMedHistory(h, medMap));
     if (data.theme) {
-      setTheme(data.theme);
+      const theme = { ...data.theme };
+      // 旧调色板已写入对应药品，不再写入主题
+      delete theme.medColors;
+      setTheme(theme);
     }
     this.persist();
     this.notify();
     return data.language || getLanguage();
   },
 
-  clearAll() {
-    this.data.records = [];
-    this.data.meds = [];
-    this.data.logs = [];
-    this.data.sleeps = [];
-    this.data.events = [];
-    this.data.medHistory = [];
-    this.persist();
-    this.notify();
+};
+
+if (typeof window !== 'undefined') {
+  window.__widgetAddSleep = (sleep) => {
+    store.addSleep({
+      ...sleep,
+      quality: sleep.quality ?? 0,
+      interruptions: sleep.interruptions ?? [],
+      note: sleep.note || t('records.widgetNote') || 'Widget'
+    });
+  };
+
+  if (window.AndroidBridge && typeof window.AndroidBridge.onWidgetReady === 'function') {
+    window.AndroidBridge.onWidgetReady();
   }
-};
 
-window.__widgetAddSleep = (sleep) => {
-  store.addSleep({
-    ...sleep,
-    quality: sleep.quality ?? 0,
-    interruptions: sleep.interruptions ?? [],
-    note: sleep.note || t('records.widgetNote') || 'Widget'
-  });
-};
-
-if (window.AndroidBridge && typeof window.AndroidBridge.onWidgetReady === 'function') {
-  window.AndroidBridge.onWidgetReady();
-}
-
-if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.onWidgetReady === 'function') {
-  window.pywebview.api.onWidgetReady();
+  if (window.pywebview && window.pywebview.api && typeof window.pywebview.api.onWidgetReady === 'function') {
+    window.pywebview.api.onWidgetReady();
+  }
 }
 
 export function formatDateTime(ts) {

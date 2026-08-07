@@ -9,6 +9,10 @@
 </head>
 <body>
   <div id="ui-scale-root">
+    <div id="upgrade-blocking" class="upgrade-blocking" hidden>
+      <p data-i18n="app.upgrade.blocking">检测到旧版数据格式，请先备份后再继续使用。</p>
+      <button type="button" id="upgrade-backup-btn" class="btn btn-primary" data-i18n="app.upgrade.backupNow">立即备份</button>
+    </div>
     <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
