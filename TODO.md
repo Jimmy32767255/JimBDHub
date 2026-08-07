@@ -256,7 +256,7 @@ GitHub Action，当开发分支变动时自动编译并发布到 Release
 
 使用 PyInstaller 打包后的 Microsoft® Windows™ 操作系统端无法正常使用，报错 404 资源找不到
 
-- [ ] Re1:Microsoft® Windows™ 操作系统端无法使用
+- [x] Re1:Microsoft® Windows™ 操作系统端无法使用
 
 打包版卡死
 

@@ -296,7 +296,8 @@ class SyncManager:
     """轮询同步文件并在变更时通知前端。"""
 
     def __init__(self, window, sync_path: Path):
-        self.window = window
+        # 私有属性：避免该对象经 js_api 桥被 pywebview 递归遍历时触及 Window 原生控件
+        self._window = window
         self.sync_path = sync_path
         self.last_mtime = 0.0
         self.running = False
@@ -333,7 +334,7 @@ class SyncManager:
             with open(self.sync_path, "r", encoding="utf-8") as f:
                 text = f.read()
             js = f"if (window.__syncthingCallback) window.__syncthingCallback({json.dumps(text)});"
-            self.window.evaluate_js(js)
+            self._window.evaluate_js(js)
         except Exception as e:
             print(f"通知前端同步变更失败: {e}", file=sys.stderr)
 
@@ -350,9 +351,16 @@ class SyncManager:
 
 
 class DesktopBridge:
-    """暴露给前端 JS 的桌面端能力（备份导出/导入、Syncthing 同步、小部件）。"""
+    """暴露给前端 JS 的桌面端能力（备份导出/导入、Syncthing 同步、小部件）。
 
-    window = None
+    注意：对 window 的引用必须使用以下划线开头的私有属性（_window）。
+    pywebview 注入 js_api 时会递归遍历桥对象的所有公开属性，
+    而 pywebview 的 Window 对象内部持有底层 GUI 控件（.native），
+    遍历它会陷入无限递归（如 AccessibilityObject.Bounds.Empty...），
+    导致应用在启动时卡死（maximum recursion depth exceeded）。
+    """
+
+    _window = None
     sync_manager = None
 
     def isDesktop(self):
@@ -360,8 +368,8 @@ class DesktopBridge:
 
     def onWidgetReady(self):
         """前端 store 就绪后调用，同步通过快捷方式产生的睡眠记录。"""
-        if self.window:
-            inject_pending_sleeps(self.window)
+        if self._window:
+            inject_pending_sleeps(self._window)
 
     def addWidgetShortcut(self):
         """在桌面创建一键睡眠记录的快捷方式。"""
@@ -374,7 +382,7 @@ class DesktopBridge:
         if self.sync_manager:
             self.sync_manager.stop()
         sync_path = Path(path) if path else self._default_sync_path()
-        self.sync_manager = SyncManager(self.window, sync_path)
+        self.sync_manager = SyncManager(self._window, sync_path)
         self.sync_manager.start()
         content = None
         if sync_path.exists():
@@ -398,10 +406,10 @@ class DesktopBridge:
         return {"ok": ok}
 
     def saveBackup(self, json_string: str, file_name: str):
-        if not self.window:
+        if not self._window:
             return False
         try:
-            result = self.window.create_file_dialog(
+            result = self._window.create_file_dialog(
                 dialog_type=webview.SAVE_DIALOG,
                 directory=str(Path.home()),
                 save_filename=file_name,
@@ -441,10 +449,10 @@ class DesktopBridge:
             return None
 
     def pickBackup(self):
-        if not self.window:
+        if not self._window:
             return None
         try:
-            result = self.window.create_file_dialog(
+            result = self._window.create_file_dialog(
                 dialog_type=webview.OPEN_DIALOG,
                 directory=str(Path.home()),
                 allow_multiple=False,
@@ -463,10 +471,10 @@ class DesktopBridge:
 
     def chooseBackupFolder(self):
         """弹出文件夹选择框，返回用户选定的自动备份目录。"""
-        if not self.window:
+        if not self._window:
             return {"ok": False, "error": "window not ready"}
         try:
-            result = self.window.create_file_dialog(
+            result = self._window.create_file_dialog(
                 dialog_type=webview.FOLDER_DIALOG,
                 directory=str(Path.home()),
             )
@@ -548,7 +556,7 @@ def main() -> None:
         text_select=True,
         js_api=bridge,
     )
-    bridge.window = window
+    bridge._window = window
     webview.start(
         debug=False,
         private_mode=False,
