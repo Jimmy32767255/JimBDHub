@@ -73,6 +73,10 @@ If you run into problems or have suggestions, reach us through:
 - It is recommended to periodically export a backup via **Settings → Data Backup** for migration or recovery.
 - For multi-device sync, use the method described in the [Syncthing setup tutorial](./tutorial/syncthing.md).
 
+## Contributors
+
+Thanks to every user who uses the app, reports bugs and requests features: [view the contributor credits](../../contribution/contributors.md)
+
 ## For Developers
 
 - [Directory structure](../../DirInfo.txt)

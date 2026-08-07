@@ -73,6 +73,10 @@
 - 建议定期使用 **设置 → 数据备份** 导出备份文件，便于迁移或应急恢复。
 - 多设备同步请使用 [Syncthing 同步配置教程](./docs/zh-CN/tutorial/syncthing.md) 中的方法。
 
+## 贡献者们
+
+感谢每一位愿意使用本软件、指出程序缺陷和提出功能请求的用户：[查看贡献者鸣谢单](./contribution/contributors.md)
+
 ## 对开发者
 
 - [目录结构](./DirInfo.txt)
