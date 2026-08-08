@@ -84,6 +84,7 @@
 | `enableSync()` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（SAF 目录，3 秒轮询） |
 | `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | 自动备份（SAF 目录，见下文「自动备份机制」） |
 | `addWidget()` | 请求添加启动器小部件 |
+| `openUrl(url)` | 用系统浏览器打开链接（如项目仓库） |
 | `addCalendarEvent(...)` | 添加系统日历事件（`CalendarContract`） |
 | `setAlarm(hour, minute, message)` | 添加系统闹钟（`AlarmClock`） |
 | `onWidgetReady()` | 前端 store 就绪回调，注入小部件产生的睡眠记录 |
@@ -99,6 +100,7 @@
 | `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（`SyncManager` 2 秒轮询 mtime） |
 | `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10)` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | 自动备份（`FOLDER_DIALOG` 选择目录，见下文「自动备份机制」） |
 | `addWidgetShortcut()` | 桌面创建 `.lnk`（Windows）/ `.desktop`（GNU/Linux） |
+| `openUrl(url)` | 用系统默认浏览器打开链接（`webbrowser`） |
 | `onWidgetReady()` | 前端 store 就绪回调，注入快捷方式产生的睡眠记录 |
 
 ### 浏览器降级

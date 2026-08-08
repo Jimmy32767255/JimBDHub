@@ -1,11 +1,13 @@
 import { t } from './i18n.js';
 import { showAlert } from './dialog.js';
+import { platform } from './platform.js';
 
 // 应用版本号：与 Android 构建的 versionName 保持一致
 const APP_VERSION = 'V0.0.1A';
 
 const RELEASES_API = 'https://api.github.com/repos/Jimmy32767255/JimBDHub/releases';
 const RELEASES_URL = 'https://github.com/Jimmy32767255/JimBDHub/releases';
+const REPO_URL = 'https://github.com/Jimmy32767255/JimBDHub';
 
 const contributorsModal = document.getElementById('contributors-modal');
 const contributorsListEl = document.getElementById('contributors-list');
@@ -31,6 +33,23 @@ function showContributorsModal() {
 
 function closeContributorsModal() {
   if (contributorsModal) contributorsModal.setAttribute('aria-hidden', 'true');
+}
+
+// 用系统浏览器打开项目仓库：优先走平台桥接，纯浏览器环境退回 window.open
+async function openRepository() {
+  try {
+    if (platform.isAndroid()) {
+      window.AndroidBridge.openUrl(REPO_URL);
+      return;
+    }
+    if (platform.isDesktop()) {
+      await window.pywebview.api.openUrl(REPO_URL);
+      return;
+    }
+    window.open(REPO_URL, '_blank');
+  } catch (err) {
+    window.open(REPO_URL, '_blank');
+  }
 }
 
 async function loadContributors() {
@@ -206,6 +225,7 @@ export function initAbout() {
   if (versionEl) versionEl.textContent = APP_VERSION;
 
   document.getElementById('about-check-update-btn')?.addEventListener('click', checkUpdate);
+  document.getElementById('about-repository-btn')?.addEventListener('click', openRepository);
   document.getElementById('about-contributors-btn')?.addEventListener('click', showContributorsModal);
   document.getElementById('contributors-close-btn')?.addEventListener('click', closeContributorsModal);
   contributorsModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeContributorsModal);

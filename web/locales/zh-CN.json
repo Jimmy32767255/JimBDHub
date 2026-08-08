@@ -20,6 +20,7 @@
   "about.upToDate": "当前已是最新版本（{version}）。",
   "about.updateAvailable": "发现新版本：{name}，发布于 {date}。下载地址：{url}",
   "about.checkFailed": "检查更新失败：{message}",
+  "about.repository": "查看项目仓库",
   "about.contributors": "查看贡献者鸣谢单",
   "about.contributorsTitle": "贡献者鸣谢单",
   "about.contributorsIntro": "感谢每一位愿意使用本软件、指出程序缺陷和提出功能请求的用户，你们的支持是我们更新的最大动力！",

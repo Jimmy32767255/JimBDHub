@@ -23,6 +23,7 @@ import sys
 import tempfile
 import threading
 import time
+import webbrowser
 from datetime import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
@@ -370,6 +371,15 @@ class DesktopBridge:
         """前端 store 就绪后调用，同步通过快捷方式产生的睡眠记录。"""
         if self._window:
             inject_pending_sleeps(self._window)
+
+    def openUrl(self, url: str):
+        """用系统默认浏览器打开链接。"""
+        try:
+            webbrowser.open(url)
+            return True
+        except Exception as e:
+            print(f"打开链接失败: {e}", file=sys.stderr)
+            return False
 
     def addWidgetShortcut(self):
         """在桌面创建一键睡眠记录的快捷方式。"""

@@ -84,6 +84,7 @@ Desktop WebView storage persists under `~/.JimBDHub` (see the desktop section be
 | `enableSync()` / `disableSync()` / `writeSyncFile(json)` | Syncthing file sync (SAF folder, 3s polling) |
 | `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | Auto backup (SAF folder; see "Auto Backup Mechanism" below) |
 | `addWidget()` | Request adding a launcher widget |
+| `openUrl(url)` | Open a link (e.g. the project repo) in the system browser |
 | `addCalendarEvent(...)` | Add a system calendar event (`CalendarContract`) |
 | `setAlarm(hour, minute, message)` | Add a system alarm (`AlarmClock`) |
 | `onWidgetReady()` | Called when the frontend store is ready; injects sleep records produced by the widget |
@@ -99,6 +100,7 @@ The frontend receives async results via global callbacks `window.__xxxCallback` 
 | `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)` | Syncthing file sync (`SyncManager` polls mtime every 2s) |
 | `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10)` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | Auto backup (`FOLDER_DIALOG`; see "Auto Backup Mechanism" below) |
 | `addWidgetShortcut()` | Create a desktop shortcut — `.lnk` (Windows) / `.desktop` (GNU/Linux) |
+| `openUrl(url)` | Open a link in the system default browser (`webbrowser`) |
 | `onWidgetReady()` | Called when the frontend store is ready; injects sleep records produced by the shortcut |
 
 ### Browser fallback

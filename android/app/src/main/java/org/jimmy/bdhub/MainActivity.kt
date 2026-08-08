@@ -723,6 +723,22 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
+        fun openUrl(url: String) {
+            runOnUiThread {
+                try {
+                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    startActivity(intent)
+                } catch (e: Exception) {
+                    Toast.makeText(
+                        this@MainActivity,
+                        "无法打开链接：${e.message}",
+                        Toast.LENGTH_LONG
+                    ).show()
+                }
+            }
+        }
+
+        @JavascriptInterface
         fun enableSync() {
             this@MainActivity.enableSync()
         }

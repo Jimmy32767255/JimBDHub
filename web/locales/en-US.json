@@ -20,6 +20,7 @@
   "about.upToDate": "You are up to date ({version}).",
   "about.updateAvailable": "New version found: {name}, published on {date}. Download: {url}",
   "about.checkFailed": "Update check failed: {message}",
+  "about.repository": "View repository",
   "about.contributors": "View contributors",
   "about.contributorsTitle": "Contributors",
   "about.contributorsIntro": "Thank you to everyone who uses the app, reports bugs and requests features — your support is our greatest motivation to keep improving!",
