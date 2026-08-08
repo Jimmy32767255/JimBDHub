@@ -1,7 +1,8 @@
 import { store } from './store.js';
 import { platform } from './platform.js';
 import { t, getLanguage, setLanguage } from './i18n.js';
-import { getTheme, setTheme } from './theme.js';
+import { getTheme, setTheme, subscribe as subscribeTheme } from './theme.js';
+import { subscribeStatus as subscribeSyncStatus } from './sync.js';
 import { showAlert, showConfirm } from './dialog.js';
 
 // 自动备份：以事件钩子形式（监听 store 数据变化）写入用户选择的文件夹。
@@ -9,8 +10,85 @@ import { showAlert, showConfirm } from './dialog.js';
 const DEFAULT_MAX_COUNT = 10;
 const DEBOUNCE_MS = 3000;
 
+// 备份文件名格式：JimBDHub_AutoBackup_{操作}_{yyyyMMddHHmm毫秒}.json
+// 操作（触发原因）固定英文，仅在 UI 展示时按当前语言翻译
+export const AUTO_BACKUP_FILE_PREFIX = 'JimBDHub_AutoBackup_';
+
+const AUTO_BACKUP_REASON_KEYS = {
+  Manual: 'settings.backup.autoReason.manual',
+  DataChange: 'settings.backup.autoReason.dataChange',
+  AddRecord: 'settings.backup.autoReason.addRecord',
+  UpdateRecord: 'settings.backup.autoReason.updateRecord',
+  DeleteRecord: 'settings.backup.autoReason.deleteRecord',
+  AddSleep: 'settings.backup.autoReason.addSleep',
+  UpdateSleep: 'settings.backup.autoReason.updateSleep',
+  DeleteSleep: 'settings.backup.autoReason.deleteSleep',
+  AddEvent: 'settings.backup.autoReason.addEvent',
+  UpdateEvent: 'settings.backup.autoReason.updateEvent',
+  DeleteEvent: 'settings.backup.autoReason.deleteEvent',
+  AddMed: 'settings.backup.autoReason.addMed',
+  UpdateMed: 'settings.backup.autoReason.updateMed',
+  DeleteMed: 'settings.backup.autoReason.deleteMed',
+  AddMedHistory: 'settings.backup.autoReason.addMedHistory',
+  UpdateMedHistory: 'settings.backup.autoReason.updateMedHistory',
+  DeleteMedHistory: 'settings.backup.autoReason.deleteMedHistory',
+  AddLog: 'settings.backup.autoReason.addLog',
+  UpdateLog: 'settings.backup.autoReason.updateLog',
+  DeleteLog: 'settings.backup.autoReason.deleteLog',
+  TakeMed: 'settings.backup.autoReason.takeMed',
+  AddHistoricalLog: 'settings.backup.autoReason.addHistoricalLog',
+  RestoreBackup: 'settings.backup.autoReason.restoreBackup',
+  ClearAll: 'settings.backup.autoReason.clearAll',
+  ThemeChange: 'settings.backup.autoReason.themeChange',
+  ThemeReset: 'settings.backup.autoReason.themeReset',
+  SystemTheme: 'settings.backup.autoReason.systemTheme',
+  ThemeImport: 'settings.backup.autoReason.themeImport',
+  ColorChange: 'settings.backup.autoReason.colorChange',
+  ChartStyleChange: 'settings.backup.autoReason.chartStyleChange',
+  BackgroundChange: 'settings.backup.autoReason.backgroundChange',
+  DisplayChange: 'settings.backup.autoReason.displayChange',
+  MedSettingsChange: 'settings.backup.autoReason.medSettingsChange',
+  SimpleModeChange: 'settings.backup.autoReason.simpleModeChange',
+  SyncEnabled: 'settings.backup.autoReason.syncEnabled',
+  SyncDisabled: 'settings.backup.autoReason.syncDisabled'
+};
+
+/** 将备份文件名转为可读的展示名：去掉前缀，并把操作部分翻译成当前语言。 */
+export function formatAutoBackupName(name) {
+  let display = name;
+  if (display.startsWith(AUTO_BACKUP_FILE_PREFIX)) {
+    display = display.slice(AUTO_BACKUP_FILE_PREFIX.length);
+  }
+  const idx = display.indexOf('_');
+  if (idx > 0) {
+    const reason = display.slice(0, idx);
+    const key = AUTO_BACKUP_REASON_KEYS[reason];
+    if (key) {
+      display = `${t(key)}${display.slice(idx)}`;
+    }
+  }
+  return display;
+}
+
+/** 仅提取并翻译备份文件名中的操作原因（用于列表标题），识别失败时回退到完整展示名。 */
+export function getAutoBackupReasonLabel(name) {
+  let display = name;
+  if (display.startsWith(AUTO_BACKUP_FILE_PREFIX)) {
+    display = display.slice(AUTO_BACKUP_FILE_PREFIX.length);
+  }
+  const idx = display.indexOf('_');
+  if (idx > 0) {
+    const reason = display.slice(0, idx);
+    const key = AUTO_BACKUP_REASON_KEYS[reason];
+    if (key) return t(key);
+  }
+  return formatAutoBackupName(name);
+}
+
 let debounceTimer = null;
 let unsubscribeStore = null;
+let unsubscribeTheme = null;
+let unsubscribeSync = null;
 let running = false;
 let statusListeners = [];
 let currentStatus = { enabled: false, folder: '', maxCount: DEFAULT_MAX_COUNT, list: [], loaded: false };
@@ -61,20 +139,20 @@ export function setAutoBackupMaxCount(n) {
   return maxCount;
 }
 
-async function performBackup(showResult) {
+async function performBackup(showResult, reason) {
   const settings = readSettings();
   if (!settings.enabled || !settings.folder) return;
   if (running) return;
   running = true;
   try {
     const json = JSON.stringify(store.buildBackup());
-    const result = await platform.writeAutoBackup(settings.folder, json, settings.maxCount);
+    const result = await platform.writeAutoBackup(settings.folder, json, settings.maxCount, reason);
     if (!result || !result.ok) {
       if (showResult) {
         await showAlert(t('settings.backup.autoError', { message: result?.error || '' }));
       }
     } else if (showResult) {
-      await showAlert(t('settings.backup.autoSuccess', { name: result.name }));
+      await showAlert(t('settings.backup.autoSuccess', { name: formatAutoBackupName(result.name) }));
     }
     await refreshList();
   } catch (err) {
@@ -87,14 +165,17 @@ async function performBackup(showResult) {
 }
 
 export async function backupNow() {
-  await performBackup(true);
+  await performBackup(true, 'Manual');
 }
 
-function onStoreChange() {
+// 统一触发入口：store 数据变更、主题/设置变更、同步开关都会调用此处
+function onAutoBackupTrigger(reason) {
+  // 恢复备份后立即再自动备份会导致冗余且令人困惑的备份条目，跳过
+  if (reason === 'RestoreBackup') return;
   const settings = readSettings();
   if (!settings.enabled || !settings.folder) return;
   if (debounceTimer) clearTimeout(debounceTimer);
-  debounceTimer = setTimeout(() => performBackup(false), DEBOUNCE_MS);
+  debounceTimer = setTimeout(() => performBackup(false, reason), DEBOUNCE_MS);
 }
 
 export async function chooseBackupFolder() {
@@ -134,7 +215,7 @@ export async function refreshList() {
 }
 
 export async function restoreAutoBackup(name) {
-  if (!(await showConfirm(t('settings.backup.autoRestoreConfirm', { name })))) {
+  if (!(await showConfirm(t('settings.backup.autoRestoreConfirm', { name: formatAutoBackupName(name) })))) {
     return;
   }
   const settings = readSettings();
@@ -165,7 +246,7 @@ export async function restoreAutoBackup(name) {
 }
 
 export async function deleteAutoBackup(name) {
-  if (!(await showConfirm(t('settings.backup.autoDeleteConfirm', { name })))) {
+  if (!(await showConfirm(t('settings.backup.autoDeleteConfirm', { name: formatAutoBackupName(name) })))) {
     return;
   }
   const settings = readSettings();
@@ -182,10 +263,21 @@ export async function deleteAutoBackup(name) {
 }
 
 export function initAutoBackup() {
-  if (unsubscribeStore) {
-    unsubscribeStore();
-  }
-  unsubscribeStore = store.subscribe(onStoreChange);
+  if (unsubscribeStore) unsubscribeStore();
+  if (unsubscribeTheme) unsubscribeTheme();
+  if (unsubscribeSync) unsubscribeSync();
+
+  // store 数据变更：取最后一次变更原因
+  unsubscribeStore = store.subscribe((_, reason) => onAutoBackupTrigger(reason || store.lastMutation?.reason || 'DataChange'));
+  // 主题/设置变更：强调色、界面缩放等均不经过 store
+  unsubscribeTheme = subscribeTheme((_, reason) => onAutoBackupTrigger(reason || 'ThemeChange'));
+  // 同步开关：启用/关闭同步本身不修改 store 数据
+  unsubscribeSync = subscribeSyncStatus(status => {
+    if (status.reason === 'SyncEnabled' || status.reason === 'SyncDisabled') {
+      onAutoBackupTrigger(status.reason);
+    }
+  });
+
   const settings = readSettings();
   notifyStatus({
     enabled: settings.enabled,

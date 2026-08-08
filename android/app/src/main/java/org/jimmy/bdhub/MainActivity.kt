@@ -44,7 +44,8 @@ class MainActivity : AppCompatActivity() {
     private val PREF_SYNC_FOLDER = "sync_folder_uri"
     private val SYNC_FILE_NAME = "JimBDHub.sync.json"
     private val SYNC_POLL_INTERVAL_SECONDS = 3L
-    private val AUTO_BACKUP_PREFIX = "jimbdhub_auto_"
+    // 自动备份文件名格式：JimBDHub_AutoBackup_{操作}_{yyyyMMddHHmm毫秒}.json（操作固定英文，触发原因）
+    private val AUTO_BACKUP_PREFIX = "JimBDHub_AutoBackup_"
 
     private var syncFolderUri: Uri? = null
     private var syncFile: DocumentFile? = null
@@ -530,7 +531,7 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
-    private fun writeAutoBackup(uriString: String, json: String, maxCount: Int) {
+    private fun writeAutoBackup(uriString: String, json: String, maxCount: Int, reason: String) {
         syncExecutor.execute {
             val folder = backupFolderFromUri(uriString)
             if (folder == null) {
@@ -540,8 +541,8 @@ class MainActivity : AppCompatActivity() {
                 return@execute
             }
             try {
-                val name = AUTO_BACKUP_PREFIX +
-                    SimpleDateFormat("yyyyMMdd_HHmmss_SSS", Locale.US).format(Date()) + ".json"
+                val name = AUTO_BACKUP_PREFIX + reason + "_" +
+                    SimpleDateFormat("yyyyMMddHHmmssSSS", Locale.US).format(Date()) + ".json"
                 val file = folder.createFile("application/json", name)
                     ?: throw Exception("创建备份文件失败")
                 val stream = contentResolver.openOutputStream(file.uri)
@@ -701,8 +702,8 @@ class MainActivity : AppCompatActivity() {
         }
 
         @JavascriptInterface
-        fun writeAutoBackup(uriString: String, json: String, maxCount: Int) {
-            this@MainActivity.writeAutoBackup(uriString, json, maxCount)
+        fun writeAutoBackup(uriString: String, json: String, maxCount: Int, reason: String) {
+            this@MainActivity.writeAutoBackup(uriString, json, maxCount, reason)
         }
 
         @JavascriptInterface

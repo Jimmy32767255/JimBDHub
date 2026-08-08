@@ -182,6 +182,8 @@ export const store = {
     medHistory: []
   },
   listeners: [],
+  // 最后一次数据变更的原因，供自动备份等订阅者读取以生成更友好的文件名
+  lastMutation: { reason: 'Init' },
 
   checkNeedsUpgrade() {
     return needsUpgrade(readRawData());
@@ -238,8 +240,9 @@ export const store = {
     };
   },
 
-  notify() {
-    this.listeners.forEach(fn => fn(this.data));
+  notify(reason = 'DataChange') {
+    this.lastMutation = { reason };
+    this.listeners.forEach(fn => fn(this.data, reason));
   },
 
   getRecordsInRange(range) {
@@ -295,7 +298,7 @@ export const store = {
     this.data.records.push(r);
     this.data.records.sort((a, b) => a.timestamp - b.timestamp);
     this.persist();
-    this.notify();
+    this.notify('AddRecord');
     return r;
   },
 
@@ -305,13 +308,13 @@ export const store = {
     this.data.records[idx] = { ...this.data.records[idx], ...patch };
     this.data.records.sort((a, b) => a.timestamp - b.timestamp);
     this.persist();
-    this.notify();
+    this.notify('UpdateRecord');
   },
 
   deleteRecord(id) {
     this.data.records = this.data.records.filter(r => r.id !== id);
     this.persist();
-    this.notify();
+    this.notify('DeleteRecord');
   },
 
   addSleep(sleep) {
@@ -319,7 +322,7 @@ export const store = {
     this.data.sleeps.push(s);
     this.data.sleeps.sort((a, b) => a.startTime - b.startTime);
     this.persist();
-    this.notify();
+    this.notify('AddSleep');
     return s;
   },
 
@@ -329,13 +332,13 @@ export const store = {
     this.data.sleeps[idx] = { ...this.data.sleeps[idx], ...patch };
     this.data.sleeps.sort((a, b) => a.startTime - b.startTime);
     this.persist();
-    this.notify();
+    this.notify('UpdateSleep');
   },
 
   deleteSleep(id) {
     this.data.sleeps = this.data.sleeps.filter(s => s.id !== id);
     this.persist();
-    this.notify();
+    this.notify('DeleteSleep');
   },
 
   addEvent(event) {
@@ -343,7 +346,7 @@ export const store = {
     this.data.events.push(e);
     this.data.events.sort((a, b) => a.timestamp - b.timestamp);
     this.persist();
-    this.notify();
+    this.notify('AddEvent');
     return e;
   },
 
@@ -353,20 +356,20 @@ export const store = {
     this.data.events[idx] = { ...this.data.events[idx], ...patch };
     this.data.events.sort((a, b) => a.timestamp - b.timestamp);
     this.persist();
-    this.notify();
+    this.notify('UpdateEvent');
   },
 
   deleteEvent(id) {
     this.data.events = this.data.events.filter(e => e.id !== id);
     this.persist();
-    this.notify();
+    this.notify('DeleteEvent');
   },
 
   addMed(med) {
     const m = { ...med, id: generateId() };
     this.data.meds.push(m);
     this.persist();
-    this.notify();
+    this.notify('AddMed');
     return m;
   },
 
@@ -376,13 +379,13 @@ export const store = {
     this.data.meds[idx] = { ...this.data.meds[idx], ...patch };
     recalcLogRemainingAfter(id);
     this.persist();
-    this.notify();
+    this.notify('UpdateMed');
   },
 
   deleteMed(id) {
     this.data.meds = this.data.meds.filter(m => m.id !== id);
     this.persist();
-    this.notify();
+    this.notify('DeleteMed');
   },
 
   addMedHistory(entry) {
@@ -390,7 +393,7 @@ export const store = {
     this.data.medHistory.push(e);
     this.data.medHistory.sort((a, b) => a.timestamp - b.timestamp);
     this.persist();
-    this.notify();
+    this.notify('AddMedHistory');
     return e;
   },
 
@@ -400,21 +403,21 @@ export const store = {
     this.data.medHistory[idx] = { ...this.data.medHistory[idx], ...patch };
     this.data.medHistory.sort((a, b) => a.timestamp - b.timestamp);
     this.persist();
-    this.notify();
+    this.notify('UpdateMedHistory');
   },
 
   deleteMedHistory(id) {
     this.data.medHistory = this.data.medHistory.filter(e => e.id !== id);
     this.persist();
-    this.notify();
+    this.notify('DeleteMedHistory');
   },
 
-  addLog(log) {
+  addLog(log, reason = 'AddLog') {
     const l = { ...log, id: generateId(), timestamp: log.timestamp || Date.now() };
     this.data.logs.unshift(l);
     recalcLogRemainingAfter(l.medicationId);
     this.persist();
-    this.notify();
+    this.notify(reason);
     return l;
   },
 
@@ -427,10 +430,10 @@ export const store = {
       med.remainingPills = Math.max(0, med.remainingPills + (Number(patch.delta) - log.delta));
     }
     this.data.logs[idx] = { ...log, ...patch };
-    this.data.logs.sort((a, b) => b.timestamp - a.timestamp);
+    this.data.logs.sort((a, b) => b.timestamp - b.timestamp);
     if (med) recalcLogRemainingAfter(med.id);
     this.persist();
-    this.notify();
+    this.notify('UpdateLog');
   },
 
   deleteLog(id) {
@@ -444,7 +447,7 @@ export const store = {
     this.data.logs.splice(idx, 1);
     if (med) recalcLogRemainingAfter(med.id);
     this.persist();
-    this.notify();
+    this.notify('DeleteLog');
   },
 
   changeMedStock(medId, delta, note = '', timestamp = null) {
@@ -459,9 +462,7 @@ export const store = {
       remainingAfter,
       note,
       timestamp: timestamp || Date.now()
-    });
-    this.persist();
-    this.notify();
+    }, 'TakeMed');
   },
 
   addHistoricalLog(medId, { timestamp, delta, note = '' }) {
@@ -480,7 +481,7 @@ export const store = {
     this.data.logs.sort((a, b) => b.timestamp - a.timestamp);
     recalcLogRemainingAfter(medId);
     this.persist();
-    this.notify();
+    this.notify('AddHistoricalLog');
     return log;
   },
 
@@ -513,7 +514,7 @@ export const store = {
     this.data.events = [];
     this.data.medHistory = [];
     this.persist();
-    this.notify();
+    this.notify('ClearAll');
   },
 
   validateBackup(data) {
@@ -568,7 +569,7 @@ export const store = {
       setTheme(theme);
     }
     this.persist();
-    this.notify();
+    this.notify('RestoreBackup');
     return data.language || getLanguage();
   },
 

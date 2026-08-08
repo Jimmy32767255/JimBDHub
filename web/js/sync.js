@@ -14,9 +14,14 @@ let unsubscribeStore = null;
 let writeTimer = null;
 let statusListeners = [];
 let currentStatus = { enabled: false };
+// 最后一次同步开关/数据变更的原因，供自动备份等读取
+export let lastSyncMutation = { reason: 'SyncChange' };
 
 function setStatus(partial) {
   currentStatus = { ...currentStatus, ...partial };
+  if (partial.reason) {
+    lastSyncMutation = { reason: partial.reason };
+  }
   statusListeners.forEach(fn => fn(currentStatus));
 }
 
@@ -103,7 +108,8 @@ export async function enable() {
       enabled: true,
       path: result.path || null,
       folderName: result.folderName || null,
-      error: null
+      error: null,
+      reason: 'SyncEnabled'
     };
     statusListeners.forEach(fn => fn(currentStatus));
     localStorage.setItem(ENABLED_KEY, 'true');
@@ -130,7 +136,7 @@ export async function disable() {
     unsubscribeStore();
     unsubscribeStore = null;
   }
-  setStatus({ enabled: false, path: null, folderName: null, error: null });
+  setStatus({ enabled: false, path: null, folderName: null, error: null, reason: 'SyncDisabled' });
   localStorage.setItem(ENABLED_KEY, 'false');
 }
 

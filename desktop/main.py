@@ -49,8 +49,9 @@ WIDGET_STATE_FILE = "widget_sleep_state.json"
 WIDGET_PENDING_FILE = "widget_pending_sleeps.json"
 WIDGET_MIN_DURATION_MS = 60_000
 
-# 自动备份：备份文件名前缀，用于识别与数量上限清理
-AUTO_BACKUP_PREFIX = "jimbdhub_auto_"
+# 自动备份：备份文件名前缀，用于识别与数量上限清理。
+# 文件名格式：JimBDHub_AutoBackup_{操作}_{yyyyMMddHHmm毫秒}.json（操作固定英文，触发原因）
+AUTO_BACKUP_PREFIX = "JimBDHub_AutoBackup_"
 
 
 def _list_auto_backups(folder: Path) -> list:
@@ -502,12 +503,12 @@ class DesktopBridge:
         folder = Path(folder_path)
         return {"ok": True, "backups": _list_auto_backups(folder)}
 
-    def writeAutoBackup(self, folder_path: str, json_string: str, max_count: int = 10):
+    def writeAutoBackup(self, folder_path: str, json_string: str, max_count: int = 10, reason: str = "DataChange"):
         """写入自动备份文件，并按数量上限删除最旧的备份。"""
         try:
             folder = Path(folder_path)
             folder.mkdir(parents=True, exist_ok=True)
-            name = f"{AUTO_BACKUP_PREFIX}{datetime.now().strftime('%Y%m%d_%H%M%S_%f')[:-3]}.json"
+            name = f"{AUTO_BACKUP_PREFIX}{reason}_{datetime.now().strftime('%Y%m%d%H%M%S%f')[:-3]}.json"
             (folder / name).write_text(json_string, encoding="utf-8")
             trimmed = []
             limit = max(1, int(max_count))

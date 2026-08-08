@@ -10,6 +10,7 @@ import {
   restoreAutoBackup,
   deleteAutoBackup,
   backupNow,
+  getAutoBackupReasonLabel,
   setAutoBackupEnabled,
   setAutoBackupMaxCount,
   getAutoBackupMaxCount
@@ -140,7 +141,7 @@ async function importTheme(text) {
       if (data.theme[key] !== undefined) preset[key] = data.theme[key];
     });
     // 功能类设置（自动记录、简化模式、缩放、边距等）保持本机现状，仅覆盖外观
-    setTheme({ ...preset, useSystemTheme: false });
+    setTheme({ ...preset, useSystemTheme: false }, 'ThemeImport');
     await showAlert(t('settings.appearance.themeImportSuccess'));
   } catch (err) {
     await showAlert(t('settings.backup.exportError', { message: err.message }));
@@ -201,20 +202,20 @@ function bindThemeControls() {
   colorMap.forEach(([input, key]) => {
     if (!input) return;
     input.addEventListener('input', () => {
-      setTheme({ [key]: input.value, useSystemTheme: false });
+      setTheme({ [key]: input.value, useSystemTheme: false }, 'ColorChange');
     });
   });
 
   curveLineGroup?.addEventListener('click', (e) => {
     const btn = e.target.closest('.segment-btn');
     if (!btn) return;
-    setTheme({ curveLine: btn.dataset.line, useSystemTheme: false });
+    setTheme({ curveLine: btn.dataset.line, useSystemTheme: false }, 'ChartStyleChange');
   });
 
   fontColorModeGroup?.addEventListener('click', (e) => {
     const btn = e.target.closest('.segment-btn');
     if (!btn) return;
-    setTheme({ fontColorMode: btn.dataset.mode, useSystemTheme: false });
+    setTheme({ fontColorMode: btn.dataset.mode, useSystemTheme: false }, 'DisplayChange');
   });
 
   systemBtn?.addEventListener('click', applySystemTheme);
@@ -268,7 +269,7 @@ function bindBackgroundControls() {
       try {
         const dataUrl = await platform.pickBackgroundImage();
         if (dataUrl) {
-          setTheme({ backgroundImage: dataUrl, backgroundType: 'image', useSystemTheme: false });
+          setTheme({ backgroundImage: dataUrl, backgroundType: 'image', useSystemTheme: false }, 'BackgroundChange');
         }
       } catch (err) {
         await showAlert(t('settings.background.imageError', { message: err.message }));
@@ -299,11 +300,11 @@ function bindBackgroundControls() {
   typeGroup.addEventListener('click', (e) => {
     const btn = e.target.closest('.segment-btn');
     if (!btn) return;
-    setTheme({ backgroundType: btn.dataset.type, useSystemTheme: false });
+    setTheme({ backgroundType: btn.dataset.type, useSystemTheme: false }, 'BackgroundChange');
   });
 
   backgroundInput?.addEventListener('input', () => {
-    setTheme({ backgroundColor: backgroundInput.value, useSystemTheme: false });
+    setTheme({ backgroundColor: backgroundInput.value, useSystemTheme: false }, 'BackgroundChange');
   });
 
   imageInput?.addEventListener('change', async (e) => {
@@ -311,7 +312,7 @@ function bindBackgroundControls() {
     if (!file) return;
     try {
       const dataUrl = await readFileAsDataURL(file);
-      setTheme({ backgroundImage: dataUrl, backgroundType: 'image', useSystemTheme: false });
+      setTheme({ backgroundImage: dataUrl, backgroundType: 'image', useSystemTheme: false }, 'BackgroundChange');
     } catch (err) {
       await showAlert(t('settings.background.imageError', { message: err.message }));
     }
@@ -319,14 +320,14 @@ function bindBackgroundControls() {
   });
 
   clearImageBtn?.addEventListener('click', () => {
-    setTheme({ backgroundImage: '', backgroundType: 'solid', useSystemTheme: false });
+    setTheme({ backgroundImage: '', backgroundType: 'solid', useSystemTheme: false }, 'BackgroundChange');
   });
 
   function updateGradient() {
     const start = gradientStart?.value || '#0f172a';
     const end = gradientEnd?.value || '#1e293b';
     const direction = gradientDirection?.value || 'to bottom';
-    setTheme({ backgroundGradient: buildGradient(direction, start, end), useSystemTheme: false });
+    setTheme({ backgroundGradient: buildGradient(direction, start, end), useSystemTheme: false }, 'BackgroundChange');
   }
 
   gradientStart?.addEventListener('input', updateGradient);
@@ -355,23 +356,23 @@ function bindDisplayControls() {
   }
 
   scaleSelect?.addEventListener('change', () => {
-    setTheme({ uiScale: Number(scaleSelect.value) });
+    setTheme({ uiScale: Number(scaleSelect.value) }, 'DisplayChange');
   });
   marginSelect?.addEventListener('change', () => {
-    setTheme({ edgeMargin: Number(marginSelect.value) });
+    setTheme({ edgeMargin: Number(marginSelect.value) }, 'DisplayChange');
   });
   animCheckbox?.addEventListener('change', () => {
-    setTheme({ dynamicAnimationSpeed: animCheckbox.checked });
+    setTheme({ dynamicAnimationSpeed: animCheckbox.checked }, 'DisplayChange');
   });
   disableAnimCheckbox?.addEventListener('change', () => {
-    setTheme({ disableAnimations: disableAnimCheckbox.checked });
+    setTheme({ disableAnimations: disableAnimCheckbox.checked }, 'DisplayChange');
   });
   recordAddToastCheckbox?.addEventListener('change', () => {
-    setTheme({ recordAddToast: recordAddToastCheckbox.checked });
+    setTheme({ recordAddToast: recordAddToastCheckbox.checked }, 'DisplayChange');
   });
   recordsLoadLimitInput?.addEventListener('change', () => {
     const value = Math.max(100, Math.min(1000, Number(recordsLoadLimitInput.value) || 100));
-    setTheme({ maxLoadedRecords: value });
+    setTheme({ maxLoadedRecords: value }, 'DisplayChange');
     recordsLoadLimitInput.value = String(value);
   });
 
@@ -388,7 +389,7 @@ function bindConnectMoodDotsControl() {
   }
 
   checkbox.addEventListener('change', () => {
-    setTheme({ connectMoodDots: checkbox.checked });
+    setTheme({ connectMoodDots: checkbox.checked }, 'ChartStyleChange');
   });
 
   updateUIFromTheme(getTheme());
@@ -404,7 +405,7 @@ function bindSleepOverlayModeControl() {
   }
 
   checkbox.addEventListener('change', () => {
-    setTheme({ sleepDisplayMode: checkbox.checked ? 'overlay' : 'bar' });
+    setTheme({ sleepDisplayMode: checkbox.checked ? 'overlay' : 'bar' }, 'DisplayChange');
   });
 
   updateUIFromTheme(getTheme());
@@ -420,7 +421,7 @@ function bindAutoMedLogControl() {
   }
 
   checkbox.addEventListener('change', () => {
-    setTheme({ autoMedLog: checkbox.checked });
+    setTheme({ autoMedLog: checkbox.checked }, 'MedSettingsChange');
   });
 
   updateUIFromTheme(getTheme());
@@ -456,21 +457,21 @@ function bindSimpleModeControls() {
   }
 
   enableCheckbox.addEventListener('change', () => {
-    setTheme({ simpleMode: enableCheckbox.checked });
+    setTheme({ simpleMode: enableCheckbox.checked }, 'SimpleModeChange');
   });
 
   moodCheckbox?.addEventListener('change', () => {
-    setTheme({ simpleModeMood: moodCheckbox.checked });
+    setTheme({ simpleModeMood: moodCheckbox.checked }, 'SimpleModeChange');
   });
 
   medicationCheckbox?.addEventListener('change', () => {
-    setTheme({ simpleModeMedication: medicationCheckbox.checked });
+    setTheme({ simpleModeMedication: medicationCheckbox.checked }, 'SimpleModeChange');
   });
 
   granularityGroup.addEventListener('click', (e) => {
     const btn = e.target.closest('.segment-btn');
     if (!btn || !enableCheckbox.checked) return;
-    setTheme({ simpleModeGranularity: btn.dataset.granularity });
+    setTheme({ simpleModeGranularity: btn.dataset.granularity }, 'SimpleModeChange');
   });
 
   updateUIFromTheme(getTheme());
@@ -486,7 +487,7 @@ function bindDepletionReminderDaysControl() {
   }
 
   input.addEventListener('change', () => {
-    setTheme({ depletionReminderDays: Math.max(0, Math.min(30, Number(input.value) || 3)) });
+    setTheme({ depletionReminderDays: Math.max(0, Math.min(30, Number(input.value) || 3)) }, 'MedSettingsChange');
   });
 
   updateUIFromTheme(getTheme());
@@ -783,7 +784,8 @@ function bindAutoBackupControls() {
     const d = new Date(ms);
     if (Number.isNaN(d.getTime())) return '';
     const pad = n => String(n).padStart(2, '0');
-    return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}`;
+    const pad3 = n => String(n).padStart(3, '0');
+    return `${d.getFullYear()}年${pad(d.getMonth() + 1)}月${pad(d.getDate())}日${pad(d.getHours())}时${pad(d.getMinutes())}分${pad(d.getSeconds())}秒${pad3(d.getMilliseconds())}`;
   }
 
   function formatSize(bytes) {
@@ -809,7 +811,7 @@ function bindAutoBackupControls() {
     listEl.innerHTML = status.list.map(item => `
       <div class="autobackup-item">
         <div class="autobackup-info">
-          <span class="autobackup-name">${escapeHtml(item.name)}</span>
+          <span class="autobackup-name">${escapeHtml(getAutoBackupReasonLabel(item.name))}</span>
           <span class="autobackup-meta">${formatBackupDate(item.modified)} · ${formatSize(item.size)}</span>
         </div>
         <div class="autobackup-actions">

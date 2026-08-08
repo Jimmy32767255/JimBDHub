@@ -59,6 +59,8 @@ const SYSTEM_PRESETS = {
 
 let currentTheme = { ...DEFAULT_THEME };
 let listeners = [];
+// 最后一次主题/设置变更的原因，供自动备份等读取
+export let lastThemeMutation = { reason: 'ThemeChange' };
 
 function hexToRgb(hex) {
   const clean = hex.replace('#', '');
@@ -189,15 +191,16 @@ export function getTheme() {
   return { ...currentTheme };
 }
 
-export function setTheme(partial) {
+export function setTheme(partial, reason = 'ThemeChange') {
   currentTheme = { ...currentTheme, ...partial };
   save(currentTheme);
   applyCSS(currentTheme);
-  listeners.forEach(fn => fn(currentTheme));
+  lastThemeMutation = { reason };
+  listeners.forEach(fn => fn(currentTheme, reason));
 }
 
 export function resetTheme() {
-  setTheme({ ...DEFAULT_THEME });
+  setTheme({ ...DEFAULT_THEME }, 'ThemeReset');
 }
 
 export async function applySystemTheme() {
@@ -213,7 +216,7 @@ export async function applySystemTheme() {
   } catch (e) {
     // 忽略异常，使用预设
   }
-  setTheme(theme);
+  setTheme(theme, 'SystemTheme');
 }
 
 export function initTheme() {

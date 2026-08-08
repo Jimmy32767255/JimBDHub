@@ -82,7 +82,7 @@
 | `pickBackup()` | 通过 SAF 选择备份文件 |
 | `pickBackgroundImage()` | 系统图片选择器，返回 Base64 data URL |
 | `enableSync()` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（SAF 目录，3 秒轮询） |
-| `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | 自动备份（SAF 目录，见下文「自动备份机制」） |
+| `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount, reason)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | 自动备份（SAF 目录，见下文「自动备份机制」） |
 | `addWidget()` | 请求添加启动器小部件 |
 | `openUrl(url)` | 用系统浏览器打开链接（如项目仓库） |
 | `addCalendarEvent(...)` | 添加系统日历事件（`CalendarContract`） |
@@ -98,7 +98,7 @@
 | `isDesktop()` | 平台标识 |
 | `saveBackup(json, file_name)` / `pickBackup()` | 原生文件对话框 |
 | `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（`SyncManager` 2 秒轮询 mtime） |
-| `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10)` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | 自动备份（`FOLDER_DIALOG` 选择目录，见下文「自动备份机制」） |
+| `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10, reason="DataChange")` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | 自动备份（`FOLDER_DIALOG` 选择目录，见下文「自动备份机制」） |
 | `addWidgetShortcut()` | 桌面创建 `.lnk`（Windows）/ `.desktop`（GNU/Linux） |
 | `openUrl(url)` | 用系统默认浏览器打开链接（`webbrowser`） |
 | `onWidgetReady()` | 前端 store 就绪回调，注入快捷方式产生的睡眠记录 |
@@ -117,7 +117,7 @@
 ## 自动备份机制
 
 - 数据存到软件外：备份文件夹由用户选择，Android 端用 SAF 目录（`OpenDocumentTree` + 持久化权限，存 URI），桌面端用 `FOLDER_DIALOG` 选目录（存绝对路径）。
-- 事件钩子形式：`autobackup.js` 通过 `store.subscribe()` 监听数据变化，变更后经 **3 秒防抖** 触发一次写入（`jimbdhub_auto_YYYYMMDD_HHMMSS_SSS.json`，内容为 `store.buildBackup()`），运行锁防止并发。刻意不做定时备份，避免后台保活。
+- 事件钩子形式：`autobackup.js` 通过 `store.subscribe()` 监听数据变化，变更后经 **3 秒防抖** 触发一次写入（`JimBDHub_AutoBackup_{操作}_{yyyyMMddHHmmss毫秒}.json`，操作即触发原因，固定英文，UI 展示时按当前语言翻译；内容为 `store.buildBackup()`），运行锁防止并发。`store.notify(reason)` 会记录并传递最后一次变更原因（如 `AddSleep`、`UpdateRecord`、`TakeMed` 等），主题/设置变更通过 `setTheme(partial, reason)` 传递原因，同步开关通过 `sync.js` 的 `lastSyncMutation` 传递原因。恢复备份（`RestoreBackup`）不会立即触发新的自动备份，避免冗余。刻意不做定时备份，避免后台保活。
 - 数量上限：默认 10（可设 1~100），写入后按文件名排序删除超出上限的最旧文件；设置存于 `jimbdhub_theme`（`autoBackupEnabled` / `autoBackupFolder` / `autoBackupMaxCount`）。
 - 恢复/删除均有确认弹窗（`showConfirm`）；恢复走 `store.validateBackup()` + `store.restoreBackup()`。
 - 浏览器降级：`isAutoBackupSupported()` 为 false，自动备份 UI 禁用。

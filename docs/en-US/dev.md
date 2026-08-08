@@ -82,7 +82,7 @@ Desktop WebView storage persists under `~/.JimBDHub` (see the desktop section be
 | `pickBackup()` | Pick a backup file via SAF |
 | `pickBackgroundImage()` | System image picker, returns a Base64 data URL |
 | `enableSync()` / `disableSync()` / `writeSyncFile(json)` | Syncthing file sync (SAF folder, 3s polling) |
-| `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | Auto backup (SAF folder; see "Auto Backup Mechanism" below) |
+| `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount, reason)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | Auto backup (SAF folder; see "Auto Backup Mechanism" below) |
 | `addWidget()` | Request adding a launcher widget |
 | `openUrl(url)` | Open a link (e.g. the project repo) in the system browser |
 | `addCalendarEvent(...)` | Add a system calendar event (`CalendarContract`) |
@@ -98,7 +98,7 @@ The frontend receives async results via global callbacks `window.__xxxCallback` 
 | `isDesktop()` | Platform marker |
 | `saveBackup(json, file_name)` / `pickBackup()` | Native file dialogs |
 | `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)` | Syncthing file sync (`SyncManager` polls mtime every 2s) |
-| `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10)` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | Auto backup (`FOLDER_DIALOG`; see "Auto Backup Mechanism" below) |
+| `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10, reason="DataChange")` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | Auto backup (`FOLDER_DIALOG`; see "Auto Backup Mechanism" below) |
 | `addWidgetShortcut()` | Create a desktop shortcut — `.lnk` (Windows) / `.desktop` (GNU/Linux) |
 | `openUrl(url)` | Open a link in the system default browser (`webbrowser`) |
 | `onWidgetReady()` | Called when the frontend store is ready; injects sleep records produced by the shortcut |
@@ -117,7 +117,7 @@ Without a bridge: export uses Blob + `<a download>`, import uses a hidden `<inpu
 ## Auto Backup Mechanism
 
 - Data is stored outside the app: the backup folder is chosen by the user — a SAF folder on Android (`OpenDocumentTree` + persisted permission, stored as a URI) and a `FOLDER_DIALOG` directory on desktop (stored as an absolute path).
-- Event-hook style: `autobackup.js` listens to data changes via `store.subscribe()` and writes a backup after a **3-second debounce** (`jimbdhub_auto_YYYYMMDD_HHMMSS_SSS.json`, contents from `store.buildBackup()`); a running lock prevents concurrent writes. Deliberately no scheduled backups, to avoid background keep-alive.
+- Event-hook style: `autobackup.js` listens to data changes via `store.subscribe()` and writes a backup after a **3-second debounce** (`JimBDHub_AutoBackup_{reason}_{yyyyMMddHHmmssMilliseconds}.json`, where `reason` is the English trigger cause, translated in the UI; contents from `store.buildBackup()`); a running lock prevents concurrent writes. `store.notify(reason)` records and forwards the last mutation reason (e.g. `AddSleep`, `UpdateRecord`, `TakeMed`), theme/setting changes use `setTheme(partial, reason)`, and sync toggles use `sync.js`'s `lastSyncMutation`. Restoring a backup (`RestoreBackup`) does not immediately trigger another auto backup, avoiding redundant entries. Deliberately no scheduled backups, to avoid background keep-alive.
 - Count cap: default 10 (configurable 1–100); after each write, the oldest files beyond the cap are removed by filename order. Settings live in `jimbdhub_theme` (`autoBackupEnabled` / `autoBackupFolder` / `autoBackupMaxCount`).
 - Restore and delete both require a confirmation dialog (`showConfirm`); restore goes through `store.validateBackup()` + `store.restoreBackup()`.
 - Browser fallback: `isAutoBackupSupported()` is false and the auto backup UI is disabled.

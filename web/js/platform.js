@@ -276,13 +276,13 @@ export const platform = {
     return { ok: false, error: t('platform.backupUnsupported') };
   },
 
-  async writeAutoBackup(folder, jsonString, maxCount) {
+  async writeAutoBackup(folder, jsonString, maxCount, reason) {
     if (this.isAndroid() && typeof window.AndroidBridge.writeAutoBackup === 'function') {
-      window.AndroidBridge.writeAutoBackup(folder, jsonString, maxCount);
+      window.AndroidBridge.writeAutoBackup(folder, jsonString, maxCount, reason);
       return waitForAndroidAutoBackup();
     }
     if (this.isDesktop() && typeof window.pywebview.api.writeAutoBackup === 'function') {
-      return window.pywebview.api.writeAutoBackup(folder, jsonString, maxCount) || { ok: false, error: t('platform.desktopError') };
+      return window.pywebview.api.writeAutoBackup(folder, jsonString, maxCount, reason) || { ok: false, error: t('platform.desktopError') };
     }
     return { ok: false, error: t('platform.backupUnsupported') };
   },
