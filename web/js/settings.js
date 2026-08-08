@@ -343,6 +343,7 @@ function bindDisplayControls() {
   const animCheckbox = document.getElementById('dynamic-animation-speed');
   const disableAnimCheckbox = document.getElementById('disable-animations');
   const recordAddToastCheckbox = document.getElementById('record-add-toast');
+  const recordsLoadLimitInput = document.getElementById('records-load-limit');
 
   function updateUIFromTheme(theme) {
     if (scaleSelect) scaleSelect.value = String(theme.uiScale);
@@ -350,6 +351,7 @@ function bindDisplayControls() {
     if (animCheckbox) animCheckbox.checked = theme.dynamicAnimationSpeed !== false;
     if (disableAnimCheckbox) disableAnimCheckbox.checked = theme.disableAnimations === true;
     if (recordAddToastCheckbox) recordAddToastCheckbox.checked = theme.recordAddToast !== false;
+    if (recordsLoadLimitInput) recordsLoadLimitInput.value = String(theme.maxLoadedRecords ?? 100);
   }
 
   scaleSelect?.addEventListener('change', () => {
@@ -366,6 +368,11 @@ function bindDisplayControls() {
   });
   recordAddToastCheckbox?.addEventListener('change', () => {
     setTheme({ recordAddToast: recordAddToastCheckbox.checked });
+  });
+  recordsLoadLimitInput?.addEventListener('change', () => {
+    const value = Math.max(100, Math.min(1000, Number(recordsLoadLimitInput.value) || 100));
+    setTheme({ maxLoadedRecords: value });
+    recordsLoadLimitInput.value = String(value);
   });
 
   updateUIFromTheme(getTheme());

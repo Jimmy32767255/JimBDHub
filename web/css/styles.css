@@ -909,7 +909,8 @@ body {
   border-color: var(--theme-accent);
 }
 
-#depletion-reminder-days {
+#depletion-reminder-days,
+#records-load-limit {
   appearance: none;
   -webkit-appearance: none;
   background: var(--theme-bg);
@@ -921,7 +922,8 @@ body {
   font-size: 14px;
   outline: none;
 }
-#depletion-reminder-days:focus {
+#depletion-reminder-days:focus,
+#records-load-limit:focus {
   border-color: var(--theme-accent);
 }
 

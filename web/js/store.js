@@ -64,8 +64,17 @@ function nowMinute() {
 
 const DAY_MS = 24 * 60 * 60 * 1000;
 
-// 列表/图表单次最多加载的记录条数，防止记录过多导致卡顿或 OOM
-export const MAX_LOADED_RECORDS = 100;
+// 列表/图表单次最多加载的记录条数，防止记录过多导致卡顿或 OOM。
+// 数值可在设置页调整（100~1000），保存在主题设置中
+const MIN_LOADED_RECORDS = 100;
+const MAX_LOADED_RECORDS_LIMIT = 1000;
+
+export function getMaxLoadedRecords() {
+  const n = Number(getTheme().maxLoadedRecords);
+  return Number.isInteger(n) && n >= MIN_LOADED_RECORDS && n <= MAX_LOADED_RECORDS_LIMIT
+    ? n
+    : MIN_LOADED_RECORDS;
+}
 
 function recalcLogRemainingAfter(medId) {
   const med = store.data.meds.find(m => m.id === medId);

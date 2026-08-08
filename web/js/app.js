@@ -1,4 +1,4 @@
-import { store, MAX_LOADED_RECORDS } from './store.js';
+import { store, getMaxLoadedRecords } from './store.js';
 import { renderCombinedChart, MAX_MOOD_RANGE_MS, getEffectiveDoses, effectEndTime, EFFECT_VISIBLE_THRESHOLD } from './chart.js';
 import { initMeds, predictDepletion } from './meds.js';
 import { initRecords } from './records.js';
@@ -359,11 +359,15 @@ function drawChart() {
 
   // 单页记录数上限（每页独立）：仅当该页数据过多时截取该页最近部分，不影响其他页
   const chartLimitHint = document.getElementById('chart-limit-hint');
-  const pageRecordsLimited = pageData.records.length > MAX_LOADED_RECORDS;
+  const maxLoaded = getMaxLoadedRecords();
+  const pageRecordsLimited = pageData.records.length > maxLoaded;
   if (pageRecordsLimited) {
-    pageData.records = pageData.records.slice(-MAX_LOADED_RECORDS);
+    pageData.records = pageData.records.slice(-maxLoaded);
   }
-  if (chartLimitHint) chartLimitHint.hidden = !pageRecordsLimited;
+  if (chartLimitHint) {
+    chartLimitHint.hidden = !pageRecordsLimited;
+    if (pageRecordsLimited) chartLimitHint.textContent = t('chart.limitHint', { count: maxLoaded });
+  }
 
   const wrap = combinedChartSvg.parentElement;
 
