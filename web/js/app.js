@@ -237,9 +237,8 @@ function computeProjectedDoses(meds, records, endTs) {
   const doses = [];
   const now = Date.now();
 
-  // 每种药物的实际摄入时间集合，用于去重和确定起始点
+  // 每种药物的首次实际摄入时间，用于确定预测起点
   const firstIntakeByMed = {};
-  const actualDoseTimesByMed = {};
   records.forEach(r => {
     (r.doses || []).forEach(d => {
       const medId = d.medicationId || d.name;
@@ -248,8 +247,6 @@ function computeProjectedDoses(meds, records, endTs) {
       if (!firstIntakeByMed[medId] || ts < firstIntakeByMed[medId]) {
         firstIntakeByMed[medId] = ts;
       }
-      if (!actualDoseTimesByMed[medId]) actualDoseTimesByMed[medId] = [];
-      actualDoseTimesByMed[medId].push(ts);
     });
   });
 
@@ -259,7 +256,6 @@ function computeProjectedDoses(meds, records, endTs) {
     const firstIntake = firstIntakeByMed[medId];
     const projectionStart = firstIntake !== undefined ? Math.max(firstIntake, now) : now;
     if (projectionStart > endTs) return;
-    const actualTimes = actualDoseTimesByMed[medId] || [];
     const startDay = new Date(projectionStart);
     startDay.setHours(0, 0, 0, 0);
     const endDay = new Date(endTs);
@@ -269,9 +265,8 @@ function computeProjectedDoses(meds, records, endTs) {
         const [h, min] = time.split(':').map(Number);
         const ts = d + h * HOUR_MS + min * 60 * 1000;
         if (ts < projectionStart || ts > endTs) return;
-        // 如果该药物在预计时间前后已有实际摄入记录，则不再追加预测剂量，避免重叠
-        const hasNearbyActual = actualTimes.some(actualTs => Math.abs(actualTs - ts) <= HOUR_MS);
-        if (hasNearbyActual) return;
+        // 固定服药时间优先于手动记录：预测剂量按计划始终生成，
+        // 不再因附近已有的手动实际摄入而跳过（避免手动记录阻断未来药效预测导致曲线归零）
         doses.push({
           medicationId: med.id,
           name: med.name,
