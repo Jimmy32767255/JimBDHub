@@ -121,7 +121,8 @@ export function getAutoBackupMaxCount() {
 }
 
 export function setAutoBackupEnabled(enabled) {
-  setTheme({ autoBackupEnabled: enabled });
+  // 自动备份自身设置是内部状态，不触发新的备份
+  setTheme({ autoBackupEnabled: enabled }, 'Internal');
   if (enabled) {
     refreshList();
   } else {
@@ -135,7 +136,7 @@ export function setAutoBackupEnabled(enabled) {
 
 export function setAutoBackupMaxCount(n) {
   const maxCount = Math.max(1, Math.min(100, Number.isFinite(n) ? Math.floor(n) : DEFAULT_MAX_COUNT));
-  setTheme({ autoBackupMaxCount: maxCount });
+  setTheme({ autoBackupMaxCount: maxCount }, 'Internal');
   return maxCount;
 }
 
@@ -171,7 +172,8 @@ export async function backupNow() {
 // 统一触发入口：store 数据变更、主题/设置变更、同步开关都会调用此处
 function onAutoBackupTrigger(reason) {
   // 恢复备份后立即再自动备份会导致冗余且令人困惑的备份条目，跳过
-  if (reason === 'RestoreBackup') return;
+  // Internal 为内部状态更新（自动备份自身设置、计时标记等），不构成用户操作，跳过
+  if (reason === 'RestoreBackup' || reason === 'Internal') return;
   const settings = readSettings();
   if (!settings.enabled || !settings.folder) return;
   if (debounceTimer) clearTimeout(debounceTimer);
@@ -187,7 +189,7 @@ export async function chooseBackupFolder() {
       }
       return false;
     }
-    setTheme({ autoBackupFolder: result.path || result.uri || '' });
+    setTheme({ autoBackupFolder: result.path || result.uri || '' }, 'Internal');
     await refreshList();
     return true;
   } catch (err) {

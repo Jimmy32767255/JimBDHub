@@ -489,7 +489,7 @@ function initNavigation() {
   });
   if (scrollLockCheckbox) {
     scrollLockCheckbox.addEventListener('change', () => {
-      setTheme({ scrollLock: scrollLockCheckbox.checked });
+      setTheme({ scrollLock: scrollLockCheckbox.checked }, 'DisplayChange');
     });
   }
 }
@@ -561,7 +561,8 @@ function runAutoMedLog() {
     });
   });
 
-  setTheme({ autoMedLogLastCheck: now });
+  // 内部计时标记，不触发自动备份
+  setTheme({ autoMedLogLastCheck: now }, 'Internal');
 }
 
 function scheduleAutoMedLog() {

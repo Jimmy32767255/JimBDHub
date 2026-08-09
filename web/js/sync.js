@@ -18,16 +18,21 @@ let currentStatus = { enabled: false };
 export let lastSyncMutation = { reason: 'SyncChange' };
 
 function setStatus(partial) {
-  currentStatus = { ...currentStatus, ...partial };
   if (partial.reason) {
     lastSyncMutation = { reason: partial.reason };
+  } else {
+    // reason 是瞬态事件标记，不应残留在状态里，否则会反复触发订阅者
+    delete currentStatus.reason;
   }
+  currentStatus = { ...currentStatus, ...partial };
   statusListeners.forEach(fn => fn(currentStatus));
 }
 
 export function subscribeStatus(fn) {
   statusListeners.push(fn);
-  fn(currentStatus);
+  // 立即回调仅反映当前状态快照；reason 是瞬态事件标记，只随 setStatus 事件传递
+  const { reason, ...snapshot } = currentStatus;
+  fn(snapshot);
   return () => {
     statusListeners = statusListeners.filter(l => l !== fn);
   };
@@ -104,14 +109,13 @@ export async function enable() {
       localStorage.setItem(ENABLED_KEY, 'false');
       return;
     }
-    currentStatus = {
+    setStatus({
       enabled: true,
       path: result.path || null,
       folderName: result.folderName || null,
       error: null,
       reason: 'SyncEnabled'
-    };
-    statusListeners.forEach(fn => fn(currentStatus));
+    });
     localStorage.setItem(ENABLED_KEY, 'true');
     if (result.content) {
       await onFileChanged(result.content);

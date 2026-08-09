@@ -206,7 +206,7 @@ export const store = {
       this.data.events = upgraded.events;
       // 旧调色板已按索引写入对应药品，从主题中移除，避免每次启动都触发升级
       if (Array.isArray(raw.medColors) && raw.medColors.length) {
-        setTheme({ medColors: undefined });
+        setTheme({ medColors: undefined }, 'Internal');
       }
       this.persist();
       return;
@@ -566,7 +566,7 @@ export const store = {
       delete theme.autoBackupFolder;
       delete theme.autoBackupEnabled;
       delete theme.autoBackupMaxCount;
-      setTheme(theme);
+      setTheme(theme, 'RestoreBackup');
     }
     this.persist();
     this.notify('RestoreBackup');
