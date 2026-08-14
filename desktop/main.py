@@ -438,6 +438,28 @@ class DesktopBridge:
             print(f"保存备份失败: {e}", file=sys.stderr)
             return False
 
+    def saveTextFile(self, text: str, file_name: str):
+        if not self._window:
+            return False
+        try:
+            result = self._window.create_file_dialog(
+                dialog_type=webview.SAVE_DIALOG,
+                directory=str(Path.home()),
+                save_filename=file_name,
+                file_types=("Markdown files (*.md)",),
+            )
+            if not result:
+                return False
+            path = result[0] if isinstance(result, (list, tuple)) else result
+            if not path:
+                return False
+            with open(path, "w", encoding="utf-8") as f:
+                f.write(text)
+            return True
+        except Exception as e:
+            print(f"保存 Markdown 失败: {e}", file=sys.stderr)
+            return False
+
     def getSystemTheme(self):
         """从系统调色板获取强调色与背景色，获取失败时返回 None。"""
         try:

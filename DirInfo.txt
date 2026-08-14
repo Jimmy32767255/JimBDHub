@@ -23,6 +23,7 @@
 │   │   ├── theme.js        # 主题系统
 │   │   ├── sync.js         # Syncthing 同步
 │   │   ├── autobackup.js   # 自动备份（事件钩子、数量上限、恢复/删除确认）
+│   │   ├── mdexport.js     # 导出为 Markdown（供大语言模型分析）
 │   │   ├── platform.js     # 平台检测与桥接
 │   │   └── i18n.js         # 国际化引擎
 │   ├── locales/            # 语言文件

@@ -697,6 +697,7 @@
           <div class="settings-actions">
             <button class="btn btn-primary" id="export-backup-btn" data-i18n="settings.backup.export">导出备份</button>
             <button class="btn btn-ghost" id="import-backup-btn" data-i18n="settings.backup.import">导入备份</button>
+            <button class="btn btn-ghost" id="export-md-btn" data-i18n="settings.mdexport.button">导出为 Markdown</button>
             <input type="file" id="import-backup-input" accept=".json,application/json" hidden>
           </div>
           <div class="settings-section">
@@ -977,6 +978,23 @@
       <div class="contributors-list" id="contributors-list"></div>
       <div class="form-actions">
         <button type="button" class="btn btn-ghost" id="contributors-close-btn" data-i18n="common.close">关闭</button>
+      </div>
+    </div>
+  </div>
+
+  <div class="modal" id="mdexport-modal" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3 data-i18n="settings.mdexport.title">导出为 Markdown</h3>
+      <p class="form-hint" data-i18n="settings.mdexport.description">将所有记录导出为 Markdown 文件以供大语言模型分析，可调整要导出的记录数量，以避免超出上下文上限。</p>
+      <div class="form-field">
+        <label class="form-label" for="mdexport-count" data-i18n="settings.mdexport.countLabel">记录数量</label>
+        <input type="number" id="mdexport-count" min="1" step="1">
+        <small class="form-hint" id="mdexport-total"></small>
+      </div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-ghost" id="mdexport-cancel" data-i18n="common.cancel">取消</button>
+        <button type="button" class="btn btn-primary" id="mdexport-confirm" data-i18n="settings.mdexport.export">导出</button>
       </div>
     </div>
   </div>

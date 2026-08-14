@@ -42,6 +42,7 @@ See [DirInfo.txt](../../DirInfo.txt) for the full structure. `android/app/src/ma
 | `js/theme.js` | Theme system (mood colors, background, scaling, etc.) |
 | `js/sync.js` | Syncthing sync |
 | `js/autobackup.js` | Auto backup (event hooks, count cap, restore/delete confirmation) |
+| `js/mdexport.js` | Export as Markdown (for LLM analysis, adjustable record count) |
 | `js/platform.js` | Platform detection & native bridge |
 | `js/i18n.js` | Internationalization engine |
 | `locales/*.json` | Language files (`zh-CN` / `en-US`) |
@@ -79,6 +80,7 @@ Desktop WebView storage persists under `~/.JimBDHub` (see the desktop section be
 | Method | Purpose |
 |---|---|
 | `saveBackup(json, suggestedName)` | Export backup via SAF `CreateDocument` |
+| `saveTextFile(text, suggestedName)` | Export arbitrary text (e.g. Markdown) via SAF |
 | `pickBackup()` | Pick a backup file via SAF |
 | `pickBackgroundImage()` | System image picker, returns a Base64 data URL |
 | `enableSync()` / `disableSync()` / `writeSyncFile(json)` | Syncthing file sync (SAF folder, 3s polling) |
@@ -97,6 +99,7 @@ The frontend receives async results via global callbacks `window.__xxxCallback` 
 |---|---|
 | `isDesktop()` | Platform marker |
 | `saveBackup(json, file_name)` / `pickBackup()` | Native file dialogs |
+| `saveTextFile(text, file_name)` | Save arbitrary text files (e.g. Markdown export) |
 | `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)` | Syncthing file sync (`SyncManager` polls mtime every 2s) |
 | `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10, reason="DataChange")` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | Auto backup (`FOLDER_DIALOG`; see "Auto Backup Mechanism" below) |
 | `addWidgetShortcut()` | Create a desktop shortcut — `.lnk` (Windows) / `.desktop` (GNU/Linux) |

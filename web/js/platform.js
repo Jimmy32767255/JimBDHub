@@ -1,7 +1,7 @@
 import { t } from './i18n.js';
 
-function downloadJson(jsonString, fileName) {
-  const blob = new Blob([jsonString], { type: 'application/json' });
+function downloadFile(text, fileName, mimeType) {
+  const blob = new Blob([text], { type: mimeType || 'text/plain' });
   const url = URL.createObjectURL(blob);
   const a = document.createElement('a');
   a.href = url;
@@ -10,6 +10,10 @@ function downloadJson(jsonString, fileName) {
   a.click();
   document.body.removeChild(a);
   URL.revokeObjectURL(url);
+}
+
+function downloadJson(jsonString, fileName) {
+  downloadFile(jsonString, fileName, 'application/json');
 }
 
 function readJsonFromFile(file) {
@@ -235,6 +239,19 @@ export const platform = {
       return;
     }
     downloadJson(jsonString, fileName);
+  },
+
+  // 保存任意文本文件（如 Markdown 导出），浏览器端使用指定 MIME 类型下载
+  async saveTextFile(text, fileName, mimeType = 'text/markdown') {
+    if (this.isAndroid()) {
+      window.AndroidBridge.saveTextFile(text, fileName);
+      return;
+    }
+    if (this.isDesktop()) {
+      await window.pywebview.api.saveTextFile(text, fileName);
+      return;
+    }
+    downloadFile(text, fileName, mimeType);
   },
 
   async pickBackup() {

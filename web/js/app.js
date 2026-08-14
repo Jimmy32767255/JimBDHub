@@ -8,6 +8,7 @@ import { initTheme, getTheme, setTheme, subscribe as subscribeTheme, DEFAULT_MED
 import { initSync } from './sync.js';
 import { initAutoBackup } from './autobackup.js';
 import { initAbout } from './about.js';
+import { initMdExport } from './mdexport.js';
 import { platform } from './platform.js';
 import { showAlert } from './dialog.js';
 
@@ -634,6 +635,7 @@ function continueInit() {
   initRecords();
   initSettings();
   initAbout();
+  initMdExport();
   initSync();
   initAutoBackup();
   initResize();

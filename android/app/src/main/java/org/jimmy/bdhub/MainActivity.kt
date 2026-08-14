@@ -57,6 +57,9 @@ class MainActivity : AppCompatActivity() {
     private var pageLoaded = false
     private var widgetRecordsReady = false
 
+    // Markdown 等文本导出的待写入内容
+    private var pendingExportText: String? = null
+
     companion object {
         const val EXTRA_FROM_WIDGET = "from_widget"
     }
@@ -82,6 +85,30 @@ class MainActivity : AppCompatActivity() {
             Toast.makeText(this, "保存失败：${e.message}", Toast.LENGTH_LONG).show()
         } finally {
             pendingBackupJson = null
+        }
+    }
+
+    private val createExportLauncher = registerForActivityResult(
+        ActivityResultContracts.CreateDocument("text/markdown")
+    ) { uri ->
+        if (uri == null) {
+            Toast.makeText(this, "已取消导出", Toast.LENGTH_SHORT).show()
+            return@registerForActivityResult
+        }
+        val text = pendingExportText
+        if (text == null) {
+            Toast.makeText(this, "导出内容为空", Toast.LENGTH_SHORT).show()
+            return@registerForActivityResult
+        }
+        try {
+            contentResolver.openOutputStream(uri)?.use { output ->
+                output.write(text.toByteArray(Charsets.UTF_8))
+            }
+            Toast.makeText(this, "已导出", Toast.LENGTH_SHORT).show()
+        } catch (e: Exception) {
+            Toast.makeText(this, "保存失败：${e.message}", Toast.LENGTH_LONG).show()
+        } finally {
+            pendingExportText = null
         }
     }
 
@@ -304,6 +331,11 @@ class MainActivity : AppCompatActivity() {
     fun saveBackup(json: String, suggestedName: String) {
         pendingBackupJson = json
         createBackupLauncher.launch(suggestedName)
+    }
+
+    fun saveTextFile(text: String, suggestedName: String) {
+        pendingExportText = text
+        createExportLauncher.launch(suggestedName)
     }
 
     fun pickBackup() {
@@ -681,6 +713,13 @@ class MainActivity : AppCompatActivity() {
         fun saveBackup(json: String, suggestedName: String) {
             runOnUiThread {
                 this@MainActivity.saveBackup(json, suggestedName)
+            }
+        }
+
+        @JavascriptInterface
+        fun saveTextFile(text: String, suggestedName: String) {
+            runOnUiThread {
+                this@MainActivity.saveTextFile(text, suggestedName)
             }
         }
 

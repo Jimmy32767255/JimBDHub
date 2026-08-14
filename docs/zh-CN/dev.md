@@ -42,6 +42,7 @@
 | `js/theme.js` | 主题系统（情绪颜色、背景、缩放等） |
 | `js/sync.js` | Syncthing 同步 |
 | `js/autobackup.js` | 自动备份（事件钩子、数量上限、恢复/删除确认） |
+| `js/mdexport.js` | 导出为 Markdown（供大语言模型分析，可调整导出记录数量） |
 | `js/platform.js` | 平台检测与原生桥接 |
 | `js/i18n.js` | 国际化引擎 |
 | `locales/*.json` | 语言文件（`zh-CN` / `en-US`） |
@@ -79,6 +80,7 @@
 | 方法 | 功能 |
 |---|---|
 | `saveBackup(json, suggestedName)` | 通过 SAF `CreateDocument` 导出备份 |
+| `saveTextFile(text, suggestedName)` | 通过 SAF 导出任意文本文件（如 Markdown） |
 | `pickBackup()` | 通过 SAF 选择备份文件 |
 | `pickBackgroundImage()` | 系统图片选择器，返回 Base64 data URL |
 | `enableSync()` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（SAF 目录，3 秒轮询） |
@@ -97,6 +99,7 @@
 |---|---|
 | `isDesktop()` | 平台标识 |
 | `saveBackup(json, file_name)` / `pickBackup()` | 原生文件对话框 |
+| `saveTextFile(text, file_name)` | 保存任意文本文件（如 Markdown 导出） |
 | `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（`SyncManager` 2 秒轮询 mtime） |
 | `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10, reason="DataChange")` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | 自动备份（`FOLDER_DIALOG` 选择目录，见下文「自动备份机制」） |
 | `addWidgetShortcut()` | 桌面创建 `.lnk`（Windows）/ `.desktop`（GNU/Linux） |
