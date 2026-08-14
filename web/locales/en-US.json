@@ -61,6 +61,7 @@
   "chart.legend.sleep": "Sleep",
   "chart.legend.bed": "Bedtime",
   "chart.zoomReset": "Reset",
+  "chart.zoomInfo": "{value} px/hr",
   "chart.now": "Now",
   "chart.empty": "No records",
   "chart.effectEmpty": "No medication doses",

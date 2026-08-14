@@ -61,6 +61,7 @@
   "chart.legend.sleep": "睡眠",
   "chart.legend.bed": "在床上",
   "chart.zoomReset": "重置",
+  "chart.zoomInfo": "{value} 像素/小时",
   "chart.now": "现在",
   "chart.empty": "暂无记录",
   "chart.effectEmpty": "暂无服药记录",

@@ -420,11 +420,6 @@ body {
   font-weight: 600;
   font-variant-numeric: tabular-nums;
 }
-.zoom-range {
-  font-size: 11px;
-  color: var(--theme-text-muted);
-  font-variant-numeric: tabular-nums;
-}
 
 .chart-wrap {
   position: relative;

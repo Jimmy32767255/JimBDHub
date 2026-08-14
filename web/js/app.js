@@ -36,7 +36,7 @@ const scrollLockCheckbox = document.getElementById('chart-scroll-lock');
 
 const BASE_PX_PER_HOUR = 12;
 const MIN_PX_PER_HOUR = 3;
-const MAX_PX_PER_HOUR = 60;
+const MAX_PX_PER_HOUR = 120;
 let currentPxPerHour = BASE_PX_PER_HOUR;
 const ZOOM_FACTOR = 1.4;
 const FORWARD_DAYS = 7;
@@ -111,15 +111,8 @@ function zoomOut() {
 
 function updateZoomDisplay() {
   const infoEl = document.getElementById('zoom-info');
-  const rangeEl = document.getElementById('zoom-range');
   if (infoEl) {
-    infoEl.textContent = `${Math.round(currentPxPerHour)}px/hr`;
-  }
-  if (rangeEl) {
-    const minPct = Math.round((MIN_PX_PER_HOUR / BASE_PX_PER_HOUR) * 100);
-    const curPct = Math.round((currentPxPerHour / BASE_PX_PER_HOUR) * 100);
-    const maxPct = Math.round((MAX_PX_PER_HOUR / BASE_PX_PER_HOUR) * 100);
-    rangeEl.textContent = `(${minPct}%/${curPct}%/${maxPct}%)`;
+    infoEl.textContent = t('chart.zoomInfo', { value: Math.round(currentPxPerHour) });
   }
 }
 
