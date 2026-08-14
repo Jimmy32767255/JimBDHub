@@ -568,6 +568,75 @@ class DesktopBridge:
             print(f"删除自动备份失败: {e}", file=sys.stderr)
             return {"ok": False, "error": str(e)}
 
+    def downloadUpdate(self, url: str, expected_sha512: str, file_name: str):
+        """下载更新包并启动安装（后台线程执行，避免阻塞 GUI）。
+
+        下载完成后通过 window.__desktopUpdateCallback 通知前端结果
+        （{"ok": true, "path": ...} 或 {"ok": false, "error": "verify_failed"|"download_failed"|"launch_failed"}）。
+        """
+        def worker():
+            result = self._perform_download_update(url, expected_sha512, file_name)
+            try:
+                payload = json.dumps(result, ensure_ascii=False)
+                self._window.evaluate_js(
+                    f"if (window.__desktopUpdateCallback) window.__desktopUpdateCallback({payload});"
+                )
+            except Exception as e:
+                print(f"通知更新结果失败: {e}", file=sys.stderr)
+        threading.Thread(target=worker, daemon=True).start()
+        return {"ok": True}
+
+    def _perform_download_update(self, url: str, expected_sha512: str, file_name: str) -> dict:
+        import hashlib
+        import urllib.request
+
+        def fail(code):
+            return {"ok": False, "error": code}
+
+        try:
+            # 只取文件名部分，防止路径穿越
+            safe_name = Path(file_name).name
+            # 优先下载到用户下载目录，便于失败后手动安装
+            download_dir = Path.home() / "Downloads"
+            if not download_dir.is_dir():
+                download_dir = widget_data_dir() / "updates"
+            download_dir.mkdir(parents=True, exist_ok=True)
+            dest = download_dir / safe_name
+
+            req = urllib.request.Request(url, headers={"User-Agent": "JimBDHub-Updater"})
+            with urllib.request.urlopen(req, timeout=120) as resp, open(dest, "wb") as f:
+                shutil.copyfileobj(resp, f)
+
+            # SHA-512 校验
+            if expected_sha512:
+                h = hashlib.sha512()
+                with open(dest, "rb") as f:
+                    for chunk in iter(lambda: f.read(65536), b""):
+                        h.update(chunk)
+                if h.hexdigest().lower() != expected_sha512.lower():
+                    try:
+                        dest.unlink()
+                    except OSError:
+                        pass
+                    return fail("verify_failed")
+
+            # 启动安装：Windows 直接运行 exe；GNU/Linux 运行 AppImage（自解压模式避免 FUSE 缺失）
+            try:
+                if sys.platform.startswith("win"):
+                    os.startfile(str(dest))
+                else:
+                    os.chmod(dest, 0o755)
+                    env = dict(os.environ)
+                    env["APPIMAGE_EXTRACT_AND_RUN"] = "1"
+                    subprocess.Popen([str(dest)], env=env)
+                return {"ok": True, "path": str(dest)}
+            except Exception as e:
+                print(f"启动安装失败: {e}", file=sys.stderr)
+                return fail("launch_failed")
+        except Exception as e:
+            print(f"下载更新失败: {e}", file=sys.stderr)
+            return fail("download_failed")
+
 
 def main() -> None:
     web_root = get_web_root()

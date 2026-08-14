@@ -1,12 +1,11 @@
 import { t } from './i18n.js';
-import { showAlert } from './dialog.js';
+import { showAlert, showActionDialog } from './dialog.js';
 import { platform } from './platform.js';
+import { checkForUpdates, runUpdate } from './update.js';
 
 // 应用版本号：与 Android 构建的 versionName 保持一致
 const APP_VERSION = 'V0.0.1A';
 
-const RELEASES_API = 'https://api.github.com/repos/Jimmy32767255/JimBDHub/releases';
-const RELEASES_URL = 'https://github.com/Jimmy32767255/JimBDHub/releases';
 const REPO_URL = 'https://github.com/Jimmy32767255/JimBDHub';
 
 const contributorsModal = document.getElementById('contributors-modal');
@@ -193,27 +192,31 @@ async function checkUpdate() {
   btn.disabled = true;
   btn.textContent = t('about.checking');
   try {
-    const res = await fetch(RELEASES_API);
-    if (!res.ok) throw new Error(`HTTP ${res.status}`);
-    const releases = await res.json();
-    const release = Array.isArray(releases) && releases.length > 0 ? releases[0] : null;
-    if (!release) {
-      await showAlert(t('about.noRelease'));
-      return;
+    const result = await checkForUpdates(APP_VERSION);
+    if (result.status === 'noRelease') {
+      await showAlert(t('update.noRelease'));
+    } else if (result.status === 'update') {
+      const meta = result.meta;
+      const date = (meta.publishedAt || '').slice(0, 10);
+      const want = await showActionDialog(
+        t('update.available', {
+          name: meta.name || meta.version,
+          version: meta.version,
+          date,
+          url: meta.htmlUrl
+        }),
+        t('update.now')
+      );
+      if (want) {
+        btn.disabled = true;
+        btn.textContent = t('update.downloading');
+        await runUpdate(meta);
+      }
+    } else {
+      await showAlert(t('update.upToDate', { version: APP_VERSION }));
     }
-    const tag = release.tag_name || release.name || '';
-    if (tag.toLowerCase() === APP_VERSION.toLowerCase()) {
-      await showAlert(t('about.upToDate', { version: APP_VERSION }));
-      return;
-    }
-    const date = (release.published_at || '').slice(0, 10);
-    await showAlert(t('about.updateAvailable', {
-      name: release.name || tag,
-      date,
-      url: release.html_url || RELEASES_URL
-    }));
   } catch (err) {
-    await showAlert(t('about.checkFailed', { message: err.message }));
+    await showAlert(t('update.checkFailed', { message: err.message }));
   } finally {
     btn.disabled = false;
     btn.textContent = originalText;

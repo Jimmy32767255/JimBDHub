@@ -16,6 +16,7 @@ import {
   getAutoBackupMaxCount
 } from './autobackup.js';
 import { runUpgrade } from './dbUpgrade.js';
+import { UPDATE_CHANNELS, getUpdateChannel, setUpdateChannel } from './update.js';
 
 function defaultFileName() {
   const d = new Date();
@@ -927,6 +928,26 @@ function bindWidgetControls() {
   addBtn.addEventListener('click', onAddClick);
 }
 
+function bindUpdateChannelControls() {
+  const select = document.getElementById('update-channel-select');
+  if (!select) return;
+  UPDATE_CHANNELS.forEach(ch => {
+    const opt = document.createElement('option');
+    opt.value = ch.code;
+    opt.dataset.i18n = ch.key;
+    opt.textContent = t(ch.key);
+    select.appendChild(opt);
+  });
+  select.value = getUpdateChannel();
+  select.addEventListener('change', () => {
+    setUpdateChannel(select.value);
+  });
+  // 语言切换时选项文案由 updateDOM 刷新，这里同步选中值
+  subscribe(() => {
+    select.value = getUpdateChannel();
+  });
+}
+
 function bindWipeControls() {
   const wipeBtn = document.getElementById('wipe-data-btn');
   if (!wipeBtn) return;
@@ -1107,6 +1128,7 @@ export function initSettings() {
   bindSyncControls();
   bindAutoBackupControls();
   bindWidgetControls();
+  bindUpdateChannelControls();
   bindWipeControls();
   initSettingsCollapse();
   bindSettingsSearch();

@@ -177,6 +177,64 @@ jobs:
           path: dist
           merge-multiple: true
 
+      # 生成更新元数据 Metadata.json：软件内"检查更新"会拉取该文件，
+      # 依据频道（channel）与运行环境（os/arch）找到对应的下载链接与 SHA-512 校验码
+      # （客户端使用 SHA-512；SHA-256、SHA-1、MD5 供第三方校验）。
+      # 版本号 = 前端 about.js 中的 APP_VERSION + 构建日期后缀，保证每个夜间构建都可被识别为更新。
+      - name: 生成更新元数据 Metadata.json
+        env:
+          BUILD_DATE: ${{ steps.info.outputs.build_date }}
+        run: |
+          set -e
+          APP_VERSION=$(grep -oP "APP_VERSION = '[^']+'" web/js/about.js | head -1 | sed "s/.*'\([^']*\)'.*/\1/" || true)
+          if [ -z "$APP_VERSION" ]; then APP_VERSION="V0.0.0"; fi
+          export UPDATE_VERSION="${APP_VERSION}-N$(date -u +'%Y%m%d')"
+          python3 - <<'PYEOF'
+          import hashlib, json, os
+          targets = [
+              ("Microsoft-Windows-amd64.exe", "windows", "amd64"),
+              ("GNU-Linux-amd64.AppImage", "linux", "amd64"),
+              ("Google-Android-arm64.apk", "android", "arm64"),
+          ]
+          def compute_hashes(path):
+              hashers = {
+                  "sha512": hashlib.sha512(),
+                  "sha256": hashlib.sha256(),
+                  "sha1": hashlib.sha1(),
+                  "md5": hashlib.md5(),
+              }
+              with open(path, "rb") as f:
+                  for chunk in iter(lambda: f.read(65536), b""):
+                      for h in hashers.values():
+                          h.update(chunk)
+              return {k: v.hexdigest() for k, v in hashers.items()}
+          files = []
+          for name, os_name, arch in targets:
+              path = os.path.join("dist", name)
+              if not os.path.exists(path):
+                  continue
+              hashes = compute_hashes(path)
+              files.append({
+                  "name": name,
+                  "os": os_name,
+                  "arch": arch,
+                  "url": "https://github.com/Jimmy32767255/JimBDHub/releases/download/Nightly/%s" % name,
+                  **hashes,
+              })
+          meta = {
+              "version": os.environ["UPDATE_VERSION"],
+              "tag": "Nightly",
+              "channel": "N",
+              "name": "自动夜间构建（Nightly Build）",
+              "published_at": os.environ.get("BUILD_DATE", ""),
+              "files": files,
+          }
+          with open("dist/Metadata.json", "w", encoding="utf-8") as f:
+              json.dump(meta, f, ensure_ascii=False, indent=2)
+          PYEOF
+          echo "Metadata.json 已生成："
+          cat dist/Metadata.json
+
       - name: 创建/更新 Nightly Release
         uses: softprops/action-gh-release@v2
         with:
@@ -196,3 +254,4 @@ jobs:
             dist/Microsoft-Windows-amd64.exe
             dist/GNU-Linux-amd64.AppImage
             dist/Google-Android-arm64.apk
+            dist/Metadata.json

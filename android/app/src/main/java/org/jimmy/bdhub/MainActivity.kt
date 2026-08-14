@@ -24,8 +24,13 @@ import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import androidx.webkit.WebViewAssetLoader
+import androidx.core.content.FileProvider
 import java.io.BufferedReader
+import java.io.File
 import java.io.InputStreamReader
+import java.net.HttpURLConnection
+import java.net.URL
+import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
 import java.util.Locale
@@ -885,6 +890,89 @@ class MainActivity : AppCompatActivity() {
                     null
                 )
             }
+        }
+
+        @JavascriptInterface
+        fun downloadAndInstallApk(url: String, sha512: String, fileName: String) {
+            syncExecutor.execute {
+                this@MainActivity.downloadAndInstallApk(url, sha512, fileName)
+            }
+        }
+    }
+
+    private fun downloadAndInstallApk(url: String, expectedSha512: String, fileName: String) {
+        fun notify(json: String) {
+            runOnUiThread {
+                webView.evaluateJavascript(
+                    "if (window.__androidUpdateCallback) window.__androidUpdateCallback(${escapeJson(json)})",
+                    null
+                )
+            }
+        }
+
+        fun fail(code: String) {
+            notify(JSONObject().put("ok", false).put("error", code).toString())
+        }
+
+        try {
+            val safeName = File(fileName).name ?: "jimbdhub-update.apk"
+            val cacheDir = cacheDir
+            val dest = File(cacheDir, safeName)
+
+            // 下载 APK
+            val connection = URL(url).openConnection() as HttpURLConnection
+            try {
+                connection.setRequestProperty("User-Agent", "JimBDHub-Updater")
+                connection.connectTimeout = 30000
+                connection.readTimeout = 120000
+                connection.connect()
+                val input = connection.inputStream ?: throw Exception("无法读取响应")
+                dest.outputStream().use { output ->
+                    input.copyTo(output)
+                }
+            } finally {
+                connection.disconnect()
+            }
+
+            // SHA-512 校验
+            if (expectedSha512.isNotBlank()) {
+                val digest = MessageDigest.getInstance("SHA-512")
+                dest.inputStream().use { input ->
+                    val buffer = ByteArray(65536)
+                    var read: Int
+                    while (input.read(buffer).also { read = it } != -1) {
+                        digest.update(buffer, 0, read)
+                    }
+                }
+                val hex = digest.digest().joinToString("") { "%02x".format(it) }
+                if (hex.lowercase() != expectedSha512.lowercase()) {
+                    dest.delete()
+                    fail("verify_failed")
+                    return
+                }
+            }
+
+            // 使用 FileProvider 启动安装
+            val apkUri = FileProvider.getUriForFile(
+                this,
+                "${packageName}.fileprovider",
+                dest
+            )
+            val intent = Intent(Intent.ACTION_VIEW).apply {
+                setDataAndType(apkUri, "application/vnd.android.package-archive")
+                addFlags(Intent.FLAG_GRANT_READ_URI_PERMISSION)
+                addFlags(Intent.FLAG_ACTIVITY_NEW_TASK)
+            }
+            runOnUiThread {
+                try {
+                    startActivity(intent)
+                    notify(JSONObject().put("ok", true).put("path", dest.absolutePath).toString())
+                } catch (e: Exception) {
+                    fail("launch_failed")
+                }
+            }
+        } catch (e: Exception) {
+            fail("download_failed")
         }
     }
 

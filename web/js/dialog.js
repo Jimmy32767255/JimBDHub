@@ -1,3 +1,5 @@
+import { t } from './i18n.js';
+
 const dialog = document.getElementById('app-dialog');
 const messageEl = document.getElementById('app-dialog-message');
 const okBtn = document.getElementById('app-dialog-ok');
@@ -9,10 +11,18 @@ let currentResolve = null;
 
 function processQueue() {
   if (currentResolve || queue.length === 0) return;
-  const { message, showCancel, resolve } = queue.shift();
+  const { message, showCancel, okLabel, resolve } = queue.shift();
   currentResolve = resolve;
   messageEl.textContent = message;
   cancelBtn.style.display = showCancel ? '' : 'none';
+  if (okLabel) {
+    // 自定义按钮文案：暂存原 data-i18n，避免 updateDOM 语言刷新时覆盖
+    okBtn.textContent = okLabel;
+    delete okBtn.dataset.i18n;
+  } else {
+    okBtn.dataset.i18n = 'common.ok';
+    okBtn.textContent = t('common.ok');
+  }
   dialog.setAttribute('aria-hidden', 'false');
   okBtn.focus();
 }
@@ -39,9 +49,9 @@ document.addEventListener('keydown', (e) => {
   }
 });
 
-function open(message, showCancel) {
+function open(message, showCancel, okLabel) {
   return new Promise((resolve) => {
-    queue.push({ message, showCancel, resolve });
+    queue.push({ message, showCancel, okLabel, resolve });
     processQueue();
   });
 }
@@ -52,4 +62,9 @@ export function showAlert(message) {
 
 export function showConfirm(message) {
   return open(message, true);
+}
+
+// 带自定义确认按钮文案的确认框，点击确认按钮返回 true，取消返回 false
+export function showActionDialog(message, actionLabel) {
+  return open(message, true, actionLabel);
 }

@@ -220,6 +220,59 @@ function waitForAndroidAutoBackup() {
   });
 }
 
+function waitForAndroidUpdateCallback() {
+  return new Promise((resolve, reject) => {
+    const previousCallback = window.__androidUpdateCallback;
+    const previousError = window.__androidUpdateError;
+    // 更新包体积较大，等待时间放宽到 10 分钟
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(t('platform.updateTimeout')));
+    }, 600000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      window.__androidUpdateCallback = previousCallback;
+      window.__androidUpdateError = previousError;
+    };
+
+    window.__androidUpdateCallback = (json) => {
+      cleanup();
+      try {
+        resolve(JSON.parse(json));
+      } catch {
+        resolve({ ok: false, error: t('platform.androidError') });
+      }
+    };
+
+    window.__androidUpdateError = (message) => {
+      cleanup();
+      reject(new Error(message || t('platform.androidError')));
+    };
+  });
+}
+
+function waitForDesktopUpdateCallback() {
+  return new Promise((resolve, reject) => {
+    const previousCallback = window.__desktopUpdateCallback;
+    // 更新包体积较大，等待时间放宽到 10 分钟
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(t('platform.updateTimeout')));
+    }, 600000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      window.__desktopUpdateCallback = previousCallback;
+    };
+
+    window.__desktopUpdateCallback = (result) => {
+      cleanup();
+      resolve(result && typeof result === 'object' ? result : { ok: false, error: t('platform.desktopError') });
+    };
+  });
+}
+
 export const platform = {
   isAndroid() {
     return typeof window.AndroidBridge !== 'undefined';
@@ -434,5 +487,44 @@ export const platform = {
 
   onSyncFileChanged(callback) {
     window.__syncthingCallback = callback;
+  },
+
+  isUpdateDownloadSupported() {
+    return this.isAndroid() || this.isDesktop();
+  },
+
+  // 下载更新包并启动安装（下载与 SHA-512 校验在原生端完成），返回 { ok, error?, path? }
+  async downloadAndInstallUpdate({ url, sha512, fileName }) {
+    if (this.isAndroid() && typeof window.AndroidBridge.downloadAndInstallApk === 'function') {
+      const p = waitForAndroidUpdateCallback();
+      window.AndroidBridge.downloadAndInstallApk(url, sha512, fileName);
+      return p;
+    }
+    if (this.isDesktop() && typeof window.pywebview.api.downloadUpdate === 'function') {
+      const p = waitForDesktopUpdateCallback();
+      const started = await window.pywebview.api.downloadUpdate(url, sha512, fileName);
+      if (!started || started.ok !== true) {
+        return { ok: false, error: (started && started.error) || t('platform.desktopError') };
+      }
+      return p;
+    }
+    return { ok: false, error: t('platform.updateUnsupported') };
+  },
+
+  // 用系统浏览器打开外部链接；纯浏览器环境退回 window.open
+  async openExternalUrl(url) {
+    try {
+      if (this.isAndroid()) {
+        window.AndroidBridge.openUrl(url);
+        return;
+      }
+      if (this.isDesktop()) {
+        await window.pywebview.api.openUrl(url);
+        return;
+      }
+      window.open(url, '_blank');
+    } catch (err) {
+      window.open(url, '_blank');
+    }
   }
 };

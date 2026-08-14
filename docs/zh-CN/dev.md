@@ -43,6 +43,7 @@
 | `js/sync.js` | Syncthing 同步 |
 | `js/autobackup.js` | 自动备份（事件钩子、数量上限、恢复/删除确认） |
 | `js/mdexport.js` | 导出为 Markdown（供大语言模型分析，可调整导出记录数量） |
+| `js/update.js` | 软件更新（频道选择、元数据拉取、平台匹配、SHA-256 校验、下载安装） |
 | `js/platform.js` | 平台检测与原生桥接 |
 | `js/i18n.js` | 国际化引擎 |
 | `locales/*.json` | 语言文件（`zh-CN` / `en-US`） |
@@ -85,6 +86,7 @@
 | `pickBackgroundImage()` | 系统图片选择器，返回 Base64 data URL |
 | `enableSync()` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（SAF 目录，3 秒轮询） |
 | `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount, reason)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | 自动备份（SAF 目录，见下文「自动备份机制」） |
+| `downloadAndInstallApk(url, sha512, fileName)` | 下载 APK、SHA-512 校验、通过 FileProvider 启动安装 |
 | `addWidget()` | 请求添加启动器小部件 |
 | `openUrl(url)` | 用系统浏览器打开链接（如项目仓库） |
 | `addCalendarEvent(...)` | 添加系统日历事件（`CalendarContract`） |
@@ -102,6 +104,7 @@
 | `saveTextFile(text, file_name)` | 保存任意文本文件（如 Markdown 导出） |
 | `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（`SyncManager` 2 秒轮询 mtime） |
 | `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10, reason="DataChange")` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | 自动备份（`FOLDER_DIALOG` 选择目录，见下文「自动备份机制」） |
+| `downloadUpdate(url, sha512, fileName)` | 下载更新、SHA-512 校验、启动安装（后台线程） |
 | `addWidgetShortcut()` | 桌面创建 `.lnk`（Windows）/ `.desktop`（GNU/Linux） |
 | `openUrl(url)` | 用系统默认浏览器打开链接（`webbrowser`） |
 | `onWidgetReady()` | 前端 store 就绪回调，注入快捷方式产生的睡眠记录 |
@@ -124,6 +127,21 @@
 - 数量上限：默认 10（可设 1~100），写入后按文件名排序删除超出上限的最旧文件；设置存于 `jimbdhub_theme`（`autoBackupEnabled` / `autoBackupFolder` / `autoBackupMaxCount`）。
 - 恢复/删除均有确认弹窗（`showConfirm`）；恢复走 `store.validateBackup()` + `store.restoreBackup()`。
 - 浏览器降级：`isAutoBackupSupported()` 为 false，自动备份 UI 禁用。
+
+## 软件更新机制
+
+- `update.js` 负责更新频道管理与版本检查流程。
+- 频道（`UPDATE_CHANNELS`）按稳定性从高到低排列：正式发行版（R）、发布候选版（RC）、内部测试版（A）、公共测试版（B）、开发版（D）、金丝雀版（C）、夜间构建版（N）、内部预览版（IP）。选择靠后的频道会同时接收所有更稳定（rank 更小）的版本。
+- 频道选择持久化在 `localStorage` 的 `jimbdhub_update_channel` 键中，默认 `R`。设置页 `update-channel-select` 下拉框驱动。
+- `checkForUpdates(appVersion)` 拉取 GitHub Releases API（`RELEASES_API`），遍历每个 Release 寻找 `Metadata.json` 元数据资产（由 CI 自动构建时生成）；无元数据时视为稳定版（R 频道），从资产文件名推断平台信息。
+- 元数据格式：`{ version, channel, files: [{ name, os, arch, url, sha512, sha256, sha1, md5 }] }`。
+  - 客户端使用 `sha512` 校验；`sha256`、`sha1`、`md5` 供第三方使用。
+- 版本比较：将版本号按数字段拆分后进行数值比较，支持 `V0.0.1A-N20260814` 等带后缀的格式。
+- `runUpdate(meta)` 根据当前运行环境（Android / Windows / Linux）从元数据中挑选对应安装包，下载后 SHA-512 校验，校验通过后启动安装。
+- 桌面端（`DesktopBridge.downloadUpdate`）：后台线程下载到 `~/Downloads`，SHA-512 校验后 `os.startfile`（Windows）或 `subprocess.Popen`（GNU/Linux，`APPIMAGE_EXTRACT_AND_RUN=1` 自解压模式）启动安装。完成后通过 `window.__desktopUpdateCallback` 回调前端。
+- Android 端（`downloadAndInstallApk`）：后台线程下载到 `cacheDir`，SHA-512 校验后通过 `FileProvider` 提供 URI 启动 `ACTION_VIEW` 安装。完成后通过 `window.__androidUpdateCallback` 回调前端。
+- 纯浏览器环境：前端 `fetch` 下载 + `crypto.subtle.digest('SHA-512')` 校验 + Blob 下载触发。
+- 下载失败时提示用户是否前往浏览器手动下载。
 
 ## 国际化机制
 
