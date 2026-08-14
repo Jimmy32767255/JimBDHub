@@ -771,7 +771,7 @@ class MainActivity : AppCompatActivity() {
         fun openUrl(url: String) {
             runOnUiThread {
                 try {
-                    val intent = Intent(Intent.ACTION_VIEW, Uri.parse(url))
+                    val intent = Intent(Intent.ACTION_VIEW, url.toUri())
                     startActivity(intent)
                 } catch (e: Exception) {
                     Toast.makeText(
