@@ -2,3 +2,39 @@
 *.pyc filter=lfs diff=lfs merge=binary -text
 # This project
 contribution/
+
+# -------------------------------------------------------
+# 强制所有文本文件使用 LF 行尾（Linux 原始开发环境）
+# -------------------------------------------------------
+* text=auto eol=lf
+
+# 明确标记二进制文件，不做行尾转换
+*.png binary
+*.jpg binary
+*.jpeg binary
+*.gif binary
+*.ico binary
+*.apk binary
+*.AppImage binary
+*.exe binary
+*.so binary
+*.dll binary
+
+# Shell 脚本、Python、JS/JSON/CSS/HTML 强制 LF
+*.sh text eol=lf
+*.py text eol=lf
+*.js text eol=lf
+*.json text eol=lf
+*.css text eol=lf
+*.html text eol=lf
+*.md text eol=lf
+*.txt text eol=lf
+*.kt text eol=lf
+*.gradle text eol=lf
+*.toml text eol=lf
+*.yml text eol=lf
+*.yaml text eol=lf
+*.xml text eol=lf
+*.properties text eol=lf
+*.spec text eol=lf
+*.bat text eol=crlf

@@ -364,6 +364,62 @@ export const platform = {
     return { ok: false, error: t('platform.reminderUnsupported') };
   },
 
+  /**
+   * 更新全部服药提醒（Android）：按时间点调度，同一时间点的所有药品合并到一个通知。
+   * 数据持久化到 SharedPreferences，应用关闭/重启后仍可触发。
+   * @param scheduleJson 调度数据 JSON：{ "08:00": ["碳酸锂 1片", "喹硫平 0.5片"], "20:00": [...] }
+   */
+  async scheduleMedicationReminders(scheduleJson) {
+    if (this.isAndroid() && typeof window.AndroidBridge.scheduleMedicationReminders === 'function') {
+      window.AndroidBridge.scheduleMedicationReminders(scheduleJson);
+      return { ok: true };
+    }
+    return { ok: false, error: t('platform.reminderUnsupported') };
+  },
+
+  /** 取消所有服药提醒（Android） */
+  async cancelMedicationReminders() {
+    if (this.isAndroid() && typeof window.AndroidBridge.cancelMedicationReminders === 'function') {
+      window.AndroidBridge.cancelMedicationReminders();
+      return { ok: true };
+    }
+    return { ok: false, error: t('platform.reminderUnsupported') };
+  },
+
+  /** 请求通知权限（Android 13+ 弹系统授权框；已授权或旧系统直接成功） */
+  async requestNotificationPermission() {
+    if (this.isAndroid() && typeof window.AndroidBridge.requestNotificationPermission === 'function') {
+      window.AndroidBridge.requestNotificationPermission();
+      return { ok: true };
+    }
+    return { ok: false, error: t('platform.reminderUnsupported') };
+  },
+
+  /** 通知权限是否已授予（Android） */
+  hasNotificationPermission() {
+    if (this.isAndroid() && typeof window.AndroidBridge.hasNotificationPermission === 'function') {
+      return window.AndroidBridge.hasNotificationPermission();
+    }
+    return true;
+  },
+
+  /** 精确闹钟权限是否可用（Android 13+ 恒为 true；Android 12 需在系统设置授权） */
+  hasExactAlarmPermission() {
+    if (this.isAndroid() && typeof window.AndroidBridge.hasExactAlarmPermission === 'function') {
+      return window.AndroidBridge.hasExactAlarmPermission();
+    }
+    return true;
+  },
+
+  /** 跳转系统"闹钟和提醒"设置页授权精确闹钟 */
+  openExactAlarmSettings() {
+    if (this.isAndroid() && typeof window.AndroidBridge.openExactAlarmSettings === 'function') {
+      window.AndroidBridge.openExactAlarmSettings();
+      return { ok: true };
+    }
+    return { ok: false };
+  },
+
   async getSystemTheme() {
     if (this.isAndroid() && typeof window.AndroidBridge.getSystemTheme === 'function') {
       window.AndroidBridge.getSystemTheme();

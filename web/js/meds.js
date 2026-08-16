@@ -1,4 +1,4 @@
-import { store, formatDateTime, formatQuantity, getMaxLoadedRecords } from './store.js';
+import { store, formatDateTime, calcRemainingBreakdown, calcTotalPills, getMaxLoadedRecords } from './store.js';
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { platform } from './platform.js';
@@ -16,10 +16,15 @@ const medBoxInput = document.getElementById('med-box');
 const medBoardInput = document.getElementById('med-board');
 const medPillsInput = document.getElementById('med-pills');
 const medUnitInput = document.getElementById('med-unit');
-const medDoseAmountInput = document.getElementById('med-dose-amount');
+const medDoseMorningInput = document.getElementById('med-dose-morning');
+const medDoseAfternoonInput = document.getElementById('med-dose-afternoon');
+const medDoseEveningInput = document.getElementById('med-dose-evening');
+const medDoseBedtimeInput = document.getElementById('med-dose-bedtime');
 const medDosePerTabletInput = document.getElementById('med-dose-per-tablet');
 const medDoseMassUnitInput = document.getElementById('med-dose-mass-unit');
 const medRemainingInput = document.getElementById('med-remaining');
+const medBoardCountInput = document.getElementById('med-board-count');
+const medLoosePillsInput = document.getElementById('med-loose-pills');
 const medOnsetMinInput = document.getElementById('med-onset-min');
 const medOnsetMaxInput = document.getElementById('med-onset-max');
 const medPeakMinInput = document.getElementById('med-peak-min');
@@ -164,6 +169,55 @@ function readRangeHours(med, arrayKey, minKey, maxKey, singleKey, fallback) {
   return [single ?? fallback, single ?? fallback];
 }
 
+/** 读取药品的四时段剂量，兼容旧数据（无 doseAmounts 时用 doseAmount 填充） */
+function getDoseAmounts(med) {
+  const fallback = Number(med.doseAmount) > 0 ? Number(med.doseAmount) : 1;
+  const da = med.doseAmounts && typeof med.doseAmounts === 'object' ? med.doseAmounts : {};
+  // 仅当字段缺失/非法时回退；0 表示该时段不服药，保持 0
+  const read = v => (v === undefined || v === null || !Number.isFinite(Number(v)) ? fallback : Number(v));
+  return {
+    morning: read(da.morning),
+    afternoon: read(da.afternoon),
+    evening: read(da.evening),
+    bedtime: read(da.bedtime)
+  };
+}
+
+/** 将四时段剂量写入表单输入框 */
+function fillDoseAmountsInputs(med) {
+  const da = getDoseAmounts(med);
+  medDoseMorningInput.value = da.morning;
+  medDoseAfternoonInput.value = da.afternoon;
+  medDoseEveningInput.value = da.evening;
+  medDoseBedtimeInput.value = da.bedtime;
+}
+
+/** 从表单读取四时段剂量（空值/0 表示该时段不服药） */
+function collectDoseAmounts() {
+  const read = input => {
+    const v = Number(input.value);
+    return Number.isFinite(v) && v > 0 ? v : 0;
+  };
+  return {
+    morning: read(medDoseMorningInput),
+    afternoon: read(medDoseAfternoonInput),
+    evening: read(medDoseEveningInput),
+    bedtime: read(medDoseBedtimeInput)
+  };
+}
+
+/** 根据表单中的盒数/板数/散装药自动计算总数并填入"当前剩余（总数）" */
+function updateRemainingTotal() {
+  if (!medRemainingInput) return;
+  const box = Number(medBoxInput.value) || 0;
+  const board = Number(medBoardInput.value) || 0;
+  const pills = Number(medPillsInput.value) || 0;
+  const boardCount = Number(medBoardCountInput.value) || 0;
+  const loose = Number(medLoosePillsInput.value) || 0;
+  const total = box * board * pills + boardCount * pills + loose;
+  medRemainingInput.value = total;
+}
+
 function fillMedForm(med) {
   const [onsetMin, onsetMax] = readRangeHours(med, 'onsetRangeHours', 'onsetMinHours', 'onsetMaxHours', 'onsetHours', 1);
   const [peakMin, peakMax] = readRangeHours(med, 'peakRangeHours', 'peakMinHours', 'peakMaxHours', 'peakHours', 2);
@@ -176,10 +230,12 @@ function fillMedForm(med) {
   medBoardInput.value = 1;
   medPillsInput.value = med.pillsPerBoard || 0;
   medUnitInput.value = med.unit || '片';
-  medDoseAmountInput.value = med.doseAmount ?? 1;
+  fillDoseAmountsInputs(med);
   medDosePerTabletInput.value = med.dosePerTablet ?? 1;
   medDoseMassUnitInput.value = med.doseMassUnit ?? 'mg';
-  medRemainingInput.value = med.pillsPerBoard || 0;
+  medBoardCountInput.value = Number(med.boardCount) > 0 ? med.boardCount : 0;
+  medLoosePillsInput.value = Number(med.loosePills) > 0 ? med.loosePills : 0;
+  updateRemainingTotal();
   medOnsetMinInput.value = onsetMin;
   medOnsetMaxInput.value = onsetMax;
   medPeakMinInput.value = peakMin;
@@ -198,7 +254,13 @@ function fillMedForm(med) {
 }
 
 function percent(med) {
-  return med.totalPills > 0 ? Math.round((med.remainingPills / med.totalPills) * 100) : 0;
+  const pillsPerBoard = Number(med.pillsPerBoard) || 0;
+  const boardPerBox = Number(med.boardPerBox) || 0;
+  // 总余量 = 盒数×每盒板数×每板粒数 + 已开封板数×每板粒数 + 散装药
+  const totalRemaining = (Number(med.boxCount) || 0) * (boardPerBox || 0) * (pillsPerBoard || 0)
+    + (Number(med.boardCount) || 0) * (pillsPerBoard || 0)
+    + (Number(med.loosePills) || 0);
+  return med.totalPills > 0 ? Math.round((totalRemaining / med.totalPills) * 100) : 0;
 }
 
 function parseTagsInput(value) {
@@ -245,48 +307,99 @@ function getLogsCustomRange() {
 
 export function predictDepletion(med) {
   if (!Array.isArray(med.schedule) || med.schedule.length === 0) return null;
-  if (med.remainingPills <= 0) return -1;
   const now = Date.now();
   const sortedSchedule = [...med.schedule].sort();
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   const todayStart = today.getTime();
   const DAY_MS = 24 * 60 * 60 * 1000;
+  // 每个服药时间点按所在时段取对应剂量
+  const doseAmounts = getDoseAmounts(med);
+  const doseForTime = timeStr => {
+    const [h] = timeStr.split(':').map(Number);
+    const key = getPeriodKey(h);
+    return doseAmounts[key] > 0 ? doseAmounts[key] : (Number(med.doseAmount) || 1);
+  };
+  // 总余量 = 盒数×每盒板数×每板粒数 + 已开封板数×每板粒数 + 散装药
+  const pillsPerBoard = Number(med.pillsPerBoard) || 0;
+  const boardPerBox = Number(med.boardPerBox) || 0;
+  const totalRemaining = (Number(med.boxCount) || 0) * (boardPerBox || 0) * (pillsPerBoard || 0)
+    + (Number(med.boardCount) || 0) * (pillsPerBoard || 0)
+    + (Number(med.loosePills) || 0);
+  if (totalRemaining <= 0) return -1;
   const todayFutureTimes = sortedSchedule
     .map(time => {
       const [h, min] = time.split(':').map(Number);
       return todayStart + h * 3600000 + min * 60000;
     })
     .filter(ts => ts > now);
-  let remaining = med.remainingPills;
+  let remaining = totalRemaining;
   for (const ts of todayFutureTimes) {
-    remaining--;
+    const timeStr = sortedSchedule[todayFutureTimes.indexOf(ts)];
+    remaining -= doseForTime(timeStr);
     if (remaining <= 0) return ts;
   }
-  const dailyCount = sortedSchedule.length;
+  const dailyCount = sortedSchedule.reduce((sum, time) => sum + doseForTime(time), 0);
+  if (dailyCount <= 0) return null;
   const fullDays = Math.floor((remaining - 1) / dailyCount);
   const remainder = (remaining - 1) % dailyCount;
-  const [h, min] = sortedSchedule[remainder].split(':').map(Number);
+  // 找到剩余量耗尽的那一天对应的服药时间点
+  let acc = 0;
+  let targetTime = sortedSchedule[0];
+  for (const time of sortedSchedule) {
+    acc += doseForTime(time);
+    if (acc > remainder) {
+      targetTime = time;
+      break;
+    }
+  }
+  const [h, min] = targetTime.split(':').map(Number);
   return todayStart + (fullDays + 1) * DAY_MS + h * 3600000 + min * 60000;
 }
 
-function formatDepletion(depletionTs) {
+/** 根据小时返回时段键：早/午/晚/睡前 */
+function getPeriodKey(hour) {
+  if (hour >= 5 && hour < 11) return 'morning';
+  if (hour >= 11 && hour < 17) return 'afternoon';
+  if (hour >= 17 && hour < 21) return 'evening';
+  return 'bedtime';
+}
+
+/**
+ * 构建服药提醒全量调度 JSON（Android 端按时间点合并通知）。
+ * 格式：{ "08:00": ["碳酸锂 1片", "喹硫平 0.5片"], "20:00": [...] }
+ * 每个时间点的剂量取该时间点所在时段的四时段剂量。
+ */
+function buildReminderScheduleJson() {
+  const scheduleMap = {};
+  for (const med of store.data.meds) {
+    if (!Array.isArray(med.schedule) || med.schedule.length === 0) continue;
+    const doseAmounts = getDoseAmounts(med);
+    const doseForTime = timeStr => {
+      const [h] = timeStr.split(':').map(Number);
+      const key = getPeriodKey(h);
+      return doseAmounts[key] > 0 ? doseAmounts[key] : (Number(med.doseAmount) || 1);
+    };
+    for (const time of med.schedule) {
+      const dose = doseForTime(time);
+      const label = `${med.name} ${dose}${med.unit || '片'}`;
+      if (!scheduleMap[time]) scheduleMap[time] = [];
+      scheduleMap[time].push(label);
+    }
+  }
+  return JSON.stringify(scheduleMap);
+}
+
+/** 耗尽时间精确到天（用于剩余区简洁显示） */
+function formatDepletionDays(depletionTs) {
   if (depletionTs === -1) return t('meds.depletion.exhausted');
   const diff = depletionTs - Date.now();
   if (diff <= 0) return t('meds.depletion.exhausted');
-  const totalMinutes = Math.floor(diff / 60000);
-  const totalHours = Math.floor(diff / 3600000);
-  const days = Math.floor(totalHours / 24);
-  const hours = totalHours % 24;
-  if (days >= 1 && hours > 0) {
-    return t('meds.depletion.daysHours', { d: days, h: hours });
-  } else if (days >= 1) {
-    return t('meds.depletion.days', { d: days });
-  } else if (totalHours >= 1) {
-    return t('meds.depletion.hours', { h: totalHours });
-  } else {
-    return t('meds.depletion.minutes', { m: totalMinutes });
-  }
+  const days = Math.floor(diff / (24 * 60 * 60 * 1000));
+  if (days >= 1) return t('meds.depletion.days', { d: days });
+  const hours = Math.floor(diff / 3600000);
+  if (hours >= 1) return t('meds.depletion.hours', { h: hours });
+  return t('meds.depletion.minutes', { m: Math.floor(diff / 60000) });
 }
 
 function renderMeds() {
@@ -301,18 +414,31 @@ function renderMeds() {
     // 截断渐变：渐变覆盖整个条宽，填充宽度截断可见部分
     const fillStyle = `width: ${pct}%; background: linear-gradient(90deg, #ef4444, #eab308 50%, #22c55e); background-size: 120px 100%; background-repeat: no-repeat;`;
     const depletionTs = predictDepletion(med);
-    const depletionLine = depletionTs === null ? '' : formatDepletion(depletionTs);
+    const depletionLine = depletionTs === null ? '' : formatDepletionDays(depletionTs);
     const tagsHtml = (med.tags || []).slice(0, 3).map(tag => `<span class="med-tag-chip">${tag}</span>`).join('');
     const showDepletionBtn = platform.isAndroid() && depletionTs !== null && depletionTs > 0;
+    // 详细数量：只显示盒数与板数（不显示散装药数量）
+    const breakdown = calcRemainingBreakdown(med);
+    const boardUnit = med.unit === '片' ? t('unit.board') : t('unit.bottle');
+    const pillUnit = med.unit === '片' ? t('unit.tablet') : t('unit.pill');
+    const detailsHtml = `${breakdown.boxes}${t('unit.box')} ${breakdown.boards}${boardUnit}`;
+    const looseHtml = (Number(med.loosePills) || 0) > 0
+      ? `${med.loosePills}${pillUnit}`
+      : t('meds.table.emptyNote');
+    // 剩余区：显示 百分比 · 剩余总数；有耗尽预测时追加"X天后耗尽"
+    const totalPills = calcTotalPills(med);
+    const remainingHtml = depletionLine
+      ? `<small style="color: var(--text-muted)">${pct}% · ${totalPills}${med.unit} · ${depletionLine}</small>`
+      : `<small style="color: var(--text-muted)">${pct}% · ${totalPills}${med.unit}</small>`;
     tr.innerHTML = `
       <td><strong>${med.name}</strong></td>
       <td>${med.category || t('meds.table.emptyNote')}</td>
       <td>
         <div class="progress-bar"><div class="progress-fill" style="${fillStyle}"></div></div>
-        <small style="color: var(--text-muted)">${pct}% · ${med.remainingPills}${med.unit}</small>
-        ${depletionLine ? `<small style="color: var(--text-muted); display: block">${depletionLine}</small>` : ''}
+        ${remainingHtml}
       </td>
-      <td>${formatQuantity(med)}</td>
+      <td>${detailsHtml}</td>
+      <td>${looseHtml}</td>
       <td>${med.note || t('meds.table.emptyNote')}${tagsHtml ? `<div class="med-tags-cell">${tagsHtml}</div>` : ''}</td>
       <td>
         <div class="med-actions">
@@ -509,7 +635,6 @@ function setManualFieldsVisible(visible) {
   medBoardInput.required = visible;
   medPillsInput.required = visible;
   medUnitInput.required = visible;
-  medDoseAmountInput.required = visible;
   medDosePerTabletInput.required = visible;
   medDoseMassUnitInput.required = visible;
   medRemainingInput.required = visible;
@@ -549,10 +674,12 @@ function openModal(med = null) {
     medBoardInput.value = med.boardPerBox;
     medPillsInput.value = med.pillsPerBoard;
     medUnitInput.value = med.unit;
-    medDoseAmountInput.value = med.doseAmount ?? 1;
+    fillDoseAmountsInputs(med);
     medDosePerTabletInput.value = med.dosePerTablet ?? 1;
     medDoseMassUnitInput.value = med.doseMassUnit ?? 'mg';
-    medRemainingInput.value = med.remainingPills;
+    medBoardCountInput.value = Number(med.boardCount) > 0 ? med.boardCount : 0;
+    medLoosePillsInput.value = Number(med.loosePills) > 0 ? med.loosePills : 0;
+    updateRemainingTotal();
     medOnsetMinInput.value = onsetMin;
     medOnsetMaxInput.value = onsetMax;
     medPeakMinInput.value = peakMin;
@@ -570,7 +697,13 @@ function openModal(med = null) {
   } else {
     medModalTitle.textContent = t('meds.modal.addTitle');
     medIdInput.value = '';
-    medDoseAmountInput.value = 1;
+    medDoseMorningInput.value = 1;
+    medDoseAfternoonInput.value = 1;
+    medDoseEveningInput.value = 1;
+    medDoseBedtimeInput.value = 1;
+    medBoardCountInput.value = 0;
+    medLoosePillsInput.value = 0;
+    updateRemainingTotal();
     medDosePerTabletInput.value = 1;
     medDoseMassUnitInput.value = 'mg';
     medOnsetMinInput.value = 1;
@@ -654,7 +787,7 @@ function closeLogModal() {
   logModal.setAttribute('aria-hidden', 'true');
 }
 
-function handleFormSubmit(e) {
+async function handleFormSubmit(e) {
   e.preventDefault();
   if (!manualFieldsVisible && !medNameInput.value.trim()) {
     setManualFieldsVisible(true);
@@ -664,11 +797,16 @@ function handleFormSubmit(e) {
   const box = Number(medBoxInput.value) || 0;
   const board = Number(medBoardInput.value) || 0;
   const pills = Number(medPillsInput.value) || 0;
-  const remaining = Number(medRemainingInput.value) || 0;
-  const total = box * board * pills;
+  const boardCount = Number(medBoardCountInput.value) || 0;
+  const loosePills = Math.max(0, Number(medLoosePillsInput.value) || 0);
+  // 总库存 = 盒数×每盒板数×每板粒数 + 已开封板数×每板粒数 + 散装药
+  const total = box * board * pills + boardCount * pills + loosePills;
   const onsetMin = Math.max(0, Number(medOnsetMinInput.value) || 0);
   const peakMin = Math.max(0, Number(medPeakMinInput.value) || 0);
   const halfLifeMin = Math.max(0.1, Number(medHalfLifeMinInput.value) || 0.1);
+  const doseAmounts = collectDoseAmounts();
+  // 兼容旧字段：doseAmount 取四时段中第一个非零值，无则取 1
+  const firstDose = Object.values(doseAmounts).find(v => v > 0) || 1;
   const payload = {
     name: medNameInput.value.trim(),
     category: medCategoryInput.value.trim(),
@@ -676,12 +814,14 @@ function handleFormSubmit(e) {
     boxCount: box,
     boardPerBox: board,
     pillsPerBoard: pills,
+    boardCount,
     unit: medUnitInput.value,
-    doseAmount: Math.max(0.1, Number(medDoseAmountInput.value) || 1),
+    doseAmount: firstDose,
+    doseAmounts,
     dosePerTablet: Math.max(0.01, Number(medDosePerTabletInput.value) || 1),
     doseMassUnit: medDoseMassUnitInput.value || 'mg',
     totalPills: total,
-    remainingPills: remaining,
+    loosePills,
     onsetMinHours: onsetMin,
     onsetMaxHours: Math.max(onsetMin, Number(medOnsetMaxInput.value) || onsetMin),
     peakMinHours: peakMin,
@@ -695,11 +835,25 @@ function handleFormSubmit(e) {
   if (medIdInput.value) {
     store.updateMed(medIdInput.value, payload);
   } else {
-    store.addMed({ ...payload, totalPills: total || remaining, remainingPills: remaining });
+    store.addMed({ ...payload, totalPills: total || loosePills });
+  }
+  // 保存后自动调度服药提醒（Android：按时间点合并通知，应用关闭也能触发）
+  if (platform.isMedicationReminderSupported()) {
+    // 有服药时间点才需要通知权限：Android 13+ 首次保存时弹出系统授权框
+    if (currentSchedule.length > 0 && !platform.hasNotificationPermission()) {
+      await platform.requestNotificationPermission();
+    }
+    await platform.scheduleMedicationReminders(buildReminderScheduleJson());
+    // Android 12 及以下需在系统"闹钟和提醒"中授权精确闹钟，否则降级为非精确（可能延迟）
+    if (currentSchedule.length > 0 && !platform.hasExactAlarmPermission()) {
+      const ok = await showConfirm(t('meds.reminder.exactAlarmPrompt'));
+      if (ok) {
+        platform.openExactAlarmSettings();
+      }
+    }
   }
   closeModal();
 }
-
 async function handleStockSubmit(e) {
   e.preventDefault();
   const id = stockMedIdInput.value;
@@ -765,6 +919,11 @@ function initMeds() {
     }
   });
 
+  // 盒数/板数/散装药变化时自动计算总数
+  [medBoxInput, medBoardInput, medPillsInput, medBoardCountInput, medLoosePillsInput].forEach(input => {
+    input?.addEventListener('input', updateRemainingTotal);
+  });
+
   medDbSearch.addEventListener('input', () => {
     selectedDbMed = null;
     renderMedResults(filterMeds(medDbSearch.value.trim(), medDbSelectedTag));
@@ -797,7 +956,7 @@ function initMeds() {
       }
       await platform.addEventReminder({
         title: t('meds.depletion.reminderTitle', { name: med.name }),
-        description: t('meds.depletion.reminderDesc', { name: med.name, remaining: med.remainingPills, unit: med.unit }),
+        description: t('meds.depletion.reminderDesc', { name: med.name, remaining: calcTotalPills(med), unit: med.unit }),
         beginTime: depletionTs,
         endTime: depletionTs + 60 * 60 * 1000
       });
@@ -807,6 +966,10 @@ function initMeds() {
     } else if (action === 'delete') {
       if (await showConfirm(t('meds.confirm.delete', { name: med.name }))) {
         store.deleteMed(id);
+        // 删除药品后重新调度服药提醒（全量更新）
+        if (platform.isMedicationReminderSupported()) {
+          await platform.scheduleMedicationReminders(buildReminderScheduleJson());
+        }
       }
     }
   });
@@ -852,6 +1015,23 @@ function initMeds() {
   renderMeds();
   renderLogs();
   loadMedDB();
+
+  // 应用启动时重建服药提醒（小米/系统可能清理后台闹钟，每次打开应用都恢复）
+  if (platform.isMedicationReminderSupported()) {
+    scheduleMedicationRemindersOnLaunch();
+  }
+}
+
+/** 启动时重建服药提醒：仅在有服药时间点的药品时调度 */
+async function scheduleMedicationRemindersOnLaunch() {
+  try {
+    const hasSchedule = (store.data.meds || []).some(m => Array.isArray(m.schedule) && m.schedule.length > 0);
+    if (hasSchedule) {
+      await platform.scheduleMedicationReminders(buildReminderScheduleJson());
+    }
+  } catch (e) {
+    // 忽略启动时调度失败
+  }
 }
 
 export { initMeds };

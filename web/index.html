@@ -37,6 +37,11 @@
           <span data-i18n="nav.records">记录</span>
         </a>
         <!--suppress HtmlUnknownAnchorTarget -->
+        <a href="#ai-summary" class="nav-link" data-view="ai-summary">
+          <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>
+          <span data-i18n="nav.aiSummary">AI 总结</span>
+        </a>
+        <!--suppress HtmlUnknownAnchorTarget -->
         <a href="#settings" class="nav-link" data-view="settings">
           <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span data-i18n="nav.settings">设置</span>
@@ -92,7 +97,7 @@
               <span data-i18n="chart.showMood">情绪曲线</span>
             </label>
             <label class="chart-checkbox">
-              <input type="checkbox" id="show-effect" checked>
+              <input type="checkbox" id="show-effect">
               <span data-i18n="chart.showEffect">药效曲线</span>
             </label>
             <label class="chart-checkbox">
@@ -129,6 +134,7 @@
                     <th data-i18n="meds.table.category">分类</th>
                     <th data-i18n="meds.table.remaining">剩余</th>
                     <th data-i18n="meds.table.details">详细数量</th>
+                    <th data-i18n="meds.table.loose">散装药</th>
                     <th data-i18n="meds.table.note">备注</th>
                     <th data-i18n="meds.table.action">操作</th>
                   </tr>
@@ -172,6 +178,15 @@
       </section>
 
       <section class="view" id="records-view" aria-labelledby="page-title">
+        <!-- 记录页快捷导航：回到顶部 / 回到编辑位置 -->
+        <div class="records-quick-nav" id="records-quick-nav" hidden>
+          <button type="button" class="records-quick-btn" id="records-back-top" title="回到顶部" data-i18n-aria="records.quickNav.backTop" aria-label="回到顶部">
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M12 19V5"/><path d="M5 12l7-7 7 7"/></svg>
+          </button>
+          <button type="button" class="records-quick-btn" id="records-back-edit" title="回到编辑位置" data-i18n-aria="records.quickNav.backEdit" aria-label="回到编辑位置" hidden>
+            <svg viewBox="0 0 24 24" width="20" height="20" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M11 4H4a2 2 0 0 0-2 2v14a2 2 0 0 0 2 2h14a2 2 0 0 0 2-2v-7"/><path d="M18.5 2.5a2.121 2.121 0 0 1 3 3L12 15l-4 1 1-4 9.5-9.5z"/></svg>
+          </button>
+        </div>
         <div class="records-layout">
           <div class="card record-form-card">
             <div class="card-header">
@@ -407,6 +422,138 @@
             </div>
             <p class="records-limit-hint" id="records-limit-hint" hidden></p>
             <div class="records-list" id="records-list"></div>
+          </div>
+        </div>
+      </section>
+
+      <section class="view" id="ai-summary-view" aria-labelledby="page-title">
+        <div class="ai-summary-layout">
+          <div class="card ai-summary-card">
+            <div class="card-header">
+              <h3 data-i18n="aiSummary.title">AI 情绪总结</h3>
+            </div>
+            <div class="ai-summary-body">
+              <p class="form-hint ai-summary-desc" data-i18n="aiSummary.desc">让 AI 读取指定时间段内的情绪、服药、睡眠与事件记录，生成一份综合观察总结。</p>
+              <div class="ai-range-section">
+                <span class="form-label" data-i18n="aiSummary.rangeTitle">总结时间范围</span>
+                <div class="segmented-control" id="ai-range-group">
+                  <button type="button" class="segment-btn active" data-range="7" data-i18n="aiSummary.range.week1">最近 1 周</button>
+                  <button type="button" class="segment-btn" data-range="14" data-i18n="aiSummary.range.week2">最近 2 周</button>
+                  <button type="button" class="segment-btn" data-range="30" data-i18n="aiSummary.range.month1">最近 1 月</button>
+                  <button type="button" class="segment-btn" data-range="custom" data-i18n="aiSummary.range.custom">自定义</button>
+                </div>
+              </div>
+              <div class="records-custom-range ai-custom-range" id="ai-custom-range" hidden>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.history.period.from">从</span>
+                  <input type="date" id="ai-range-start">
+                </label>
+                <span class="records-range-separator">~</span>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="records.history.period.to">到</span>
+                  <input type="date" id="ai-range-end">
+                </label>
+              </div>
+              <div class="ai-summary-stats" id="ai-summary-stats"></div>
+              <div class="form-actions ai-generate-actions">
+                <button type="button" class="btn btn-primary" id="ai-generate-btn" data-i18n="aiSummary.generate">生成总结</button>
+              </div>
+              <div class="ai-result" id="ai-result" hidden>
+                <div class="ai-result-header">
+                  <h4 data-i18n="aiSummary.resultTitle">总结结果</h4>
+                  <div class="ai-result-actions">
+                    <button type="button" class="btn btn-ghost btn-sm" id="ai-copy-btn" data-i18n="aiSummary.copy">复制</button>
+                    <button type="button" class="btn btn-ghost btn-sm" id="ai-clear-btn" data-i18n="aiSummary.clear">清除</button>
+                  </div>
+                </div>
+                <div class="ai-result-body" id="ai-result-body"></div>
+              </div>
+              <div class="ai-history-section" id="ai-history-section" hidden>
+                <div class="ai-history-header">
+                  <h4 data-i18n="aiSummary.history.title">历史总结</h4>
+                </div>
+                <div class="ai-history-list" id="ai-history-list"></div>
+              </div>
+            </div>
+          </div>
+
+          <div class="card ai-settings-card" id="ai-settings-card" data-ai-settings-card="ai">
+            <div class="card-header settings-card-header" id="ai-settings-toggle">
+              <h3 data-i18n="aiSummary.settings.title">AI 设置与提示词</h3>
+            </div>
+            <div class="settings-section">
+              <div class="setting-group">
+                <h4 data-i18n="aiSummary.settings.api.title">API 设置</h4>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="aiSummary.settings.api.baseUrl">接口地址</span>
+                  <input type="url" id="ai-base-url" data-i18n-placeholder="aiSummary.settings.api.baseUrlPlaceholder" placeholder="https://api.openai.com/v1" autocomplete="off" spellcheck="false">
+                </label>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="aiSummary.settings.api.apiKey">API 密钥</span>
+                  <div class="ai-key-row">
+                    <input type="password" id="ai-api-key" data-i18n-placeholder="aiSummary.settings.api.apiKeyPlaceholder" placeholder="sk-..." autocomplete="off" spellcheck="false">
+                    <button type="button" class="btn btn-ghost btn-sm" id="ai-key-toggle" data-i18n="aiSummary.settings.api.keyShow" aria-label="显示/隐藏">显示</button>
+                  </div>
+                  <small class="form-hint" data-i18n="aiSummary.settings.api.keyHint">密钥仅保存在本机，仅用于向接口发送请求</small>
+                </label>
+                <label class="form-field">
+                  <span class="form-label" data-i18n="aiSummary.settings.api.model">模型</span>
+                  <select id="ai-model">
+                    <option value="" data-i18n="aiSummary.settings.api.modelPlaceholder">选择或输入模型 ID…</option>
+                  </select>
+                  <input type="text" id="ai-model-custom" data-i18n-placeholder="aiSummary.settings.api.modelCustomPlaceholder" placeholder="手动输入模型 ID…" hidden>
+                </label>
+                <div class="settings-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" id="ai-fetch-models">
+                    <span data-i18n="aiSummary.settings.api.fetchModels">拉取模型列表</span>
+                  </button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="ai-test-btn">
+                    <span data-i18n="aiSummary.settings.api.test">测试连接</span>
+                  </button>
+                </div>
+                <p class="form-hint" id="ai-api-status"></p>
+              </div>
+              <div class="setting-group">
+                <h4 data-i18n="aiSummary.settings.params.title">生成参数</h4>
+                <div class="form-row ai-params-grid">
+                  <label class="form-field">
+                    <span class="form-label" data-i18n="aiSummary.settings.params.temperature">温度 (temperature)</span>
+                    <input type="number" id="ai-param-temperature" min="0" max="2" step="0.1" placeholder="0.7">
+                  </label>
+                  <label class="form-field">
+                    <span class="form-label" data-i18n="aiSummary.settings.params.topP">核采样 (top_p)</span>
+                    <input type="number" id="ai-param-top-p" min="0" max="1" step="0.05" placeholder="1">
+                  </label>
+                  <label class="form-field">
+                    <span class="form-label" data-i18n="aiSummary.settings.params.maxTokens">最大输出 (max_tokens)</span>
+                    <input type="number" id="ai-param-max-tokens" min="1" max="100000" step="100" placeholder="8192">
+                  </label>
+                  <label class="form-field">
+                    <span class="form-label" data-i18n="aiSummary.settings.params.frequencyPenalty">频率惩罚 (frequency_penalty)</span>
+                    <input type="number" id="ai-param-frequency-penalty" min="-2" max="2" step="0.1" placeholder="0">
+                  </label>
+                  <label class="form-field">
+                    <span class="form-label" data-i18n="aiSummary.settings.params.presencePenalty">存在惩罚 (presence_penalty)</span>
+                    <input type="number" id="ai-param-presence-penalty" min="-2" max="2" step="0.1" placeholder="0">
+                  </label>
+                  <label class="form-field">
+                    <span class="form-label" data-i18n="aiSummary.settings.params.seed">随机种子 (seed)</span>
+                    <input type="number" id="ai-param-seed" min="0" step="1" placeholder="留空 = 随机">
+                  </label>
+                </div>
+                <small class="form-hint" data-i18n="aiSummary.settings.params.hint">留空则使用 API 默认值；这些参数会随请求发送给接口</small>
+              </div>
+              <div class="setting-group">
+                <h4 data-i18n="aiSummary.settings.prompt.title">提示词</h4>
+                <p class="form-hint" id="ai-prompt-lock-hint"></p>
+                <textarea id="ai-prompt" rows="10" disabled data-i18n-placeholder="aiSummary.settings.prompt.placeholder" placeholder="在此输入自定义提示词…"></textarea>
+                <div class="settings-actions">
+                  <button type="button" class="btn btn-ghost btn-sm" id="ai-prompt-edit-btn" data-i18n="aiSummary.settings.prompt.edit">修改</button>
+                  <button type="button" class="btn btn-ghost btn-sm" id="ai-prompt-reset-btn" data-i18n="aiSummary.settings.prompt.reset">恢复默认</button>
+                </div>
+                <small class="form-hint" data-i18n="aiSummary.settings.prompt.hint">提示词默认锁定，点击"修改"后方可编辑</small>
+              </div>
+            </div>
           </div>
         </div>
       </section>
@@ -808,6 +955,11 @@
           <span data-i18n="nav.records">记录</span>
         </a>
         <!--suppress HtmlUnknownAnchorTarget -->
+        <a href="#ai-summary" class="nav-link" data-view="ai-summary">
+          <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><path d="M9.937 15.5A2 2 0 0 0 8.5 14.063l-6.135-1.582a.5.5 0 0 1 0-.962L8.5 9.936A2 2 0 0 0 9.937 8.5l1.582-6.135a.5.5 0 0 1 .963 0L14.063 8.5A2 2 0 0 0 15.5 9.937l6.135 1.581a.5.5 0 0 1 0 .964L15.5 14.063a2 2 0 0 0-1.437 1.437l-1.582 6.135a.5.5 0 0 1-.963 0z"/><path d="M20 3v4"/><path d="M22 5h-4"/></svg>
+          <span data-i18n="nav.aiSummary">AI 总结</span>
+        </a>
+        <!--suppress HtmlUnknownAnchorTarget -->
         <a href="#settings" class="nav-link" data-view="settings">
           <svg viewBox="0 0 24 24" width="22" height="22" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><circle cx="12" cy="12" r="3"/><path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1 0 2.83 2 2 0 0 1-2.83 0l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-2 2 2 2 0 0 1-2-2v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83 0 2 2 0 0 1 0-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1-2-2 2 2 0 0 1 2-2h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 0-2.83 2 2 0 0 1 2.83 0l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 2-2 2 2 0 0 1 2 2v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 0 2 2 0 0 1 0 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 2 2 2 2 0 0 1-2 2h-.09a1.65 1.65 0 0 0-1.51 1z"/></svg>
           <span data-i18n="nav.settings">设置</span>
@@ -848,18 +1000,37 @@
             <label class="form-field"><span class="form-label" data-i18n="meds.form.color">标记颜色</span><input type="color" id="med-color" value="#22c55e"></label>
           </div>
           <div class="form-row three-col">
-            <label class="form-field"><span class="form-label" data-i18n="meds.form.boxCount">盒数</span><input type="number" id="med-box" min="0" value="0" required></label>
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.boxCount">盒数（未开封）</span><input type="number" id="med-box" min="0" value="0" required></label>
             <label class="form-field"><span class="form-label" data-i18n="meds.form.boardPerBox">每盒板/瓶数</span><input type="number" id="med-board" min="0" value="0" required></label>
             <label class="form-field"><span class="form-label" data-i18n="meds.form.pillsPerBoard">每板/瓶粒数</span><input type="number" id="med-pills" min="0" value="0" required></label>
           </div>
           <div class="form-row two-col">
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.boardCount">已开封板数</span><input type="number" id="med-board-count" min="0" value="0"></label>
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.loosePills">散装药数量（不足一板）</span><input type="number" id="med-loose-pills" min="0" step="0.01" value="0"></label>
+          </div>
+          <div class="form-row two-col">
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.remaining">当前剩余（总数）</span><input type="number" id="med-remaining" min="0" readonly></label>
+          </div>
+          <small class="form-hint" data-i18n="meds.form.stockHint">总数 = 盒数×每盒板数×每板粒数 + 已开封板数×每板粒数 + 散装药；填写盒数/板数/散装药后自动计算总数</small>
+          <div class="form-row two-col">
             <label class="form-field"><span class="form-label" data-i18n="meds.form.unit">单位</span>
               <select id="med-unit"><option value="粒" data-i18n="unit.pill">粒</option><option value="片" data-i18n="unit.tablet">片</option></select>
             </label>
-            <label class="form-field"><span class="form-label" data-i18n="meds.form.doseAmount">每次服用数量</span><input type="number" id="med-dose-amount" min="0.1" step="0.01" value="1" required></label>
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.dosePerTablet">每单位剂量</span><input type="number" id="med-dose-per-tablet" min="0.01" step="0.01" value="1" required></label>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <span class="form-label" data-i18n="meds.form.doseAmounts">分时段剂量（早/午/晚/睡前）</span>
+              <div class="dose-periods-grid">
+                <label class="form-field dose-period-field"><span class="form-label" data-i18n="settings.simpleMode.morning">早</span><input type="number" id="med-dose-morning" min="0" step="0.01" value="1"></label>
+                <label class="form-field dose-period-field"><span class="form-label" data-i18n="settings.simpleMode.afternoon">午</span><input type="number" id="med-dose-afternoon" min="0" step="0.01" value="1"></label>
+                <label class="form-field dose-period-field"><span class="form-label" data-i18n="settings.simpleMode.evening">晚</span><input type="number" id="med-dose-evening" min="0" step="0.01" value="1"></label>
+                <label class="form-field dose-period-field"><span class="form-label" data-i18n="meds.form.bedtime">睡前</span><input type="number" id="med-dose-bedtime" min="0" step="0.01" value="1"></label>
+              </div>
+              <small class="form-hint" data-i18n="meds.form.doseAmountsHint">记录服药时按当前时间自动填入对应时段剂量，可手动修改；留空表示该时段不服药</small>
+            </div>
           </div>
           <div class="form-row two-col">
-            <label class="form-field"><span class="form-label" data-i18n="meds.form.dosePerTablet">每单位剂量</span><input type="number" id="med-dose-per-tablet" min="0.01" step="0.01" value="1" required></label>
             <label class="form-field"><span class="form-label" data-i18n="meds.form.doseMassUnit">剂量单位</span>
               <select id="med-dose-mass-unit" required>
                 <option value="mg" data-i18n="unit.mg">mg</option>
@@ -867,9 +1038,6 @@
                 <option value="g" data-i18n="unit.g">g</option>
               </select>
             </label>
-          </div>
-          <div class="form-row two-col">
-            <label class="form-field"><span class="form-label" data-i18n="meds.form.remaining">当前剩余（总数）</span><input type="number" id="med-remaining" min="0" required></label>
           </div>
           <div class="form-row three-col pk-range-row">
             <label class="form-field"><span class="form-label" data-i18n="meds.form.onsetHours">起效时间范围（小时）</span>
@@ -994,6 +1162,7 @@
   </div>
 
   </div>
-  <script type="module" src="js/app.js"></script>
+  <!-- v3: 版本号用于强制刷新，避免 WebView 缓存旧版本 JS 导致功能异常 -->
+  <script type="module" src="js/app.js?v=3"></script>
 </body>
 </html>

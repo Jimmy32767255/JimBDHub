@@ -87,11 +87,34 @@ function normalizeMed(m) {
   const onset = m.onsetHours ?? 1;
   const peak = m.peakHours ?? 2;
   const halfLife = m.halfLifeHours ?? 12;
+  const doseAmount = m.doseAmount ?? 1;
+  // 旧数据迁移：boardCount（已开封整板数）
+  let boardCount = Number.isFinite(Number(m.boardCount)) ? Math.max(0, Number(m.boardCount)) : null;
+  let loosePills = Number.isFinite(Number(m.loosePills)) ? Math.max(0, Number(m.loosePills)) : 0;
+  if (boardCount === null) {
+    const pillsPerBoard = Number(m.pillsPerBoard) || 0;
+    const oldTotal = Math.max(0, Number(m.remainingPills) || 0);
+    const boardPills = Math.max(0, oldTotal - loosePills);
+    boardCount = pillsPerBoard > 0 ? Math.floor(boardPills / pillsPerBoard) : 0;
+    if (pillsPerBoard > 0) {
+      loosePills += boardPills % pillsPerBoard;
+    }
+  }
   return {
     ...m,
     tags: Array.isArray(m.tags) ? m.tags : [],
     dosePerTablet: m.dosePerTablet ?? 1,
     doseMassUnit: m.doseMassUnit ?? 'mg',
+    doseAmounts: m.doseAmounts && typeof m.doseAmounts === 'object'
+      ? {
+          morning: m.doseAmounts.morning === undefined || m.doseAmounts.morning === null || !Number.isFinite(Number(m.doseAmounts.morning)) ? doseAmount : Number(m.doseAmounts.morning),
+          afternoon: m.doseAmounts.afternoon === undefined || m.doseAmounts.afternoon === null || !Number.isFinite(Number(m.doseAmounts.afternoon)) ? doseAmount : Number(m.doseAmounts.afternoon),
+          evening: m.doseAmounts.evening === undefined || m.doseAmounts.evening === null || !Number.isFinite(Number(m.doseAmounts.evening)) ? doseAmount : Number(m.doseAmounts.evening),
+          bedtime: m.doseAmounts.bedtime === undefined || m.doseAmounts.bedtime === null || !Number.isFinite(Number(m.doseAmounts.bedtime)) ? doseAmount : Number(m.doseAmounts.bedtime)
+        }
+      : { morning: doseAmount, afternoon: doseAmount, evening: doseAmount, bedtime: doseAmount },
+    boardCount,
+    loosePills,
     onsetMinHours: m.onsetMinHours ?? onset,
     onsetMaxHours: m.onsetMaxHours ?? onset,
     peakMinHours: m.peakMinHours ?? peak,

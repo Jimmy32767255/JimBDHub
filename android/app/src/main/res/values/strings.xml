@@ -9,4 +9,7 @@
     <string name="widget_time_ago_hours">%1$d小时前</string>
     <string name="widget_toast_started">已开始睡眠记录</string>
     <string name="widget_toast_recorded">已记录睡眠</string>
+    <string name="med_reminder_title">该服药了 %1$s</string>
+    <string name="med_reminder_text">请按时服用：%1$s</string>
+    <string name="med_reminder_text_default">请按时服药</string>
 </resources>

@@ -8,6 +8,7 @@ import { initTheme, getTheme, setTheme, subscribe as subscribeTheme, DEFAULT_MED
 import { initSync } from './sync.js';
 import { initAutoBackup } from './autobackup.js';
 import { initAbout } from './about.js';
+import { initAiSummary } from './aiSummary.js';
 import { platform } from './platform.js';
 import { showAlert } from './dialog.js';
 
@@ -15,6 +16,7 @@ const views = {
   overview: document.getElementById('overview-view'),
   meds: document.getElementById('meds-view'),
   records: document.getElementById('records-view'),
+  'ai-summary': document.getElementById('ai-summary-view'),
   settings: document.getElementById('settings-view'),
   about: document.getElementById('about-view')
 };
@@ -48,6 +50,8 @@ const PAGE_SIZE_MS = MAX_MOOD_RANGE_MS;
 let currentPage = null;
 let totalPages = 1;
 let _resetScrollOnNextDraw = false;
+// 药效/显示选项变化后，重新以"现在"为锚点居中（图表宽度变化会导致原居中位置偏移）
+let _centerOnNowNextDraw = false;
 
 function loadSidebarCollapsed() {
   try {
@@ -92,6 +96,9 @@ function setActiveView(name) {
   if (name === 'overview') {
     setTimeout(() => drawChart(), 50);
   }
+  // 通知各模块视图已切换（bottom-nav 点击走 setActiveView 不改变 hash，
+  // 故需显式派发事件，供记录页等在切换时重置状态）
+  window.dispatchEvent(new CustomEvent('viewchange', { detail: { name } }));
 }
 
 function resetZoom() {
@@ -366,18 +373,14 @@ function drawChart() {
 
   const wrap = combinedChartSvg.parentElement;
 
-  // 首次绘表：尝试恢复保存的视图位置
+  // 首次绘表或显示选项变化后：以"现在"为锚点居中（不恢复上次浏览位置）
   let centerFraction;
-  if (!_viewRestored) {
-    const saved = loadViewPosition();
-    if (saved) {
-      currentPxPerHour = saved.pxPerHour;
-      updateZoomDisplay();
-      centerFraction = saved.centerFraction;
-    } else {
-      centerFraction = 0.5;
-    }
+  if (!_viewRestored || _centerOnNowNextDraw) {
     _viewRestored = true;
+    _centerOnNowNextDraw = false;
+    // 先以 0.5 绘制一帧以得到实际 scrollWidth，再按"现在"重新居中
+    // （见下方 scrollLeft 计算分支：以 now 时间计算）
+    centerFraction = null;
   } else if (_resetScrollOnNextDraw) {
     centerFraction = 0.5;
     _resetScrollOnNextDraw = false;
@@ -389,23 +392,42 @@ function drawChart() {
       : 0.5;
   }
 
+  // 最新页时，将显示范围右端扩展到"现在 + 半视口宽度对应时长"，
+  // 保证"现在"右侧有足够空间可以真正居中（每次绘制保持一致宽度）
+  let displayMax = pageData.pageEnd;
+  if (currentPage === totalPages - 1) {
+    const halfViewMs = (wrap.clientWidth / 2) / Math.max(1, currentPxPerHour) * HOUR_MS;
+    const now = Date.now();
+    displayMax = Math.max(displayMax, now + halfViewMs);
+  }
+
   renderCombinedChart(pageData.records, pageData.sleeps, pageData.events, combinedChartSvg, combinedChartTooltip, combinedLegend, {
     showMood: showMoodCheckbox.checked,
     showEffect: showEffectCheckbox.checked,
     showSleep: showSleepCheckbox.checked,
     projectedDoses,
     pxPerHour: currentPxPerHour,
-    displayRange: { min: pageData.pageStart, max: pageData.pageEnd, padStart: pageData.padStart, padEnd: pageData.padEnd },
+    displayRange: { min: pageData.pageStart, max: displayMax, padStart: pageData.padStart, padEnd: pageData.padEnd },
     boundaryRecords: pageData.boundaryRecords,
     doses: pageData.doses,
     depletionData: computeDepletionData()
   });
 
-  // 恢复视口中心到相同比例位置
+  // 恢复视口中心：首次绘制以"现在"时间居中；其余按比例位置
   const newScrollable = wrap.scrollWidth - wrap.clientWidth;
   if (newScrollable > 0) {
-    wrap.scrollLeft = Math.max(0, Math.min(newScrollable,
-      centerFraction * wrap.scrollWidth - wrap.clientWidth / 2));
+    if (centerFraction === null) {
+      // 首次：将"现在"对应的图表 x 位置置于视口中心
+      // 与 chart.js 中 xFor(ts) = PADDING.left + ((ts - displayMinTime) / HOUR_MS) * pxPerHour 保持一致
+      const PADDING_LEFT = 44;
+      const PAD_HOURS = 6;
+      const displayMinTime = pageData.pageStart - (pageData.padStart ? PAD_HOURS * HOUR_MS : 0);
+      const nowX = PADDING_LEFT + ((Date.now() - displayMinTime) / HOUR_MS) * currentPxPerHour;
+      wrap.scrollLeft = Math.max(0, Math.min(newScrollable, nowX - wrap.clientWidth / 2));
+    } else {
+      wrap.scrollLeft = Math.max(0, Math.min(newScrollable,
+        centerFraction * wrap.scrollWidth - wrap.clientWidth / 2));
+    }
   }
 
   // 保存当前视图位置与页码
@@ -474,13 +496,18 @@ function initNavigation() {
 
   updateZoomDisplay();
 
-  // 复选框控制图表显示
-  showMoodCheckbox.addEventListener('change', drawChart);
-  showEffectCheckbox.addEventListener('change', drawChart);
-  showSleepCheckbox.addEventListener('change', drawChart);
+  // 复选框控制图表显示：药效等选项会影响图表宽度，切换后重新以"现在"居中，
+  // 避免因宽度变化导致"现在"位置偏移
+  const centerNowOnChange = () => {
+    _centerOnNowNextDraw = true;
+    drawChart();
+  };
+  showMoodCheckbox.addEventListener('change', centerNowOnChange);
+  showEffectCheckbox.addEventListener('change', centerNowOnChange);
+  showSleepCheckbox.addEventListener('change', centerNowOnChange);
   showForwardCheckbox.addEventListener('change', () => {
     saveShowForward(showForwardCheckbox.checked);
-    drawChart();
+    centerNowOnChange();
   });
   if (scrollLockCheckbox) {
     scrollLockCheckbox.addEventListener('change', () => {
@@ -526,11 +553,15 @@ function runAutoMedLog() {
   let loggedAny = false;
   store.data.meds.forEach(med => {
     if (!Array.isArray(med.schedule) || med.schedule.length === 0) return;
-    const doseAmount = Number(med.doseAmount) || 1;
-    if (doseAmount <= 0) return;
 
     med.schedule.forEach(timeStr => {
       const [h, min] = timeStr.split(':').map(Number);
+      // 按该服药时间点所在时段取对应剂量（早/午/晚/睡前）
+      const periodKey = getPeriodKey(h);
+      const doseAmounts = getMedDoseAmounts(med);
+      const doseAmount = doseAmounts[periodKey] > 0 ? doseAmounts[periodKey] : (Number(med.doseAmount) || 1);
+      if (doseAmount <= 0) return;
+
       const startDay = new Date(startTs);
       startDay.setHours(0, 0, 0, 0);
       const endDay = new Date(now);
@@ -558,6 +589,28 @@ function runAutoMedLog() {
 
   // 内部计时标记，不触发自动备份
   setTheme({ autoMedLogLastCheck: now }, 'Internal');
+}
+
+/** 根据小时返回时段键：早/午/晚/睡前 */
+function getPeriodKey(hour) {
+  if (hour >= 5 && hour < 11) return 'morning';
+  if (hour >= 11 && hour < 17) return 'afternoon';
+  if (hour >= 17 && hour < 21) return 'evening';
+  return 'bedtime';
+}
+
+/** 读取药品四时段剂量，兼容旧数据（无 doseAmounts 时用 doseAmount 填充） */
+function getMedDoseAmounts(med) {
+  const fallback = Number(med.doseAmount) > 0 ? Number(med.doseAmount) : 1;
+  const da = med.doseAmounts && typeof med.doseAmounts === 'object' ? med.doseAmounts : {};
+  // 仅当字段缺失/非法时回退；0 表示该时段不服药，保持 0
+  const read = v => (v === undefined || v === null || !Number.isFinite(Number(v)) ? fallback : Number(v));
+  return {
+    morning: read(da.morning),
+    afternoon: read(da.afternoon),
+    evening: read(da.evening),
+    bedtime: read(da.bedtime)
+  };
 }
 
 function scheduleAutoMedLog() {
@@ -616,7 +669,9 @@ async function init() {
 
 function continueInit() {
   showForwardCheckbox.checked = loadShowForward();
-  currentPage = loadPage();
+  // 每次启动默认打开最新一页（drawChart 中 currentPage === null 时取最后一页），
+  // 不再恢复上次浏览的页码，配合首次绘制以"现在"居中
+  currentPage = null;
 
   function updateChartScrollLock(theme) {
     document.querySelectorAll('.chart-wrap').forEach(wrap => {
@@ -643,6 +698,7 @@ function continueInit() {
   initAbout();
   initSync();
   initAutoBackup();
+  initAiSummary();
   initResize();
   scheduleAutoMedLog();
   drawChart();

@@ -81,7 +81,7 @@ function recalcLogRemainingAfter(medId) {
   const logs = store.data.logs.filter(l => l.medicationId === medId);
   if (!med || !logs.length) return;
   const sumDeltas = logs.reduce((sum, l) => sum + (Number(l.delta) || 0), 0);
-  let base = med.remainingPills - sumDeltas;
+  let base = calcTotalPills(med) - sumDeltas;
   logs
     .sort((a, b) => a.timestamp - b.timestamp)
     .forEach(log => {
@@ -90,16 +90,108 @@ function recalcLogRemainingAfter(medId) {
     });
 }
 
+/**
+ * 计算药品总片数：盒数×每盒板数×每板片数 + 板数×每板片数 + 散装药
+ */
+export function calcTotalPills(med) {
+  const pillsPerBoard = Number(med.pillsPerBoard) || 0;
+  const boardPerBox = Number(med.boardPerBox) || 0;
+  return (Number(med.boxCount) || 0) * (boardPerBox || 0) * (pillsPerBoard || 0)
+    + (Number(med.boardCount) || 0) * (pillsPerBoard || 0)
+    + (Number(med.loosePills) || 0);
+}
+
+/**
+ * 应用库存变化：
+ * - 库存模型：boxCount（未开封盒数）、boardCount（已开封整板数）、loosePills（散装药）。
+ * - 扣减（delta < 0）开封逻辑：
+ *   1) 先消耗散装药（loosePills）；
+ *   2) 散装药 = 0 时，打开一板：boardCount - 1，loosePills = 每板片数；
+ *   3) 无已开封板时，开封新盒：boxCount - 1，boardCount += 每盒板数，再打开一板；
+ *   4) 循环直到消耗完或库存耗尽。
+ * - 增加（delta > 0）：直接增加到散装药（loosePills）。
+ */
+function applyStockDelta(med, delta) {
+  if (delta < 0) {
+    let need = -delta;
+    const pillsPerBoard = Number(med.pillsPerBoard) || 0;
+    const boardPerBox = Number(med.boardPerBox) || 0;
+    let loose = Math.max(0, Number(med.loosePills) || 0);
+    let boards = Math.max(0, Number(med.boardCount) || 0);
+    let boxes = Math.max(0, Number(med.boxCount) || 0);
+
+    while (need > 0) {
+      // 1. 先消耗散装药
+      if (loose > 0) {
+        const take = Math.min(loose, need);
+        loose -= take;
+        need -= take;
+        continue;
+      }
+      // 2. 散装药 = 0，打开一板（若已有已开封板）
+      if (boards > 0 && pillsPerBoard > 0) {
+        boards -= 1;
+        loose = pillsPerBoard;
+        continue;
+      }
+      // 3. 无已开封板，开封新盒
+      if (boxes > 0 && boardPerBox > 0 && pillsPerBoard > 0) {
+        boxes -= 1;
+        boards += boardPerBox;
+        continue;
+      }
+      // 4. 库存耗尽
+      break;
+    }
+    // 写回
+    med.loosePills = loose;
+    med.boardCount = boards;
+    med.boxCount = boxes;
+  } else {
+    // 增加：直接加到散装药
+    med.loosePills = Math.max(0, (Number(med.loosePills) || 0) + delta);
+  }
+}
+
 function migrateMed(m) {
   if (!m) return m;
   const onset = m.onsetHours ?? 1;
   const peak = m.peakHours ?? 2;
   const halfLife = m.halfLifeHours ?? 12;
+  const doseAmount = m.doseAmount ?? 1;
+  // 旧数据迁移：boardCount（已开封整板数）
+  // 旧模型 remainingPills 是"总数（含散装药）"，新模型拆分为 boardCount + loosePills
+  let boardCount = Number.isFinite(Number(m.boardCount)) ? Math.max(0, Number(m.boardCount)) : null;
+  let loosePills = Number.isFinite(Number(m.loosePills)) ? Math.max(0, Number(m.loosePills)) : 0;
+  if (boardCount === null) {
+    // 从旧数据反推：整板部分 = 总数 - 散装药
+    const pillsPerBoard = Number(m.pillsPerBoard) || 0;
+    const oldTotal = Math.max(0, Number(m.remainingPills) || 0);
+    const boardPills = Math.max(0, oldTotal - loosePills);
+    boardCount = pillsPerBoard > 0 ? Math.floor(boardPills / pillsPerBoard) : 0;
+    // 不足一板的余量并入散装药
+    if (pillsPerBoard > 0) {
+      loosePills += boardPills % pillsPerBoard;
+    }
+  }
   return {
     ...m,
     tags: Array.isArray(m.tags) ? m.tags : [],
     dosePerTablet: m.dosePerTablet ?? 1,
     doseMassUnit: m.doseMassUnit ?? 'mg',
+    // 四时段剂量：早/午/晚/睡前；旧数据无 doseAmounts 时用 doseAmount 填充
+    doseAmounts: m.doseAmounts && typeof m.doseAmounts === 'object'
+      ? {
+          morning: m.doseAmounts.morning === undefined || m.doseAmounts.morning === null || !Number.isFinite(Number(m.doseAmounts.morning)) ? doseAmount : Number(m.doseAmounts.morning),
+          afternoon: m.doseAmounts.afternoon === undefined || m.doseAmounts.afternoon === null || !Number.isFinite(Number(m.doseAmounts.afternoon)) ? doseAmount : Number(m.doseAmounts.afternoon),
+          evening: m.doseAmounts.evening === undefined || m.doseAmounts.evening === null || !Number.isFinite(Number(m.doseAmounts.evening)) ? doseAmount : Number(m.doseAmounts.evening),
+          bedtime: m.doseAmounts.bedtime === undefined || m.doseAmounts.bedtime === null || !Number.isFinite(Number(m.doseAmounts.bedtime)) ? doseAmount : Number(m.doseAmounts.bedtime)
+        }
+      : { morning: doseAmount, afternoon: doseAmount, evening: doseAmount, bedtime: doseAmount },
+    // 已开封整板数
+    boardCount,
+    // 散装药数量（不足一板的药物），服用时优先扣减
+    loosePills,
     onsetMinHours: m.onsetMinHours ?? onset,
     onsetMaxHours: m.onsetMaxHours ?? onset,
     peakMinHours: m.peakMinHours ?? peak,
@@ -427,7 +519,9 @@ export const store = {
     const log = this.data.logs[idx];
     const med = this.data.meds.find(m => m.id === log.medicationId);
     if (med && patch.delta !== undefined) {
-      med.remainingPills = Math.max(0, med.remainingPills + (Number(patch.delta) - log.delta));
+      // 撤销旧扣减，再应用新扣减（delta 为负表示扣减）
+      applyStockDelta(med, -log.delta);
+      applyStockDelta(med, Number(patch.delta));
     }
     this.data.logs[idx] = { ...log, ...patch };
     this.data.logs.sort((a, b) => b.timestamp - b.timestamp);
@@ -442,7 +536,8 @@ export const store = {
     const log = this.data.logs[idx];
     const med = this.data.meds.find(m => m.id === log.medicationId);
     if (med) {
-      med.remainingPills = Math.max(0, med.remainingPills - log.delta);
+      // 删除日志 = 撤销该次扣减（delta 为负表示扣减，撤销即加回）
+      applyStockDelta(med, -log.delta);
     }
     this.data.logs.splice(idx, 1);
     if (med) recalcLogRemainingAfter(med.id);
@@ -453,8 +548,8 @@ export const store = {
   changeMedStock(medId, delta, note = '', timestamp = null) {
     const med = this.data.meds.find(m => m.id === medId);
     if (!med) return;
-    const remainingAfter = Math.max(0, med.remainingPills + delta);
-    med.remainingPills = remainingAfter;
+    applyStockDelta(med, delta);
+    const remainingAfter = calcTotalPills(med);
     this.addLog({
       medicationId: medId,
       name: med.name,
@@ -624,10 +719,18 @@ export function formatDate(ts) {
   return `${d.getFullYear()}-${pad(d.getMonth() + 1)}-${pad(d.getDate())}`;
 }
 
-export function formatQuantity(med) {
-  const boardUnit = med.unit === '片' ? 'unit.board' : 'unit.bottle';
-  const pillUnit = med.unit === '片' ? 'unit.tablet' : 'unit.pill';
-  return `${med.boxCount}${t('unit.box')}*${med.boardPerBox}${t(boardUnit)}*${med.pillsPerBoard}${t(pillUnit)}`;
+/**
+ * 根据库存模型计算"盒数/板数/散装"：
+ * - boxCount：未开封盒数；
+ * - boardCount：已开封整板数；
+ * - loosePills：散装药（不足一板，片）。
+ * 返回 { boxes, boards, loose }。
+ */
+export function calcRemainingBreakdown(med) {
+  const boxes = Math.max(0, Number(med.boxCount) || 0);
+  const boards = Math.max(0, Number(med.boardCount) || 0);
+  const loose = Math.max(0, Number(med.loosePills) || 0);
+  return { boxes, boards, loose };
 }
 
 export { generateId, nowHourFloor, nowMinute };

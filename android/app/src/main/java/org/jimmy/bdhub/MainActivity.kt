@@ -1,9 +1,12 @@
 package org.jimmy.bdhub
 
 import android.annotation.SuppressLint
+import android.app.NotificationChannel
+import android.app.NotificationManager
 import android.appwidget.AppWidgetManager
 import android.content.ComponentName
 import android.content.Intent
+import android.content.pm.PackageManager
 import android.net.Uri
 import android.os.Build
 import android.os.Bundle
@@ -21,6 +24,7 @@ import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
 import androidx.core.content.edit
+import androidx.core.content.getSystemService
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
 import androidx.webkit.WebViewAssetLoader
@@ -59,6 +63,13 @@ class MainActivity : AppCompatActivity() {
 
     companion object {
         const val EXTRA_FROM_WIDGET = "from_widget"
+    }
+
+    // Android 13+ 通知权限请求结果
+    private val notificationPermissionLauncher = registerForActivityResult(
+        ActivityResultContracts.RequestPermission()
+    ) { granted ->
+        // 用户授权后无需额外处理；拒绝时通知静默（在通知渠道仍存在）
     }
 
     private val createBackupLauncher = registerForActivityResult(
@@ -207,8 +218,38 @@ class MainActivity : AppCompatActivity() {
 
         webView.loadUrl("https://appassets.androidplatform.net/assets/web/index.html")
 
+        // 启动即创建通知渠道并请求通知权限，确保系统设置中能看到通知类型
+        createNotificationChannel()
+        requestNotificationPermission()
+
         if (intent?.getBooleanExtra(EXTRA_FROM_WIDGET, false) == true) {
             widgetRecordsReady = true
+        }
+    }
+
+    /** 创建服药提醒通知渠道（应用启动时注册，否则系统设置中不显示通知类型） */
+    private fun createNotificationChannel() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val manager = getSystemService<NotificationManager>() ?: return
+            val channel = NotificationChannel(
+                MedicationReminderReceiver.CHANNEL_ID,
+                "服药提醒",
+                NotificationManager.IMPORTANCE_HIGH
+            ).apply {
+                description = "到达设定的服药时间时提醒"
+                enableVibration(true)
+                vibrationPattern = longArrayOf(0, 500, 200, 500, 200, 500)
+            }
+            manager.createNotificationChannel(channel)
+        }
+    }
+
+    /** Android 13+ 请求通知权限（未授权时发起系统弹窗） */
+    private fun requestNotificationPermission() {
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+            if (checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) != PackageManager.PERMISSION_GRANTED) {
+                notificationPermissionLauncher.launch(android.Manifest.permission.POST_NOTIFICATIONS)
+            }
         }
     }
 
@@ -254,7 +295,8 @@ class MainActivity : AppCompatActivity() {
         settings.domStorageEnabled = true
         settings.allowFileAccess = true
         settings.allowContentAccess = true
-        settings.cacheMode = WebSettings.LOAD_DEFAULT
+        // 资源全部来自 assets（本地），无需网络缓存；禁用缓存避免旧版本损坏 JS 残留导致功能异常
+        settings.cacheMode = WebSettings.LOAD_NO_CACHE
         settings.useWideViewPort = true
         settings.loadWithOverviewMode = true
 
@@ -832,6 +874,45 @@ class MainActivity : AppCompatActivity() {
             }
         }
 
+        /**
+         * 更新全部服药提醒（全量替换）。
+         * 按时间点调度，同一时间点的所有药品合并到一个通知。
+         * 数据持久化到 SharedPreferences，应用关闭/重启后仍可触发。
+         * @param scheduleJson 调度数据 JSON：{ "08:00": ["碳酸锂 1片", "喹硫平 0.5片"], "20:00": [...] }
+         */
+        @JavascriptInterface
+        fun scheduleMedicationReminders(scheduleJson: String) {
+            // 先确保通知权限与渠道就绪，再调度（注意：inner class 内必须用 this@MainActivity 限定外层方法）
+            this@MainActivity.createNotificationChannel()
+            this@MainActivity.requestNotificationPermission()
+            MedicationReminderScheduler.updateSchedule(this@MainActivity, scheduleJson)
+        }
+
+        /** 取消所有服药提醒 */
+        @JavascriptInterface
+        fun cancelMedicationReminders() {
+            MedicationReminderScheduler.cancelAll(this@MainActivity)
+        }
+
+        /** Web 端请求通知权限（Android 13+ 弹系统授权框） */
+        @JavascriptInterface
+        fun requestNotificationPermission() {
+            runOnUiThread {
+                this@MainActivity.createNotificationChannel()
+                this@MainActivity.requestNotificationPermission()
+            }
+        }
+
+        /** 通知权限是否已授予 */
+        @JavascriptInterface
+        fun hasNotificationPermission(): Boolean {
+            return if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.TIRAMISU) {
+                checkSelfPermission(android.Manifest.permission.POST_NOTIFICATIONS) == PackageManager.PERMISSION_GRANTED
+            } else {
+                true
+            }
+        }
+
         @JavascriptInterface
         fun getSystemTheme() {
             runOnUiThread {
@@ -845,6 +926,33 @@ class MainActivity : AppCompatActivity() {
                     "if (window.__androidSystemThemeCallback) window.__androidSystemThemeCallback('$json');",
                     null
                 )
+            }
+        }
+
+        /** 精确闹钟权限是否可用（Android 13+ 恒为 true，Android 12 需用户在设置中授权） */
+        @JavascriptInterface
+        fun hasExactAlarmPermission(): Boolean {
+            return MedicationReminderScheduler.isExactAlarmGranted(this@MainActivity)
+        }
+
+        /** 跳转系统"闹钟和提醒"设置页授权精确闹钟（Android 12 需要） */
+        @JavascriptInterface
+        fun openExactAlarmSettings() {
+            runOnUiThread {
+                try {
+                    if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.S) {
+                        startActivity(
+                            Intent(
+                                android.provider.Settings.ACTION_REQUEST_SCHEDULE_EXACT_ALARM,
+                                Uri.parse("package:" + packageName)
+                            )
+                        )
+                    } else {
+                        Toast.makeText(this@MainActivity, "当前系统无需授权精确闹钟", Toast.LENGTH_SHORT).show()
+                    }
+                } catch (e: Exception) {
+                    Toast.makeText(this@MainActivity, "无法打开闹钟设置：${e.message}", Toast.LENGTH_LONG).show()
+                }
             }
         }
     }

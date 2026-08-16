@@ -70,6 +70,77 @@ const dosesFilterTags = document.getElementById('doses-filter-tags');
 
 let dosesSelectedTags = [];
 
+// 记录页快捷导航状态：点击编辑后显示"回到顶部"按钮，回到顶部后显示"回到编辑位置"按钮
+let lastEditTarget = null; // { offsetTop }：点击编辑时记录项的位置
+
+const quickNav = document.getElementById('records-quick-nav');
+const backTopBtn = document.getElementById('records-back-top');
+const backEditBtn = document.getElementById('records-back-edit');
+
+function recordsView() {
+  return document.getElementById('records-view');
+}
+
+function recordsListView() {
+  return document.getElementById('records-list');
+}
+
+/** 显示快捷导航组 */
+function showQuickNav() {
+  if (quickNav) quickNav.hidden = false;
+}
+
+/** 隐藏快捷导航组 */
+function hideQuickNav() {
+  if (quickNav) quickNav.hidden = true;
+}
+
+/** 记录点击编辑时记录项位置，供"回到编辑位置"使用；并显示"回到顶部"按钮 */
+function rememberEditPosition(itemEl) {
+  const view = recordsView();
+  if (!view || !itemEl) return;
+  const viewRect = view.getBoundingClientRect();
+  const itemRect = itemEl.getBoundingClientRect();
+  lastEditTarget = {
+    // 记录项相对记录页滚动容器的顶部偏移
+    offsetTop: itemRect.top - viewRect.top + view.scrollTop
+  };
+  showQuickNav();
+  if (backTopBtn) backTopBtn.hidden = false;
+  if (backEditBtn) backEditBtn.hidden = true;
+}
+
+/** 滚动到记录页顶部（表单区）；隐藏"回到顶部"，显示"回到编辑位置" */
+function scrollRecordsToTop() {
+  const view = recordsView();
+  if (view) {
+    view.scrollTo({ top: 0, behavior: 'smooth' });
+  }
+  if (backTopBtn) backTopBtn.hidden = true;
+  if (backEditBtn) backEditBtn.hidden = false;
+}
+
+/** 滚动回点击编辑时记录项所在位置；隐藏"回到编辑位置"按钮 */
+function scrollRecordsToEdit() {
+  if (!lastEditTarget) return;
+  const view = recordsView();
+  if (!view) return;
+  const target = lastEditTarget.offsetTop;
+  const maxTop = Math.max(0, view.scrollHeight - view.clientHeight);
+  view.scrollTo({ top: Math.min(target, maxTop), behavior: 'smooth' });
+  if (backEditBtn) backEditBtn.hidden = true;
+  if (backTopBtn) backTopBtn.hidden = true;
+  hideQuickNav();
+}
+
+/** 是否有正在编辑的记录（任一表单处于编辑态且可见） */
+function isEditingRecord() {
+  return (idInput && idInput.value !== '') ||
+    (medicationIdInput && medicationIdInput.value !== '') ||
+    (sleepIdInput && sleepIdInput.value !== '') ||
+    (eventIdInput && eventIdInput.value !== '');
+}
+
 function toDatetimeLocal(ts) {
   const d = new Date(ts);
   const pad = n => String(n).padStart(2, '0');
@@ -219,13 +290,39 @@ function editRecord(record) {
   switchForm('mood');
 }
 
-function renderDoses(selectedDoses = []) {
+/** 根据小时返回时段键：早/午/晚/睡前 */
+function getPeriodKey(hour) {
+  if (hour >= 5 && hour < 11) return 'morning';
+  if (hour >= 11 && hour < 17) return 'afternoon';
+  if (hour >= 17 && hour < 21) return 'evening';
+  return 'bedtime';
+}
+
+/** 读取药品四时段剂量，兼容旧数据（无 doseAmounts 时用 doseAmount 填充） */
+function getMedDoseAmounts(med) {
+  const fallback = Number(med.doseAmount) > 0 ? Number(med.doseAmount) : 1;
+  const da = med.doseAmounts && typeof med.doseAmounts === 'object' ? med.doseAmounts : {};
+  // 仅当字段缺失/非法时回退；0 表示该时段不服药，保持 0
+  const read = v => (v === undefined || v === null || !Number.isFinite(Number(v)) ? fallback : Number(v));
+  return {
+    morning: read(da.morning),
+    afternoon: read(da.afternoon),
+    evening: read(da.evening),
+    bedtime: read(da.bedtime)
+  };
+}
+
+function renderDoses(selectedDoses = [], periodKeyOverride = null) {
   medicationDosesList.innerHTML = '';
   if (store.data.meds.length === 0) {
     medicationDosesList.innerHTML = `<div class="doses-empty">${t('records.moodForm.noMeds')}</div>`;
     return;
   }
   const byId = Object.fromEntries(selectedDoses.map(d => [d.medicationId, d]));
+  // 记录时按当前时间自动填入对应时段剂量（编辑已有记录时不自动填）
+  const autoFill = selectedDoses.length === 0;
+  // 时段：优先用调用方指定（简化模式时段切换/时间变化），否则按当前时间
+  const periodKey = periodKeyOverride || getPeriodKey(new Date().getHours());
   let meds = store.data.meds;
   if (dosesSelectedTags.length) {
     meds = meds.filter(med => {
@@ -236,12 +333,18 @@ function renderDoses(selectedDoses = []) {
   }
   meds.forEach(med => {
     const existing = byId[med.id];
+    const da = getMedDoseAmounts(med);
+    // 自动填写：取当前时段剂量；该时段为 0（该时段不服药）则默认不勾选，填入 0 供手动修改
+    const autoAmount = da[periodKey] > 0 ? da[periodKey] : 0;
+    const amount = existing ? existing.amount : (autoFill ? autoAmount : 1);
+    const autoChecked = autoFill && autoAmount > 0;
+    const checked = existing ? true : autoChecked;
     const row = document.createElement('label');
     row.className = 'dose-row';
     row.innerHTML = `
-      <input type="checkbox" class="dose-check" data-id="${med.id}" ${existing ? 'checked' : ''}>
+      <input type="checkbox" class="dose-check" data-id="${med.id}" ${checked ? 'checked' : ''}>
       <span class="dose-name">${med.name}</span>
-      <input type="number" class="dose-amount" data-id="${med.id}" min="0.1" step="0.01" value="${existing ? existing.amount : 1}" ${existing ? '' : 'disabled'}>
+      <input type="number" class="dose-amount" data-id="${med.id}" min="0.1" step="0.01" value="${amount}" ${checked ? '' : 'disabled'}>
       <span class="dose-unit">${med.unit}</span>
     `;
     medicationDosesList.appendChild(row);
@@ -312,6 +415,7 @@ function collectDoses() {
     if (!check || !check.checked) return;
     const med = store.data.meds.find(m => m.id === check.dataset.id);
     if (!med) return;
+    const da = getMedDoseAmounts(med);
     doses.push({
       medicationId: med.id,
       name: med.name,
@@ -319,6 +423,7 @@ function collectDoses() {
       unit: med.unit,
       dosePerTablet: med.dosePerTablet ?? 1,
       doseMassUnit: med.doseMassUnit ?? 'mg',
+      doseAmounts: da,
       onsetMinHours: med.onsetMinHours ?? med.onsetHours ?? 1,
       onsetMaxHours: med.onsetMaxHours ?? med.onsetHours ?? 1,
       peakMinHours: med.peakMinHours ?? med.peakHours ?? 2,
@@ -846,6 +951,22 @@ function initRecords() {
     if (!btn) return;
     medicationPeriodGroup.querySelectorAll('.segment-btn').forEach(b => b.classList.remove('active'));
     btn.classList.add('active');
+    // 简化模式：切换时段后按所选时段重新自动填写剂量
+    if (!medicationIdInput.value) {
+      const periodMap = { morning: 'morning', afternoon: 'afternoon', evening: 'evening' };
+      const periodKey = periodMap[btn.dataset.period] || getPeriodKey(new Date().getHours());
+      renderDoses([], periodKey);
+    }
+  });
+
+  // 时间变化时按新时间所在时段重新自动填写剂量
+  medicationTimeInput?.addEventListener('change', () => {
+    if (!medicationIdInput.value && medicationTimeInput.value) {
+      const ts = new Date(medicationTimeInput.value).getTime();
+      if (!Number.isNaN(ts)) {
+        renderDoses([], getPeriodKey(new Date(ts).getHours()));
+      }
+    }
   });
 
   medicationCancelBtn?.addEventListener('click', resetMedicationForm);
@@ -880,11 +1001,38 @@ function initRecords() {
     });
   });
 
-  window.addEventListener('hashchange', () => {
-    if (location.hash.slice(1) === 'records') {
+  function handleViewChange(isRecords) {
+    if (isRecords) {
       refreshCurrentTimes();
+      // 每次进入记录页默认回到顶部，并隐藏快捷导航
+      const view = recordsView();
+      if (view) view.scrollTop = 0;
+      hideQuickNav();
+      // 若仍有正在编辑的记录（表单处于编辑态），滚动到编辑表单，保持编辑状态
+      // 防止切换页面后误触丢失正在编辑的内容；编辑表单本身不重置（DOM 保留值）
+      if (isEditingRecord()) {
+        const recordFormCard = document.querySelector('.record-form-card');
+        if (recordFormCard && view) {
+          recordFormCard.scrollIntoView({ behavior: 'smooth', block: 'start' });
+        }
+      }
+    } else {
+      // 离开记录页时隐藏快捷导航
+      hideQuickNav();
     }
+  }
+
+  window.addEventListener('hashchange', () => {
+    handleViewChange(location.hash.slice(1) === 'records');
   });
+  // bottom-nav 点击走 setActiveView（不改变 hash），需额外监听 viewchange 事件
+  window.addEventListener('viewchange', e => {
+    handleViewChange(e.detail && e.detail.name === 'records');
+  });
+
+  // 快捷导航：回到顶部 / 回到编辑位置
+  backTopBtn?.addEventListener('click', scrollRecordsToTop);
+  backEditBtn?.addEventListener('click', scrollRecordsToEdit);
 
   recordsSearchInput?.addEventListener('input', () => renderRecords());
   recordsPeriodFilter?.addEventListener('change', () => {
@@ -901,12 +1049,17 @@ function initRecords() {
     const id = btn.dataset.id;
     const action = btn.dataset.action;
     const itemEl = btn.closest('.record-item');
+    // 防御：记录项可能在点击瞬间被重渲染移除，找不到时直接忽略，
+    // 避免整个列表的编辑/删除委托因异常而瘫痪
+    if (!itemEl) return;
     const kind = itemEl.dataset.kind;
+    if (!kind) return;
 
     if (kind === 'mood') {
       const record = store.data.records.find(r => r.id === id);
       if (!record) return;
       if (action === 'edit') {
+        rememberEditPosition(itemEl);
         editRecord(record);
       } else if (action === 'delete') {
         if (await showConfirm(t('records.confirm.deleteMood'))) {
@@ -917,6 +1070,7 @@ function initRecords() {
       const record = store.data.records.find(r => r.id === id);
       if (!record) return;
       if (action === 'edit') {
+        rememberEditPosition(itemEl);
         editMedicationRecord(record);
       } else if (action === 'delete') {
         if (await showConfirm(t('records.confirm.deleteMedication'))) {
@@ -928,6 +1082,7 @@ function initRecords() {
       const sleep = store.data.sleeps.find(s => s.id === id);
       if (!sleep) return;
       if (action === 'edit') {
+        rememberEditPosition(itemEl);
         editSleep(sleep);
       } else if (action === 'delete') {
         if (await showConfirm(t('records.confirm.deleteSleep'))) {
@@ -938,6 +1093,7 @@ function initRecords() {
       const event = store.data.events.find(ev => ev.id === id);
       if (!event) return;
       if (action === 'edit') {
+        rememberEditPosition(itemEl);
         editEvent(event);
       } else if (action === 'delete') {
         if (await showConfirm(t('records.confirm.deleteEvent'))) {
@@ -947,8 +1103,12 @@ function initRecords() {
     }
   });
 
-  store.subscribe(() => renderRecords());
-  subscribe(() => renderRecords());
+  store.subscribe(() => {
+    renderRecords();
+  });
+  subscribe(() => {
+    renderRecords();
+  });
   subscribeTheme(() => {
     applySimpleModeUI();
     renderRecords();

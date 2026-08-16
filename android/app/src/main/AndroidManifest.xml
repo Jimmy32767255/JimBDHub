@@ -2,8 +2,15 @@
 <manifest xmlns:android="http://schemas.android.com/apk/res/android"
     package="org.jimmy.bdhub">
 
+    <uses-permission android:name="android.permission.INTERNET" />
     <uses-permission android:name="android.permission.RECEIVE_BOOT_COMPLETED" />
     <uses-permission android:name="com.android.alarm.permission.SET_ALARM" />
+    <uses-permission android:name="android.permission.VIBRATE" />
+    <uses-permission android:name="android.permission.POST_NOTIFICATIONS" />
+    <!-- Android 12+: 精确闹钟权限（闹钟类应用） -->
+    <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM" />
+    <!-- Android 13+: 闹钟类应用免授权的精确闹钟权限 -->
+    <uses-permission android:name="android.permission.USE_EXACT_ALARM" />
 
     <application
         android:allowBackup="true"
@@ -43,6 +50,18 @@
             android:exported="false">
             <intent-filter>
                 <action android:name="org.jimmy.bdhub.action.WIDGET_SLEEP_CLICK" />
+            </intent-filter>
+        </receiver>
+
+        <receiver
+            android:name=".MedicationReminderReceiver"
+            android:exported="false">
+            <intent-filter>
+                <action android:name="org.jimmy.bdhub.action.MEDICATION_REMIND" />
+            </intent-filter>
+            <intent-filter>
+                <action android:name="android.intent.action.BOOT_COMPLETED" />
+                <action android:name="android.intent.action.MY_PACKAGE_REPLACED" />
             </intent-filter>
         </receiver>
     </application>
