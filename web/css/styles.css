@@ -883,7 +883,8 @@ body {
 
 #language-select,
 #ui-scale-select,
-#edge-margin-select {
+#edge-margin-select,
+#update-channel-select {
   appearance: none;
   -webkit-appearance: none;
   display: inline-block;
@@ -900,7 +901,8 @@ body {
 }
 #language-select:focus,
 #ui-scale-select:focus,
-#edge-margin-select:focus {
+#edge-margin-select:focus,
+#update-channel-select:focus {
   border-color: var(--theme-accent);
 }
 
