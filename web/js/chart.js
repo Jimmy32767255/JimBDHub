@@ -1361,13 +1361,13 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       if (ex < PADDING.left || ex > width - PADDING.right) return;
       const line = createSVGElement('line', {
         x1: ex, y1: PADDING.top, x2: ex, y2: height - PADDING.bottom,
-        stroke: colors.accent, 'stroke-width': 2, class: 'event-line', 'data-event-id': ev.id
+        stroke: ev.color || colors.accent, 'stroke-width': 2, class: 'event-line', 'data-event-id': ev.id
       });
       line.style.pointerEvents = 'none';
       container.appendChild(line);
 
       const dot = createSVGElement('circle', {
-        cx: ex, cy: PADDING.top, r: 4, fill: colors.accent, class: 'event-dot', 'data-event-id': ev.id
+        cx: ex, cy: PADDING.top, r: 4, fill: ev.color || colors.accent, class: 'event-dot', 'data-event-id': ev.id
       });
       dot.style.pointerEvents = 'auto';
       dot.style.cursor = 'pointer';
@@ -1557,7 +1557,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
     // 事件信息
     if (showEventDetail) {
-      content += `<div style="color:${colors.accent}; font-weight:600;">${t('chart.tooltip.event')}: ${nearestEvent.title}</div>`;
+      content += `<div style="color:${nearestEvent.color || colors.accent}; font-weight:600;">${t('chart.tooltip.event')}: ${nearestEvent.title}</div>`;
       if (nearestEvent.showElapsedTime) {
         const diff = Date.now() - nearestEvent.timestamp;
         const suffix = diff >= 0 ? 'past' : 'future';

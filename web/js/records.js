@@ -57,6 +57,9 @@ const eventTimeInput = document.getElementById('event-time');
 const eventTitleInput = document.getElementById('event-title');
 const eventNoteInput = document.getElementById('event-note');
 const eventShowElapsedInput = document.getElementById('event-show-elapsed');
+const eventColorEnabledInput = document.getElementById('event-color-enabled');
+const eventColorInput = document.getElementById('event-color');
+const eventColorRow = document.getElementById('event-color-row');
 const eventAddReminderBtn = document.getElementById('event-add-reminder-btn');
 const eventCancelBtn = document.getElementById('event-cancel');
 
@@ -715,6 +718,9 @@ function resetEventForm() {
   eventTitleInput.value = '';
   eventNoteInput.value = '';
   eventShowElapsedInput.checked = false;
+  eventColorEnabledInput.checked = false;
+  eventColorRow.hidden = true;
+  eventColorInput.value = getTheme().accentColor;
 }
 
 function editEvent(event) {
@@ -723,6 +729,10 @@ function editEvent(event) {
   eventTitleInput.value = event.title || '';
   eventNoteInput.value = event.note || '';
   eventShowElapsedInput.checked = event.showElapsedTime === true;
+  const hasColor = !!event.color;
+  eventColorEnabledInput.checked = hasColor;
+  eventColorRow.hidden = !hasColor;
+  eventColorInput.value = event.color || getTheme().accentColor;
   switchForm('event');
 }
 
@@ -865,6 +875,11 @@ function initRecords() {
 
   eventCancelBtn.addEventListener('click', resetEventForm);
   eventForm.addEventListener('submit', handleEventSubmit);
+  eventColorEnabledInput?.addEventListener('change', () => {
+    const enabled = eventColorEnabledInput.checked;
+    eventColorRow.hidden = !enabled;
+    if (enabled && !eventColorInput.value) eventColorInput.value = getTheme().accentColor;
+  });
   eventAddReminderBtn?.addEventListener('click', async () => {
     const timestamp = new Date(eventTimeInput.value).getTime();
     const title = eventTitleInput.value.trim();
@@ -966,7 +981,8 @@ async function handleEventSubmit(e) {
     timestamp,
     title: eventTitleInput.value.trim(),
     note: eventNoteInput.value.trim(),
-    showElapsedTime: eventShowElapsedInput.checked
+    showElapsedTime: eventShowElapsedInput.checked,
+    color: eventColorEnabledInput.checked ? eventColorInput.value : ''
   };
   if (eventIdInput.value) {
     store.updateEvent(eventIdInput.value, payload);

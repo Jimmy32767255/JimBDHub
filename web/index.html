@@ -310,6 +310,18 @@
                   <span data-i18n="records.eventForm.showElapsed">显示距离现在的时间</span>
                 </label>
               </div>
+              <div class="form-row">
+                <label class="form-field checkbox-field">
+                  <input type="checkbox" id="event-color-enabled">
+                  <span data-i18n="records.eventForm.customColor">自定义事件颜色</span>
+                </label>
+              </div>
+              <div class="form-row" id="event-color-row" hidden>
+                <label class="form-field color-field">
+                  <span class="form-label" data-i18n="records.eventForm.color">标记颜色</span>
+                  <input type="color" id="event-color" value="#ef4444">
+                </label>
+              </div>
               <div class="form-actions">
                 <button type="button" class="btn btn-ghost" id="event-cancel" data-i18n="common.cancel">取消</button>
                 <button type="button" class="btn btn-secondary" id="event-add-reminder-btn" data-i18n="records.eventForm.addReminder">添加到系统日程</button>

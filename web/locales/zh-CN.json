@@ -149,6 +149,8 @@
   "records.eventForm.titlePlaceholder": "如：复诊、换药、重要谈话",
   "records.eventForm.note": "详情",
   "records.eventForm.showElapsed": "显示距离现在的时间",
+  "records.eventForm.customColor": "自定义事件颜色",
+  "records.eventForm.color": "标记颜色",
   "records.eventForm.addReminder": "添加到系统日程",
   "records.eventForm.save": "保存事件",
   "records.history.title": "历史记录",

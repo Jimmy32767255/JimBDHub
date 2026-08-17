@@ -149,6 +149,8 @@
   "records.eventForm.titlePlaceholder": "e.g. follow-up, med change, important talk",
   "records.eventForm.note": "Details",
   "records.eventForm.showElapsed": "Show elapsed time",
+  "records.eventForm.customColor": "Custom event color",
+  "records.eventForm.color": "Marker color",
   "records.eventForm.addReminder": "Add to system calendar",
   "records.eventForm.save": "Save event",
   "records.history.title": "History",
