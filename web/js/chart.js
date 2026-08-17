@@ -270,7 +270,7 @@ export function renderChart(records, container, tooltip) {
     const y = yFor(v);
     const line = createSVGElement('line', {
       x1: PADDING.left, y1: y, x2: width - PADDING.right, y2: y,
-      stroke: v === 0 ? colors.neutral : theme.surface2Color,
+      stroke: v === 0 ? colors.neutral : theme.neutralColor,
       'stroke-width': v === 0 ? 1.5 : 1,
       'stroke-dasharray': v === 0 ? '' : '4 4'
     });
@@ -295,14 +295,17 @@ export function renderChart(records, container, tooltip) {
 
   for (let ts = startTs; ts <= endTs; ts += timeStepHours * HOUR_MS) {
     const x = xFor(ts);
+    const isMidnight = new Date(ts).getHours() === 0;
     const gridLine = createSVGElement('line', {
       x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
-      stroke: `rgba(${hexToRgb(theme.surface2Color)}, 0.5)`, 'stroke-width': 1, 'stroke-dasharray': '3 3'
+      stroke: isMidnight ? `rgba(${hexToRgb(colors.accent)}, 0.6)` : `rgba(${hexToRgb(theme.neutralColor)}, 0.5)`,
+      'stroke-width': isMidnight ? 1.5 : 1,
+      'stroke-dasharray': isMidnight ? '2 6' : '3 3'
     });
     timeAxisGroup.appendChild(gridLine);
     const label = createSVGElement('text', {
       x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
-      fill: colors.textMuted, 'font-size': '10'
+      fill: isMidnight ? colors.accent : colors.textMuted, 'font-size': '10'
     });
     label.textContent = formatAxisTime(ts, displaySpanHours, timeStepHours);
     timeAxisGroup.appendChild(label);
@@ -888,7 +891,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     const y = yMoodFor(v);
     const line = createSVGElement('line', {
       x1: PADDING.left, y1: y, x2: width - PADDING.right, y2: y,
-      stroke: v === 0 ? colors.neutral : theme.surface2Color,
+      stroke: v === 0 ? colors.neutral : theme.neutralColor,
       'stroke-width': v === 0 ? 1.5 : 1,
       'stroke-dasharray': v === 0 ? '' : '4 4'
     });
@@ -943,30 +946,8 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       };
     }).filter(s => s.visible);
 
-    // 右侧简化比例尺：每种药独立一根小横线，使用药品颜色，绘制在右侧 overlay 上跟随滚动
-    const axisYTop = PADDING.top;
-    const axisYBottom = height - PADDING.bottom;
-    const axisBarWidth = Math.max(6, Math.floor(PADDING.right / Math.max(series.length, 1)));
-    const effectScaleLabels = [];
-    series.forEach((s, seriesIdx) => {
-      const offsetX = seriesIdx * axisBarWidth;
-      const tickX = offsetX + axisBarWidth / 2;
-      const tickCount = 4;
-      const step = s.yMax / tickCount;
-      for (let i = 0; i <= tickCount; i++) {
-        const value = i * step;
-        const y = s.yEffectFor(value);
-        if (y < axisYTop || y > axisYBottom) continue;
-        effectScaleLabels.push({ value: String(Math.round(value * 10) / 10), y, color: s.color, x: tickX, isTick: true });
-      }
-      // 可交互的轴线，悬停/长按显示该药品剂量
-      effectScaleLabels.push({
-        value: '', y: 0, color: 'transparent', x: tickX,
-        isBar: true, barY: axisYTop, barHeight: axisYBottom - axisYTop,
-        barWidth: axisBarWidth, medIdx: seriesIdx, barColor: s.color
-      });
-    });
-    renderYAxisOverlay(wrap, 'right', effectScaleLabels, colors.textMuted, height);
+    // 右侧简化比例尺已移除：各药物浓度刻度在手机上过于密集，影响观察主图表。
+    // 药物浓度信息仍可通过图例、药效区间曲线与数据悬浮提示查看。
 
     // 绘制药效区间（最高/最低两条曲线）
     series.forEach(s => {
@@ -1020,42 +1001,8 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       }
     });
 
-    // 为右侧简化比例尺添加悬停/长按 tooltip
-    const effectAxisBars = wrap.querySelectorAll('.y-axis-overlay.right .effect-axis-bar');
-    const showEffectAxisTooltip = (bar, clientX, clientY) => {
-      const idx = Number(bar.getAttribute('data-med-idx'));
-      const s = series[idx];
-      if (!s) return;
-      const unit = s.doseMassUnit || 'mg';
-      const label = t('chart.effectAxisTooltip', { name: s.name, max: s.yMax.toFixed(2), unit });
-      tooltip.innerHTML = `<div style="color:${s.color}; font-weight:600;">${label}</div>`;
-      tooltip.classList.add('visible');
-      tooltip.style.position = 'fixed';
-      const tRect = tooltip.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      let left = clientX + 12;
-      let top = clientY - tRect.height - 12;
-      if (left + tRect.width + 12 > vw) left = clientX - tRect.width - 12;
-      if (left < 8) left = 8;
-      if (top < 8) top = clientY + 12;
-      if (top + tRect.height + 8 > vh) top = vh - tRect.height - 8;
-      tooltip.style.left = `${left}px`;
-      tooltip.style.top = `${top}px`;
-    };
-    const hideEffectAxisTooltip = () => {
-      tooltip.classList.remove('visible');
-    };
-    effectAxisBars.forEach(bar => {
-      bar.addEventListener('mouseenter', e => showEffectAxisTooltip(bar, e.clientX, e.clientY));
-      bar.addEventListener('mousemove', e => showEffectAxisTooltip(bar, e.clientX, e.clientY));
-      bar.addEventListener('mouseleave', hideEffectAxisTooltip);
-      bar.addEventListener('touchstart', e => {
-        const touch = e.touches[0];
-        showEffectAxisTooltip(bar, touch.clientX, touch.clientY);
-      }, { passive: true });
-      bar.addEventListener('touchend', hideEffectAxisTooltip, { passive: true });
-    });
+    // 右侧简化比例尺已移除，对应的 tooltip 事件绑定一并移除
+
   }
 
   // 时间轴
@@ -1074,14 +1021,17 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
   for (let ts = startTs; ts <= endTs; ts += timeStepHours * HOUR_MS) {
     const x = xFor(ts);
+    const isMidnight = new Date(ts).getHours() === 0;
     const gridLine = createSVGElement('line', {
       x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
-      stroke: `rgba(${hexToRgb(theme.surface2Color)}, 0.5)`, 'stroke-width': 1, 'stroke-dasharray': '3 3'
+      stroke: isMidnight ? `rgba(${hexToRgb(colors.accent)}, 0.6)` : `rgba(${hexToRgb(theme.neutralColor)}, 0.5)`,
+      'stroke-width': isMidnight ? 1.5 : 1,
+      'stroke-dasharray': isMidnight ? '2 6' : '3 3'
     });
     timeAxisGroup.appendChild(gridLine);
     const label = createSVGElement('text', {
       x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
-      fill: colors.textMuted, 'font-size': '10'
+      fill: isMidnight ? colors.accent : colors.textMuted, 'font-size': '10'
     });
     label.textContent = formatAxisTime(ts, displaySpanHours, timeStepHours);
     timeAxisGroup.appendChild(label);
@@ -1854,7 +1804,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
     const y = yFor(v);
     const line = createSVGElement('line', {
       x1: PADDING.left, y1: y, x2: width - PADDING.right, y2: y,
-      stroke: v === 0 ? theme.neutralColor : theme.surface2Color,
+      stroke: theme.neutralColor,
       'stroke-width': v === 0 ? 1.5 : 1,
       'stroke-dasharray': v === 0 ? '' : '4 4'
     });
@@ -1879,14 +1829,17 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
 
   for (let ts = startTs; ts <= endTs; ts += timeStepHours * HOUR_MS) {
     const x = xFor(ts);
+    const isMidnight = new Date(ts).getHours() === 0;
     const gridLine = createSVGElement('line', {
       x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
-      stroke: `rgba(${hexToRgb(theme.surface2Color)}, 0.5)`, 'stroke-width': 1, 'stroke-dasharray': '3 3'
+      stroke: isMidnight ? `rgba(${hexToRgb(theme.accentColor)}, 0.6)` : `rgba(${hexToRgb(theme.neutralColor)}, 0.5)`,
+      'stroke-width': isMidnight ? 1.5 : 1,
+      'stroke-dasharray': isMidnight ? '2 6' : '3 3'
     });
     timeAxisGroup.appendChild(gridLine);
     const label = createSVGElement('text', {
       x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
-      fill: textMuted, 'font-size': '10'
+      fill: isMidnight ? theme.accentColor : textMuted, 'font-size': '10'
     });
     label.textContent = formatAxisTime(ts, displaySpanHours, timeStepHours);
     timeAxisGroup.appendChild(label);
