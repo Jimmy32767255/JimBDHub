@@ -62,7 +62,10 @@
         <div class="card chart-card combined-chart-card">
           <div class="card-header">
             <h3 data-i18n="chart.combinedTitle">综合曲线</h3>
-            <div class="chart-legend" id="combined-legend"></div>
+            <div class="chart-header-side">
+              <span class="sampling-rate" id="chart-sampling-rate" hidden></span>
+              <div class="chart-legend" id="combined-legend"></div>
+            </div>
           </div>
           <div class="chart-toolbar">
             <div class="page-controls hidden" id="page-controls">
@@ -416,6 +419,7 @@
                 </label>
               </div>
             </div>
+            <p class="sampling-rate records-sampling-rate" id="history-sampling-rate" hidden></p>
             <p class="records-limit-hint" id="records-limit-hint" hidden></p>
             <div class="records-list" id="records-list"></div>
           </div>

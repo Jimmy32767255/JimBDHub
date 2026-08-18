@@ -1,4 +1,4 @@
-import { store, formatDateTime, formatDuration, nowMinute, getMaxLoadedRecords } from './store.js';
+import { store, formatDateTime, formatDuration, nowMinute, getMaxLoadedRecords, updateSamplingRate } from './store.js';
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { platform } from './platform.js';
@@ -483,6 +483,9 @@ function renderRecords() {
   }
 
   let all = [...moodItems, ...medicationItems, ...sleepItems, ...eventItems].sort((a, b) => b.time - a.time);
+
+  // 采样率：当前筛选范围内情绪记录的平均每日数据点数（Dp/d）
+  updateSamplingRate(document.getElementById('history-sampling-rate'), moodItems.map(i => i.data));
 
   if (searchQuery) {
     all = all.filter(item => itemText(item).includes(searchQuery));

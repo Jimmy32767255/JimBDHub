@@ -298,6 +298,22 @@ body {
   overflow-wrap: break-word;
   word-break: break-word;
 }
+.chart-header-side {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  gap: 8px 16px;
+  min-width: 0;
+}
+.sampling-rate {
+  margin: 0;
+  font-size: 12px;
+  color: var(--theme-text-muted);
+  font-variant-numeric: tabular-nums;
+}
+.records-sampling-rate {
+  margin: 10px 16px 0;
+}
 .dot { width: 8px; height: 8px; border-radius: 50%; }
 .dot.red { background: var(--theme-positive); }
 .dot.blue { background: var(--theme-negative); }

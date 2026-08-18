@@ -65,6 +65,8 @@
   "chart.title": "Mood fluctuations",
   "chart.effectTitle": "Medication effects",
   "chart.combinedTitle": "Combined chart",
+  "samplingRate.label": "Avg {value} Dp/d",
+  "samplingRate.full": "Data points per day",
   "chart.showMood": "Mood",
   "chart.showEffect": "Effect",
   "chart.showSleep": "Sleep",

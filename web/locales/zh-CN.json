@@ -65,6 +65,8 @@
   "chart.title": "情绪波动",
   "chart.effectTitle": "药效曲线",
   "chart.combinedTitle": "综合曲线",
+  "samplingRate.label": "平均 {value} 数据点/日",
+  "samplingRate.full": "",
   "chart.showMood": "情绪",
   "chart.showEffect": "药效",
   "chart.showSleep": "睡眠",

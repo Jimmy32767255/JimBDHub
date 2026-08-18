@@ -1,4 +1,4 @@
-import { store, getMaxLoadedRecords } from './store.js';
+import { store, getMaxLoadedRecords, updateSamplingRate } from './store.js';
 import { renderCombinedChart, MAX_MOOD_RANGE_MS, getEffectiveDoses, effectEndTime, EFFECT_VISIBLE_THRESHOLD } from './chart.js';
 import { initMeds, predictDepletion } from './meds.js';
 import { initRecords } from './records.js';
@@ -345,6 +345,9 @@ function drawChart() {
 
   // 过滤当前页数据
   const pageData = filterDataForPage(records, sleeps, events, currentPage, globalRange);
+
+  // 采样率：当前页情绪记录的平均每日数据点数（Dp/d）
+  updateSamplingRate(document.getElementById('chart-sampling-rate'), pageData.records);
 
   // 单页记录数上限（每页独立）：仅当该页数据过多时截取该页最近部分，不影响其他页
   const chartLimitHint = document.getElementById('chart-limit-hint');

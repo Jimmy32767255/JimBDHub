@@ -630,4 +630,29 @@ export function formatQuantity(med) {
   return `${med.boxCount}${t('unit.box')}*${med.boardPerBox}${t(boardUnit)}*${med.pillsPerBoard}${t(pillUnit)}`;
 }
 
+// 采样率：仅统计情绪记录（mood），即"平均每日数据点数"（Dp/d）。
+// 时间跨度取首条与末条记录之间的天数，避免除以 0。
+function computeSamplingRate(records) {
+  const moodRecords = (records || []).filter(r => r.type !== 'medication');
+  if (moodRecords.length === 0) return null;
+  const spanDays = Math.max(1, (moodRecords[moodRecords.length - 1].timestamp - moodRecords[0].timestamp) / DAY_MS);
+  return moodRecords.length / spanDays;
+}
+
+function formatSamplingRate(rate) {
+  return rate < 0.01 ? rate.toFixed(3) : rate.toFixed(2);
+}
+
+// 更新采样率显示元素；无情绪记录时隐藏。
+export function updateSamplingRate(el, records) {
+  if (!el) return;
+  const rate = computeSamplingRate(records);
+  el.hidden = rate === null;
+  if (rate === null) return;
+  el.textContent = t('samplingRate.label', { value: formatSamplingRate(rate) });
+  const full = t('samplingRate.full');
+  if (full) el.title = full;
+  else el.removeAttribute('title');
+}
+
 export { generateId, nowHourFloor, nowMinute };
