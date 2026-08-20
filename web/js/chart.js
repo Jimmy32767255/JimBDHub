@@ -1539,11 +1539,27 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       g.doses.forEach(d => doseMarkerMap.set(d, color));
     });
 
+    // 同一时刻服用多种药时，各药记录点垂直向下排开，避免相互遮挡
+    const MARKER_STEP = 9;
+    const markerStacks = new Map(); // timestamp -> { medKey: row }
     actualDoses.forEach(d => {
       const dx = xFor(d.timestamp);
       if (dx < PADDING.left || dx > width - PADDING.right) return;
       const color = doseMarkerMap.get(d) || medColor(0);
-      const markerY = PADDING.top + 10;
+      const medKey = d.medicationId || d.name;
+
+      let stack = markerStacks.get(d.timestamp);
+      if (!stack) {
+        stack = new Map();
+        markerStacks.set(d.timestamp, stack);
+      }
+      let row = stack.get(medKey);
+      if (row === undefined) {
+        row = stack.size;
+        stack.set(medKey, row);
+      }
+
+      const markerY = PADDING.top + 10 + row * MARKER_STEP;
       const size = 4;
       // 使用菱形标记
       const diamond = createSVGElement('polygon', {
@@ -1650,14 +1666,21 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     });
     const showEventDetail = nearestEvent && (cursorX === null || nearestEventPxDist <= NEAR_THRESHOLD_PX);
 
-    // 附近的服药记录点
+    // 附近的服药记录点（同一时刻服用多种药时全部列出）
+    let nearestDoses = [];
     let nearestDose = null;
     let nearestDosePxDist = Infinity;
     actualDoses.forEach(d => {
       const dist = Math.abs(xFor(d.timestamp) - xFor(ts));
       if (dist < nearestDosePxDist) { nearestDosePxDist = dist; nearestDose = d; }
+      if (cursorX === null) {
+        // 悬停情绪数据点时，列出该时刻（同一记录）服用的所有药
+        if (d.timestamp === ts) nearestDoses.push(d);
+      } else if (dist <= NEAR_THRESHOLD_PX) {
+        nearestDoses.push(d);
+      }
     });
-    const showDoseDetail = hasEffectData && nearestDose && (cursorX === null || nearestDosePxDist <= NEAR_THRESHOLD_PX);
+    const showDoseDetail = hasEffectData && nearestDoses.length > 0;
 
     // 仅当光标与情绪数据点足够接近时才显示情绪详情，并吸附到该点
     const snapToPoint = hasMoodData && nearest && (cursorX === null || nearestPxDist <= NEAR_THRESHOLD_PX);
@@ -1692,9 +1715,21 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
 
     // 服药记录点信息
     if (showDoseDetail) {
-      const color = doseMarkerMap.get(nearestDose) || medColor(0);
-      content += `<div style="color:${color}; font-weight:600;">${t('chart.tooltip.dose')}: ${nearestDose.name} ${nearestDose.amount}${nearestDose.unit}</div>`;
-      if (nearestDose.note) content += `<div class="note">${nearestDose.note}</div>`;
+      // 按药物汇总，每种药显示各自的颜色与摄入量
+      const medTotals = new Map();
+      nearestDoses.forEach(d => {
+        const key = d.medicationId || d.name;
+        if (!medTotals.has(key)) {
+          medTotals.set(key, { name: d.name, color: doseMarkerMap.get(d) || medColor(0), amount: 0, unit: d.unit });
+        }
+        medTotals.get(key).amount += Number(d.amount) || 0;
+      });
+      content += `<div style="font-weight:600;">${t('chart.tooltip.dose')}:</div>`;
+      medTotals.forEach(mt => {
+        content += `<div style="color:${mt.color}; padding-left: 10px;">${mt.name} ${mt.amount}${mt.unit}</div>`;
+      });
+      const doseNote = nearestDoses.find(d => d.note);
+      if (doseNote) content += `<div class="note">${doseNote.note}</div>`;
     }
 
     // 情绪信息
