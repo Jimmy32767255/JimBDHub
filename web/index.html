@@ -679,6 +679,11 @@
               <small class="form-hint" data-i18n="settings.meds.autoLogHint">开启后，到达药品设定的每日服药时间将自动按每次剂量生成服药记录并扣减库存</small>
             </div>
             <div class="setting-group">
+              <h4 data-i18n="settings.meds.bodyWeight">体重</h4>
+              <label for="body-weight-kg"></label><input type="number" id="body-weight-kg" min="20" max="300" step="0.5" class="form-field" style="max-width: 100px">
+              <small class="form-hint" data-i18n="settings.meds.bodyWeightHint">用于按个体体重换算分布容积，使血药浓度曲线与治疗窗更准确（默认 70 kg）</small>
+            </div>
+            <div class="setting-group">
               <h4 data-i18n="settings.meds.depletionReminderDays">耗尽提醒提前天数</h4>
               <label for="depletion-reminder-days"></label><input type="number" id="depletion-reminder-days" min="0" max="30" step="1" class="form-field" style="max-width: 100px">
               <small class="form-hint" data-i18n="settings.meds.depletionReminderDaysHint">在聚合视图中，药品耗尽点前多少天开始显示虚线预警提示</small>
@@ -909,6 +914,23 @@
             <label class="form-field"><span class="form-label" data-i18n="meds.form.halfLifeHours">半衰期范围（小时）</span>
               <div class="range-inputs"><input type="number" id="med-half-life-min" min="0.1" step="0.01" required><span>~</span><input type="number" id="med-half-life-max" min="0.1" step="0.01" required></div>
             </label>
+          </div>
+          <div class="form-row two-col">
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.therapeuticWindow">治疗窗（血药浓度范围，可留空）</span>
+              <div class="range-inputs"><input type="number" id="med-therapeutic-min" min="0" step="0.01" placeholder="下限"><span>~</span><input type="number" id="med-therapeutic-max" min="0" step="0.01" placeholder="上限"></div>
+            </label>
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.therapeuticUnit">血药浓度单位</span>
+              <select id="med-therapeutic-unit">
+                <option value="mg/L">mg/L</option>
+                <option value="µg/mL">µg/mL</option>
+                <option value="ng/mL">ng/mL</option>
+                <option value="mmol/L">mmol/L</option>
+              </select>
+            </label>
+          </div>
+          <div class="form-row two-col">
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.vd">分布容积 Vd（L/kg，可留空）</span><input type="number" id="med-vd" min="0" step="0.01" placeholder="如 0.79"></label>
+            <label class="form-field"><span class="form-label" data-i18n="meds.form.bioavailability">生物利用度 F（0~1，可留空）</span><input type="number" id="med-bioavailability" min="0" max="1" step="0.01" placeholder="如 0.9"></label>
           </div>
           <div class="form-row">
             <div class="form-field">

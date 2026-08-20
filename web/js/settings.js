@@ -429,6 +429,24 @@ function bindAutoMedLogControl() {
   subscribeTheme(updateUIFromTheme);
 }
 
+function bindBodyWeightControl() {
+  const input = document.getElementById('body-weight-kg');
+  if (!input) return;
+
+  function updateUIFromTheme(theme) {
+    input.value = theme.bodyWeightKg ?? 70;
+  }
+
+  input.addEventListener('change', () => {
+    const value = Math.max(20, Math.min(300, Number(input.value) || 70));
+    setTheme({ bodyWeightKg: value }, 'MedSettingsChange');
+    input.value = String(value);
+  });
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
 function bindSimpleModeControls() {
   const enableCheckbox = document.getElementById('simple-mode-enable');
   const moodCheckbox = document.getElementById('simple-mode-mood');
@@ -1123,6 +1141,7 @@ export function initSettings() {
   bindSleepOverlayModeControl();
   bindAutoMedLogControl();
   bindDepletionReminderDaysControl();
+  bindBodyWeightControl();
   bindSimpleModeControls();
   bindMedHistoryControls();
   bindSyncControls();

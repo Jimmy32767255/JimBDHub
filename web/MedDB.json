@@ -1,7 +1,7 @@
 {
   "version": 2,
-  "lastVerified": "2026-07-20",
-  "dataSource": "OpenFDA API (US FDA drug labels, https://api.fda.gov/drug/label.json)",
+  "lastVerified": "2026-08-21",
+  "dataSource": "Vd/生物利用度：精选自 FDA 药品标签与 PubChem（集中维护于 Tools/Script/meddb_updater.py 的 PK_REFERENCE，Vd 以 L/kg 记录，由前端按用户体重换算）；分子量：PubChem PUG REST 自动获取。",
   "medicines": [
     {
       "name": "碳酸锂",
@@ -24,7 +24,17 @@
         36
       ],
       "dosePerTablet": 300,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "therapeuticRange": [
+        0.6,
+        1.2
+      ],
+      "therapeuticUnit": "mmol/L",
+      "vd": 55.3,
+      "bioavailability": 1.0,
+      "activeRatio": 2,
+      "molarMass": 73.89,
+      "vdPerKg": 0.79
     },
     {
       "name": "丙戊酸钠",
@@ -48,7 +58,15 @@
         16
       ],
       "dosePerTablet": 200,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "therapeuticRange": [
+        50,
+        100
+      ],
+      "therapeuticUnit": "µg/mL",
+      "vd": 14.0,
+      "bioavailability": 0.9,
+      "vdPerKg": 0.2
     },
     {
       "name": "丙戊酸镁",
@@ -72,7 +90,15 @@
         16
       ],
       "dosePerTablet": 250,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "therapeuticRange": [
+        50,
+        100
+      ],
+      "therapeuticUnit": "µg/mL",
+      "vd": 14.0,
+      "bioavailability": 0.9,
+      "vdPerKg": 0.2
     },
     {
       "name": "拉莫三嗪",
@@ -96,7 +122,10 @@
         33
       ],
       "dosePerTablet": 25,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 77.0,
+      "bioavailability": 0.98,
+      "vdPerKg": 1.1
     },
     {
       "name": "卡马西平",
@@ -121,7 +150,15 @@
       ],
       "halfLifeNote": "此值反映长期用药后的半衰期(自身酶诱导). 初始用药半衰期为25-65h",
       "dosePerTablet": 100,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "therapeuticRange": [
+        4,
+        12
+      ],
+      "therapeuticUnit": "µg/mL",
+      "vd": 91.0,
+      "bioavailability": 0.75,
+      "vdPerKg": 1.3
     },
     {
       "name": "喹硫平",
@@ -145,7 +182,10 @@
         7
       ],
       "dosePerTablet": 25,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 700.0,
+      "bioavailability": 0.09,
+      "vdPerKg": 10.0
     },
     {
       "name": "奥氮平",
@@ -169,7 +209,10 @@
         54
       ],
       "dosePerTablet": 5,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 1050.0,
+      "bioavailability": 0.7,
+      "vdPerKg": 15.0
     },
     {
       "name": "利培酮",
@@ -193,7 +236,10 @@
       ],
       "halfLifeNote": "母药半衰期~3h, 活性代谢物9-OH-risperidone~21h. 此值为有效半衰期(涵盖代谢物)",
       "dosePerTablet": 1,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 105.0,
+      "bioavailability": 0.7,
+      "vdPerKg": 1.5
     },
     {
       "name": "阿立哌唑",
@@ -216,7 +262,10 @@
         146
       ],
       "dosePerTablet": 5,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 343.0,
+      "bioavailability": 0.87,
+      "vdPerKg": 4.9
     },
     {
       "name": "鲁拉西酮",
@@ -239,7 +288,10 @@
         40
       ],
       "dosePerTablet": 40,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 2800.0,
+      "bioavailability": 0.1,
+      "vdPerKg": 40.0
     },
     {
       "name": "齐拉西酮",
@@ -262,7 +314,10 @@
         8
       ],
       "dosePerTablet": 20,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 105.0,
+      "bioavailability": 0.6,
+      "vdPerKg": 1.5
     },
     {
       "name": "帕利哌酮",
@@ -285,7 +340,10 @@
         28
       ],
       "dosePerTablet": 3,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 483.0,
+      "bioavailability": 0.28,
+      "vdPerKg": 6.9
     },
     {
       "name": "氨磺必利",
@@ -307,7 +365,10 @@
         14
       ],
       "dosePerTablet": 50,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 406.0,
+      "bioavailability": 0.48,
+      "vdPerKg": 5.8
     },
     {
       "name": "舍曲林",
@@ -329,7 +390,10 @@
         36
       ],
       "dosePerTablet": 50,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 1400.0,
+      "bioavailability": 0.44,
+      "vdPerKg": 20.0
     },
     {
       "name": "氟西汀",
@@ -352,7 +416,10 @@
       ],
       "halfLifeNote": "此值为长期用药半衰期(4-6天). 单次剂量后半衰期1-3天. 去甲氟西汀4-16天",
       "dosePerTablet": 20,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 2450.0,
+      "bioavailability": 0.7,
+      "vdPerKg": 35.0
     },
     {
       "name": "艾司西酞普兰",
@@ -374,7 +441,10 @@
         32
       ],
       "dosePerTablet": 10,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 840.0,
+      "bioavailability": 0.8,
+      "vdPerKg": 12.0
     },
     {
       "name": "文拉法辛",
@@ -397,7 +467,10 @@
       ],
       "halfLifeNote": "此值为母药半衰期. ODV(活性代谢物)半衰期为11±2h, 决定给药间隔",
       "dosePerTablet": 75,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 525.0,
+      "bioavailability": 0.45,
+      "vdPerKg": 7.5
     },
     {
       "name": "度洛西汀",
@@ -419,7 +492,10 @@
         17
       ],
       "dosePerTablet": 30,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 1610.0,
+      "bioavailability": 0.5,
+      "vdPerKg": 23.0
     },
     {
       "name": "安非他酮",
@@ -463,7 +539,10 @@
         40
       ],
       "dosePerTablet": 15,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 315.0,
+      "bioavailability": 0.5,
+      "vdPerKg": 4.5
     },
     {
       "name": "曲唑酮",
@@ -485,7 +564,10 @@
         9
       ],
       "dosePerTablet": 50,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 58.8,
+      "bioavailability": 0.65,
+      "vdPerKg": 0.84
     },
     {
       "name": "劳拉西泮",
@@ -508,7 +590,10 @@
         20
       ],
       "dosePerTablet": 1,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 91.0,
+      "bioavailability": 0.9,
+      "vdPerKg": 1.3
     },
     {
       "name": "阿普唑仑",
@@ -531,7 +616,10 @@
         26.9
       ],
       "dosePerTablet": 0.4,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 70.0,
+      "bioavailability": 0.9,
+      "vdPerKg": 1.0
     },
     {
       "name": "氯硝西泮",
@@ -555,7 +643,10 @@
         40
       ],
       "dosePerTablet": 0.5,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 210.0,
+      "bioavailability": 0.9,
+      "vdPerKg": 3.0
     },
     {
       "name": "丁螺环酮",
@@ -577,7 +668,10 @@
         3
       ],
       "dosePerTablet": 5,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 371.0,
+      "bioavailability": 0.04,
+      "vdPerKg": 5.3
     },
     {
       "name": "唑吡坦",
@@ -600,7 +694,10 @@
         2.6
       ],
       "dosePerTablet": 10,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 37.8,
+      "bioavailability": 0.7,
+      "vdPerKg": 0.54
     },
     {
       "name": "右佐匹克隆",
@@ -623,7 +720,10 @@
         7
       ],
       "dosePerTablet": 3,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 98.0,
+      "bioavailability": 0.8,
+      "vdPerKg": 1.4
     },
     {
       "name": "佐匹克隆",
@@ -646,7 +746,10 @@
         6
       ],
       "dosePerTablet": 7.5,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 98.0,
+      "bioavailability": 0.75,
+      "vdPerKg": 1.4
     },
     {
       "name": "哌甲酯",
@@ -669,7 +772,10 @@
         4
       ],
       "dosePerTablet": 10,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 910.0,
+      "bioavailability": 0.3,
+      "vdPerKg": 13.0
     },
     {
       "name": "托莫西汀",
@@ -692,7 +798,10 @@
       ],
       "halfLifeNote": "CYP2D6强代谢者~5h. 弱代谢者(白人约7%, 非裔约2%)~24h",
       "dosePerTablet": 25,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 59.5,
+      "bioavailability": 0.63,
+      "vdPerKg": 0.85
     },
     {
       "name": "普萘洛尔",
@@ -715,7 +824,10 @@
         12
       ],
       "dosePerTablet": 10,
-      "doseMassUnit": "mg"
+      "doseMassUnit": "mg",
+      "vd": 280.0,
+      "bioavailability": 0.26,
+      "vdPerKg": 4.0
     },
     {
       "name": "苯海索",

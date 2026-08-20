@@ -26,6 +26,11 @@ const medPeakMinInput = document.getElementById('med-peak-min');
 const medPeakMaxInput = document.getElementById('med-peak-max');
 const medHalfLifeMinInput = document.getElementById('med-half-life-min');
 const medHalfLifeMaxInput = document.getElementById('med-half-life-max');
+const medTherapeuticMinInput = document.getElementById('med-therapeutic-min');
+const medTherapeuticMaxInput = document.getElementById('med-therapeutic-max');
+const medTherapeuticUnitInput = document.getElementById('med-therapeutic-unit');
+const medVdInput = document.getElementById('med-vd');
+const medBioavailabilityInput = document.getElementById('med-bioavailability');
 const medNoteInput = document.getElementById('med-note');
 
 const stockModal = document.getElementById('stock-modal');
@@ -164,6 +169,40 @@ function readRangeHours(med, arrayKey, minKey, maxKey, singleKey, fallback) {
   return [single ?? fallback, single ?? fallback];
 }
 
+// 读取治疗窗（血药浓度范围）：支持 DB 的 therapeuticRange 数组和已保存药品的扁平字段。
+function readTherapeuticWindow(med) {
+  if (!med) return null;
+  let min, max, unit;
+  if (Array.isArray(med.therapeuticRange) && med.therapeuticRange.length >= 2) {
+    min = med.therapeuticRange[0];
+    max = med.therapeuticRange[1];
+    unit = med.therapeuticUnit || '';
+  } else {
+    min = med.therapeuticMin;
+    max = med.therapeuticMax;
+    unit = med.therapeuticUnit || '';
+  }
+  min = Number(min);
+  max = Number(max);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= 0 || min < 0) return null;
+  return { min, max, unit };
+}
+
+function setTherapeuticForm(med) {
+  const tw = readTherapeuticWindow(med);
+  medTherapeuticMinInput.value = tw ? tw.min : '';
+  medTherapeuticMaxInput.value = tw ? tw.max : '';
+  medTherapeuticUnitInput.value = tw ? tw.unit : '';
+}
+
+// 填充计算真实血药浓度所需的分布容积与生物利用度；留空表示暂不启用真实浓度计算。
+function setConcentrationParamsForm(med) {
+  const vdPerKg = med ? Number(med.vdPerKg) : NaN;
+  const f = med ? Number(med.bioavailability) : NaN;
+  medVdInput.value = Number.isFinite(vdPerKg) && vdPerKg > 0 ? vdPerKg : '';
+  medBioavailabilityInput.value = Number.isFinite(f) && f > 0 && f <= 1 ? f : '';
+}
+
 function fillMedForm(med) {
   const [onsetMin, onsetMax] = readRangeHours(med, 'onsetRangeHours', 'onsetMinHours', 'onsetMaxHours', 'onsetHours', 1);
   const [peakMin, peakMax] = readRangeHours(med, 'peakRangeHours', 'peakMinHours', 'peakMaxHours', 'peakHours', 2);
@@ -186,6 +225,8 @@ function fillMedForm(med) {
   medPeakMaxInput.value = peakMax;
   medHalfLifeMinInput.value = halfLifeMin;
   medHalfLifeMaxInput.value = halfLifeMax;
+  setTherapeuticForm(med);
+  setConcentrationParamsForm(med);
   medNoteInput.value = med.note || '';
   medColorInput.value = defaultMedColor();
   resetSchedule();
@@ -559,6 +600,8 @@ function openModal(med = null) {
     medPeakMaxInput.value = peakMax;
     medHalfLifeMinInput.value = halfLifeMin;
     medHalfLifeMaxInput.value = halfLifeMax;
+    setTherapeuticForm(med);
+    setConcentrationParamsForm(med);
     medNoteInput.value = med.note;
     if (medColorInput) {
       const medIdx = store.data.meds.findIndex(m => m.id === med.id);
@@ -579,6 +622,11 @@ function openModal(med = null) {
     medPeakMaxInput.value = 2;
     medHalfLifeMinInput.value = 12;
     medHalfLifeMaxInput.value = 12;
+    medTherapeuticMinInput.value = '';
+    medTherapeuticMaxInput.value = '';
+    medTherapeuticUnitInput.value = '';
+    medVdInput.value = '';
+    medBioavailabilityInput.value = '';
     medColorInput.value = defaultMedColor();
     resetSchedule();
     setManualFieldsVisible(false);
@@ -669,6 +717,20 @@ function handleFormSubmit(e) {
   const onsetMin = Math.max(0, Number(medOnsetMinInput.value) || 0);
   const peakMin = Math.max(0, Number(medPeakMinInput.value) || 0);
   const halfLifeMin = Math.max(0.1, Number(medHalfLifeMinInput.value) || 0.1);
+  const therapeuticMinRaw = medTherapeuticMinInput.value.trim();
+  const therapeuticMaxRaw = medTherapeuticMaxInput.value.trim();
+  const therapeuticMin = therapeuticMinRaw === '' ? null : Math.max(0, Number(therapeuticMinRaw) || 0);
+  const therapeuticMax = therapeuticMaxRaw === '' ? null : Math.max(0, Number(therapeuticMaxRaw) || 0);
+  const hasWindow = therapeuticMin !== null && therapeuticMax !== null && therapeuticMax > 0;
+  const vdRaw = medVdInput.value.trim();
+  const fRaw = medBioavailabilityInput.value.trim();
+  const vdPerKg = vdRaw === '' ? null : Math.max(0, Number(vdRaw) || 0);
+  const bioavailability = fRaw === '' ? null : Math.min(1, Math.max(0, Number(fRaw) || 0));
+  // mmol/L 浓度所需的化学常数（分子量 g/mol、每摩尔活性离子数）取自内置数据库；编辑时保留已保存值。
+  const existingMed = medIdInput.value ? store.data.meds.find(m => m.id === medIdInput.value) : null;
+  const pkSource = selectedDbMed || existingMed || {};
+  const molarMass = Number(pkSource.molarMass) || null;
+  const activeRatio = Number(pkSource.activeRatio) || null;
   const payload = {
     name: medNameInput.value.trim(),
     category: medCategoryInput.value.trim(),
@@ -688,6 +750,13 @@ function handleFormSubmit(e) {
     peakMaxHours: Math.max(peakMin, Number(medPeakMaxInput.value) || peakMin),
     halfLifeMinHours: halfLifeMin,
     halfLifeMaxHours: Math.max(halfLifeMin, Number(medHalfLifeMaxInput.value) || halfLifeMin),
+    therapeuticMin: hasWindow ? therapeuticMin : null,
+    therapeuticMax: hasWindow ? therapeuticMax : null,
+    therapeuticUnit: hasWindow ? (medTherapeuticUnitInput.value || '') : '',
+    vdPerKg: vdPerKg && vdPerKg > 0 ? vdPerKg : null,
+    bioavailability: bioavailability && bioavailability > 0 && bioavailability <= 1 ? bioavailability : null,
+    molarMass,
+    activeRatio,
     color: medColorInput.value,
     schedule: [...currentSchedule],
     note: medNoteInput.value.trim()

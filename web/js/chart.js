@@ -721,6 +721,121 @@ function medColor(index, medId) {
   return DEFAULT_MED_COLORS[index % DEFAULT_MED_COLORS.length];
 }
 
+// 读取治疗窗（血药浓度范围）：兼容内置 DB 的 therapeuticRange 数组与已保存药品的扁平字段。
+function readTherapeuticWindow(med) {
+  if (!med) return null;
+  let min, max, unit;
+  if (Array.isArray(med.therapeuticRange) && med.therapeuticRange.length >= 2) {
+    min = med.therapeuticRange[0];
+    max = med.therapeuticRange[1];
+    unit = med.therapeuticUnit || '';
+  } else {
+    min = med.therapeuticMin;
+    max = med.therapeuticMax;
+    unit = med.therapeuticUnit || '';
+  }
+  min = Number(min);
+  max = Number(max);
+  if (!Number.isFinite(min) || !Number.isFinite(max) || max <= 0 || min < 0) return null;
+  return { min, max, unit };
+}
+
+// 依据服药记录组匹配对应药品的治疗窗：优先按 id，其次按名称，最后回退到剂量对象自带的字段。
+function therapeuticWindowFor(group) {
+  const byId = group.medicationId ? store.data.meds.find(m => m.id === group.medicationId) : null;
+  const med = byId || (group.name ? store.data.meds.find(m => m.name === group.name) : null);
+  const tw = readTherapeuticWindow(med);
+  if (tw) return tw;
+  const dose = (group.doses || []).find(d => d.therapeuticMax != null || d.therapeuticMin != null || d.therapeuticRange);
+  return readTherapeuticWindow(dose);
+}
+
+// 真实血药浓度换算：C(t) = F × 剂量质量(mg) / Vd(L) × pkShape(t)。
+// mg/L 与 µg/mL 数值相等；ng/mL 需 ×1000；mmol/L 需再乘 activeRatio / molarMass。
+const MGL_PER_UNIT = { 'mg/L': 1, 'µg/mL': 1, 'ng/mL': 1000 };
+
+// 用户体重（kg），用于把 Vd(L/kg) 换算成个体 Vd(L)；默认 70 kg。
+function bodyWeightKg() {
+  const w = Number(getTheme().bodyWeightKg);
+  return Number.isFinite(w) && w > 0 ? w : 70;
+}
+
+function readConcentrationParams(med) {
+  if (!med) return null;
+  const vdPerKg = Number(med.vdPerKg);
+  const f = Number(med.bioavailability);
+  if (!Number.isFinite(vdPerKg) || vdPerKg <= 0) return null;
+  if (!Number.isFinite(f) || f <= 0 || f > 1) return null;
+  const vd = vdPerKg * bodyWeightKg();
+  const unit = med.therapeuticUnit || med.concentrationUnit || 'mg/L';
+  const molarMass = Number(med.molarMass);
+  if (unit === 'mmol/L' && (!Number.isFinite(molarMass) || molarMass <= 0)) return null;
+  return { vd, f, unit, molarMass, activeRatio: Number(med.activeRatio) };
+}
+
+function concentrationParamsFor(group) {
+  const byId = group.medicationId ? store.data.meds.find(m => m.id === group.medicationId) : null;
+  const med = byId || (group.name ? store.data.meds.find(m => m.name === group.name) : null);
+  const cp = readConcentrationParams(med);
+  if (cp) return cp;
+  const dose = (group.doses || []).find(d => d.vdPerKg != null || d.bioavailability != null);
+  return readConcentrationParams(dose);
+}
+
+// 单剂血药峰浓度，单位由 cp.unit 决定；缺少换算所需的 molarMass 等时返回 null。
+function concentrationCmax(dose, cp) {
+  const cMgL = cp.f * doseMass(dose) / cp.vd;
+  if (cp.unit === 'mmol/L') {
+    if (!Number.isFinite(cp.molarMass) || cp.molarMass <= 0) return null;
+    const ratio = Number.isFinite(cp.activeRatio) && cp.activeRatio > 0 ? cp.activeRatio : 1;
+    return cMgL * ratio / cp.molarMass;
+  }
+  return cMgL * (MGL_PER_UNIT[cp.unit] ?? 1);
+}
+
+function concentrationAt(dtHours, dose, variant, cp) {
+  const peak = concentrationCmax(dose, cp);
+  if (peak === null) return null;
+  if (variant === 'upper') {
+    return peak * pkEffect(dtHours, dose.onsetMinHours, dose.peakMinHours, dose.halfLifeMaxHours);
+  }
+  return peak * pkEffect(dtHours, dose.onsetMaxHours, dose.peakMaxHours, dose.halfLifeMinHours);
+}
+
+// 某药本次曲线使用的“值函数”：有 Vd/F 时返回真实血药浓度，否则回退到剂量质量（估算药效）。
+function groupValueFn(group) {
+  const cp = concentrationParamsFor(group);
+  if (cp) {
+    return { at: (dt, d, v) => concentrationAt(dt, d, v, cp), unit: cp.unit, concentration: true };
+  }
+  return { at: effectAt, unit: null, concentration: false };
+}
+
+// 绘制药物治疗窗上下限两条横向实心直线：仅当该药具备 Vd/F（纵轴为真实浓度）时绘制，
+// 上下限直接按真实浓度值定位，线旁标注浓度数值。
+function drawTherapeuticWindow(container, group, yFor, xMin, xMax, color) {
+  const cp = concentrationParamsFor(group);
+  const tw = therapeuticWindowFor(group);
+  if (!cp || !tw || tw.min >= tw.max) return;
+  if (tw.unit && cp.unit !== tw.unit) return;
+  const unit = tw.unit || cp.unit;
+  const fmt = n => (Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100));
+  const drawLine = (value, text) => {
+    const y = yFor(value);
+    container.appendChild(createSVGElement('line', {
+      x1: xMin, y1: y, x2: xMax, y2: y,
+      stroke: color, 'stroke-width': 2, 'stroke-opacity': 0.85
+    }));
+    const label = createSVGElement('text', {
+      x: xMax - 4, y: y - 4, 'text-anchor': 'end', fill: color, 'font-size': '10'
+    });
+    label.textContent = text;
+    container.appendChild(label);
+  };
+  drawLine(tw.max, `${t('chart.therapeuticUpper')} ${fmt(tw.max)} ${unit}`);
+  drawLine(tw.min, `${t('chart.therapeuticLower')} ${fmt(tw.min)} ${unit}`);
+}
+
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
@@ -921,17 +1036,20 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     const hasDoseInView = g => g.doses.some(d => d.timestamp >= displayMinTime && d.timestamp <= displayMaxTime);
 
     const series = groups.map((g, idx) => {
+      const valueFn = groupValueFn(g);
+      const tw = valueFn.concentration ? therapeuticWindowFor(g) : null;
       const data = samplePoints.map(ts => {
         let upper = 0;
         let lower = 0;
         g.doses.forEach(d => {
           const dt = (ts - d.timestamp) / HOUR_MS;
-          upper += effectAt(dt, d, 'upper');
-          lower += effectAt(dt, d, 'lower');
+          upper += valueFn.at(dt, d, 'upper');
+          lower += valueFn.at(dt, d, 'lower');
         });
         return { t: ts, upper, lower };
       });
-      const maxUpper = Math.max(0.1, ...data.map(p => p.upper));
+      let maxUpper = Math.max(0.1, ...data.map(p => p.upper));
+      if (tw && tw.max > maxUpper) maxUpper = tw.max;
       const yMax = Math.ceil(maxUpper * 1.1);
       const yEffectFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
       const visible = truncateSeriesData(data, EFFECT_VISIBLE_THRESHOLD);
@@ -941,6 +1059,9 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         data,
         activeInView: hasDoseInView(g),
         yMax,
+        peakUpper: maxUpper,
+        concentration: valueFn.concentration,
+        valueUnit: valueFn.unit,
         yEffectFor,
         visible
       };
@@ -991,6 +1112,8 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         'stroke-linecap': 'round',
         'stroke-linejoin': 'round'
       }));
+
+      drawTherapeuticWindow(container, s, s.yEffectFor, PADDING.left, width - PADDING.right, s.color);
 
       // 当前视图范围内没有再服用的药不显示在图例里
       if (legendContainer && s.activeInView) {
@@ -1590,15 +1713,16 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       groups.forEach((g, idx) => {
         // 当前视图范围内没有再服用的药不显示在工具提示里
         if (!g.doses.some(d => d.timestamp >= displayMinTime && d.timestamp <= displayMaxTime)) return;
+        const valueFn = groupValueFn(g);
         let upper = 0;
         let lower = 0;
         g.doses.forEach(d => {
           const dt = (tooltipTs - d.timestamp) / HOUR_MS;
-          upper += effectAt(dt, d, 'upper');
-          lower += effectAt(dt, d, 'lower');
+          upper += valueFn.at(dt, d, 'upper');
+          lower += valueFn.at(dt, d, 'lower');
         });
         if (upper >= EFFECT_VISIBLE_THRESHOLD) {
-          const unit = g.doseMassUnit || 'mg';
+          const unit = valueFn.unit || g.doseMassUnit || 'mg';
           content += `<div style="color:${medColor(idx, g.medicationId)}">${g.name}: ${lower.toFixed(2)} ~ ${upper.toFixed(2)} ${unit}</div>`;
         }
       });
@@ -1778,20 +1902,31 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   }
 
   const series = groups.map((g, idx) => {
+    const valueFn = groupValueFn(g);
+    const tw = valueFn.concentration ? therapeuticWindowFor(g) : null;
     const data = samplePoints.map(t => {
       let upper = 0;
       let lower = 0;
       g.doses.forEach(d => {
         const dt = (t - d.timestamp) / HOUR_MS;
-        upper += effectAt(dt, d, 'upper');
-        lower += effectAt(dt, d, 'lower');
+        upper += valueFn.at(dt, d, 'upper');
+        lower += valueFn.at(dt, d, 'lower');
       });
       return { t, upper, lower };
     });
-    return { ...g, color: medColor(idx, g.medicationId), data };
+    const peakUpper = Math.max(0, ...data.map(p => p.upper));
+    return {
+      ...g,
+      color: medColor(idx, g.medicationId),
+      data,
+      peakUpper,
+      concentration: valueFn.concentration,
+      valueUnit: valueFn.unit,
+      therapeutic: tw
+    };
   });
 
-  const maxEffect = Math.max(0.1, ...series.flatMap(s => s.data.map(p => p.upper)));
+  const maxEffect = Math.max(0.1, ...series.flatMap(s => [s.therapeutic ? Math.max(s.peakUpper, s.therapeutic.max) : s.peakUpper]));
   const yMax = Math.ceil(maxEffect * 1.1);
   const yFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
 
@@ -1885,6 +2020,8 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
       'stroke-linejoin': 'round'
     }));
 
+    drawTherapeuticWindow(container, s, yFor, PADDING.left, width - PADDING.right, s.color);
+
     if (legendContainer) {
       const item = document.createElement('span');
       item.className = 'legend-item';
@@ -1911,7 +2048,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
     const rows = series.map(s => {
       const closest = s.data.reduce((best, p) =>
         Math.abs(p.t - timestamp) < Math.abs(best.t - timestamp) ? p : best, s.data[0]);
-      return `<div style="color:${s.color}">${s.name}: ${closest.lower.toFixed(2)} ~ ${closest.upper.toFixed(2)} ${s.doseMassUnit || 'mg'}</div>`;
+      return `<div style="color:${s.color}">${s.name}: ${closest.lower.toFixed(2)} ~ ${closest.upper.toFixed(2)} ${s.concentration ? s.valueUnit : (s.doseMassUnit || 'mg')}</div>`;
     }).join('');
 
     tooltip.innerHTML = `

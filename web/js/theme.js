@@ -34,6 +34,7 @@ const DEFAULT_THEME = {
   simpleModeMedication: true,
   sleepDisplayMode: 'bar',
   depletionReminderDays: 3,
+  bodyWeightKg: 70,
   maxLoadedRecords: 100,
   dynamicAnimationSpeed: true,
   disableAnimations: false,
