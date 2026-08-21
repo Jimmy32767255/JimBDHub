@@ -1224,7 +1224,8 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       const overlay = wrap.querySelector('.y-axis-overlay.right');
       if (!overlay) return;
       const overlayRect = overlay.getBoundingClientRect();
-      const y = Math.min(Math.max(clientY - overlayRect.top, axisYTop), axisYBottom);
+      // 与 X 轴逻辑一致：除以界面缩放比例，修正设置了界面缩放时指针与识别位置的偏差
+      const y = Math.min(Math.max((clientY - overlayRect.top) / getUIScaleRatio(), axisYTop), axisYBottom);
       // 横向实线贯穿整个图表
       scaleCrosshair.setAttribute('display', 'block');
       scaleHLine.setAttribute('y1', y);
