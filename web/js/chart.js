@@ -179,6 +179,49 @@ function renderYAxisOverlay(wrap, side, labels, textColor, height) {
   wrap.addEventListener('scroll', update);
 }
 
+// 血药浓度“上限/下限”标注浮层：与右侧比例尺一样固定在视口右侧并跟随滚动，
+// 无需滑动到图表最右端即可看到；文本带描边光晕，叠在曲线上仍清晰可读。
+function renderTherapeuticLabelsOverlay(wrap, labels, height) {
+  const width = 110;
+  let overlay = wrap.querySelector('.therapeutic-labels-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'therapeutic-labels-overlay y-axis-overlay right';
+    wrap.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+  const padTop = parseFloat(getComputedStyle(wrap).paddingTop) || 0;
+  overlay.style.top = `${padTop}px`;
+  overlay.style.height = `${height}px`;
+  overlay.style.width = `${width}px`;
+  overlay.style.background = 'transparent';
+
+  const svg = createSVGElement('svg', {
+    width: '100%',
+    height: '100%',
+    viewBox: `0 0 ${width} ${height}`
+  });
+
+  labels.forEach(l => {
+    const text = createSVGElement('text', {
+      x: width - 4, y: l.y - 4, 'text-anchor': 'end', fill: l.color, 'font-size': '10',
+      class: 'therapeutic-label-text'
+    });
+    text.textContent = l.text;
+    svg.appendChild(text);
+  });
+
+  overlay.appendChild(svg);
+
+  function update() {
+    overlay.style.transform = `translateX(${wrap.scrollLeft}px)`;
+  }
+  update();
+  if (overlay._scrollHandler) wrap.removeEventListener('scroll', overlay._scrollHandler);
+  overlay._scrollHandler = update;
+  wrap.addEventListener('scroll', update);
+}
+
 function isMoodRecord(r) {
   return r.type !== 'medication';
 }
@@ -813,7 +856,9 @@ function groupValueFn(group) {
 
 // 绘制药物治疗窗上下限两条横向实心直线：仅当该药具备 Vd/F（纵轴为真实浓度）时绘制，
 // 上下限直接按真实浓度值定位，线旁标注浓度数值。
-function drawTherapeuticWindow(container, group, yFor, xMin, xMax, color) {
+// 传入 labelOut 数组时，浓度标注文本不再画进可滚动内容区（需滑到最右端才能看见），
+// 而是收集起来由固定在视口右侧的浮层渲染，保证始终可见。
+function drawTherapeuticWindow(container, group, yFor, xMin, xMax, color, labelOut) {
   const cp = concentrationParamsFor(group);
   const tw = therapeuticWindowFor(group);
   if (!cp || !tw || tw.min >= tw.max) return;
@@ -826,6 +871,10 @@ function drawTherapeuticWindow(container, group, yFor, xMin, xMax, color) {
       x1: xMin, y1: y, x2: xMax, y2: y,
       stroke: color, 'stroke-width': 2, 'stroke-opacity': 0.85
     }));
+    if (labelOut) {
+      labelOut.push({ y, text, color });
+      return;
+    }
     const label = createSVGElement('text', {
       x: xMax - 4, y: y - 4, 'text-anchor': 'end', fill: color, 'font-size': '10'
     });
@@ -1092,6 +1141,9 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     });
     renderYAxisOverlay(wrap, 'right', effectScaleLabels, colors.textMuted, height);
 
+    // 收集血药浓度“上限/下限”标注，绘制到固定在视口右侧的浮层（始终可见）
+    const therapeuticLabels = [];
+
     // 绘制药效区间（最高/最低两条曲线）
     series.forEach(s => {
       const visible = s.visible;
@@ -1135,7 +1187,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         'stroke-linejoin': 'round'
       }));
 
-      drawTherapeuticWindow(container, s, s.yEffectFor, PADDING.left, width - PADDING.right, s.color);
+      drawTherapeuticWindow(container, s, s.yEffectFor, PADDING.left, width - PADDING.right, s.color, therapeuticLabels);
 
       // 当前视图范围内没有再服用的药不显示在图例里
       if (legendContainer && s.activeInView) {
@@ -1182,6 +1234,11 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       }, { passive: true });
       bar.addEventListener('touchend', hideEffectAxisTooltip, { passive: true });
     });
+
+    // 血药浓度“上限/下限”标注浮层（固定在视口右侧，始终可见）
+    if (therapeuticLabels.length) {
+      renderTherapeuticLabelsOverlay(wrap, therapeuticLabels, height);
+    }
 
   }
 
@@ -2073,6 +2130,9 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   }
   container.appendChild(timeAxisGroup);
 
+  // 收集血药浓度“上限/下限”标注，绘制到固定在视口右侧的浮层（始终可见）
+  const therapeuticLabels = [];
+
   series.forEach(s => {
     let bandD = `M ${xFor(s.data[0].t)} ${yFor(s.data[0].upper)}`;
     for (let i = 1; i < s.data.length; i++) {
@@ -2112,7 +2172,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
       'stroke-linejoin': 'round'
     }));
 
-    drawTherapeuticWindow(container, s, yFor, PADDING.left, width - PADDING.right, s.color);
+    drawTherapeuticWindow(container, s, yFor, PADDING.left, width - PADDING.right, s.color, therapeuticLabels);
 
     if (legendContainer) {
       const item = document.createElement('span');
@@ -2121,6 +2181,11 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
       legendContainer.appendChild(item);
     }
   });
+
+  // 血药浓度“上限/下限”标注浮层（固定在视口右侧，始终可见）
+  if (therapeuticLabels.length) {
+    renderTherapeuticLabelsOverlay(wrap, therapeuticLabels, height);
+  }
 
   const crosshairGroup = createSVGElement('g', { class: 'crosshair', display: 'none' });
   const crosshairStroke = `rgba(${hexToRgb(textMuted)}, 0.5)`;
