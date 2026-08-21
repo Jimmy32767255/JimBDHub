@@ -463,6 +463,16 @@ body {
 .y-axis-overlay.right .effect-axis-tick {
   pointer-events: none;
 }
+.therapeutic-labels-overlay {
+  background: transparent !important;
+  pointer-events: none;
+}
+.therapeutic-label-text {
+  paint-order: stroke;
+  stroke: var(--theme-surface);
+  stroke-width: 3px;
+  stroke-linejoin: round;
+}
 #mood-chart {
   display: block;
   min-width: 100%;

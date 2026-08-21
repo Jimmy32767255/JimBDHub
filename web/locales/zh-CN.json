@@ -92,7 +92,6 @@
   "chart.tooltip.dose": "服药",
   "chart.effectTooltip": "估算药效",
   "chart.effectUnit": "混合单位",
-  "chart.effectAxisTooltip": "{name}：上限 {max} {unit}",
   "chart.therapeuticUpper": "上限",
   "chart.therapeuticLower": "下限",
   "chart.tooltip.event": "事件",

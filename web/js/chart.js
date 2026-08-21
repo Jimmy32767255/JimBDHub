@@ -149,11 +149,23 @@ function renderYAxisOverlay(wrap, side, labels, textColor, height) {
         width: labelData.barWidth,
         height: labelData.barHeight,
         fill: labelData.barColor,
-        opacity: '0.15',
+        opacity: labelData.opacity !== undefined ? labelData.opacity : '0.15',
         class: 'effect-axis-bar',
         'data-med-idx': labelData.medIdx
       });
       svg.appendChild(rect);
+      return;
+    }
+    if (labelData.isTick) {
+      // 比例尺上的小刻度横线
+      const tick = createSVGElement('line', {
+        x1: labelData.x1, y1: labelData.y, x2: labelData.x2, y2: labelData.y,
+        stroke: labelData.color || textColor,
+        'stroke-width': labelData.strokeWidth || 1.5,
+        'stroke-linecap': 'round',
+        class: 'effect-axis-tick'
+      });
+      svg.appendChild(tick);
       return;
     }
     const x = labelData.x !== undefined ? labelData.x : (isLeft ? width - 10 : 10);
@@ -166,6 +178,49 @@ function renderYAxisOverlay(wrap, side, labels, textColor, height) {
     });
     label.textContent = labelData.value;
     svg.appendChild(label);
+  });
+
+  overlay.appendChild(svg);
+
+  function update() {
+    overlay.style.transform = `translateX(${wrap.scrollLeft}px)`;
+  }
+  update();
+  if (overlay._scrollHandler) wrap.removeEventListener('scroll', overlay._scrollHandler);
+  overlay._scrollHandler = update;
+  wrap.addEventListener('scroll', update);
+}
+
+// 血药浓度“上限/下限”标注浮层：与右侧比例尺一样固定在视口右侧并跟随滚动，
+// 无需滑动到图表最右端即可看到；文本带描边光晕，叠在曲线上仍清晰可读。
+function renderTherapeuticLabelsOverlay(wrap, labels, height) {
+  const width = 110;
+  let overlay = wrap.querySelector('.therapeutic-labels-overlay');
+  if (!overlay) {
+    overlay = document.createElement('div');
+    overlay.className = 'therapeutic-labels-overlay y-axis-overlay right';
+    wrap.appendChild(overlay);
+  }
+  overlay.innerHTML = '';
+  const padTop = parseFloat(getComputedStyle(wrap).paddingTop) || 0;
+  overlay.style.top = `${padTop}px`;
+  overlay.style.height = `${height}px`;
+  overlay.style.width = `${width}px`;
+  overlay.style.background = 'transparent';
+
+  const svg = createSVGElement('svg', {
+    width: '100%',
+    height: '100%',
+    viewBox: `0 0 ${width} ${height}`
+  });
+
+  labels.forEach(l => {
+    const text = createSVGElement('text', {
+      x: width - 4, y: l.y - 4, 'text-anchor': 'end', fill: l.color, 'font-size': '10',
+      class: 'therapeutic-label-text'
+    });
+    text.textContent = l.text;
+    svg.appendChild(text);
   });
 
   overlay.appendChild(svg);
@@ -842,7 +897,9 @@ function groupValueFn(group) {
 
 // 绘制药物治疗窗上下限两条横向实心直线：仅当该药具备 Vd/F（纵轴为真实浓度）时绘制，
 // 上下限直接按真实浓度值定位，线旁标注浓度数值。
-function drawTherapeuticWindow(container, group, yFor, xMin, xMax, color) {
+// 传入 labelOut 数组时，浓度标注文本不再画进可滚动内容区（需滑到最右端才能看见），
+// 而是收集起来由固定在视口右侧的浮层渲染，保证始终可见。
+function drawTherapeuticWindow(container, group, yFor, xMin, xMax, color, labelOut) {
   const cp = concentrationParamsFor(group);
   const tw = therapeuticWindowFor(group);
   if (!cp || !tw || tw.min >= tw.max) return;
@@ -855,6 +912,10 @@ function drawTherapeuticWindow(container, group, yFor, xMin, xMax, color) {
       x1: xMin, y1: y, x2: xMax, y2: y,
       stroke: color, 'stroke-width': 2, 'stroke-opacity': 0.85
     }));
+    if (labelOut) {
+      labelOut.push({ y, text, color });
+      return;
+    }
     const label = createSVGElement('text', {
       x: xMax - 4, y: y - 4, 'text-anchor': 'end', fill: color, 'font-size': '10'
     });
@@ -1098,8 +1159,32 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       };
     }).filter(s => s.visible);
 
-    // 右侧简化比例尺已移除：各药物浓度刻度在手机上过于密集，影响观察主图表。
-    // 药物浓度信息仍可通过图例、药效区间曲线与数据悬浮提示查看。
+    // 右侧血药浓度比例尺：只显示等距的小刻度横线，不再为每种药各画一列数字，
+    // 避免多种药刻度互相堆叠；悬停/长按时在图表上绘制横向实线并弹出各药浓度。
+    const axisYTop = PADDING.top;
+    const axisYBottom = height - PADDING.bottom;
+    const axisCenterX = PADDING.right / 2;
+    const tickCount = 10;
+    const tickHalfLen = 5;
+    const effectScaleLabels = [];
+    for (let i = 0; i < tickCount; i++) {
+      const y = axisYTop + (i / (tickCount - 1)) * (axisYBottom - axisYTop);
+      effectScaleLabels.push({
+        isTick: true, y,
+        x1: axisCenterX - tickHalfLen, x2: axisCenterX + tickHalfLen,
+        color: colors.textMuted
+      });
+    }
+    // 覆盖整个比例尺的可交互透明区域（不显示任何内容，仅用于悬停/长按）
+    effectScaleLabels.push({
+      value: '', y: 0, color: 'transparent', x: axisCenterX,
+      isBar: true, barY: axisYTop, barHeight: axisYBottom - axisYTop,
+      barWidth: PADDING.right, medIdx: null, barColor: 'transparent', opacity: '1'
+    });
+    renderYAxisOverlay(wrap, 'right', effectScaleLabels, colors.textMuted, height);
+
+    // 收集血药浓度“上限/下限”标注，绘制到固定在视口右侧的浮层（始终可见）
+    const therapeuticLabels = [];
 
     // 绘制药效区间（最高/最低两条曲线）
     series.forEach(s => {
@@ -1144,7 +1229,7 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
         'stroke-linejoin': 'round'
       }));
 
-      drawTherapeuticWindow(container, s, s.yEffectFor, PADDING.left, width - PADDING.right, s.color);
+      drawTherapeuticWindow(container, s, s.yEffectFor, PADDING.left, width - PADDING.right, s.color, therapeuticLabels);
 
       // 当前视图范围内没有再服用的药不显示在图例里
       if (legendContainer && s.activeInView) {
@@ -1155,7 +1240,79 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
       }
     });
 
-    // 右侧简化比例尺已移除，对应的 tooltip 事件绑定一并移除
+    // 右侧比例尺悬停/长按：绘制贯穿整个图表宽度的横向实线，并显示各药在当前 Y 下的浓度
+    const scaleCrosshair = createSVGElement('g', { class: 'scale-crosshair', display: 'none' });
+    const scaleHLine = createSVGElement('line', {
+      x1: PADDING.left, y1: axisYTop, x2: width - PADDING.right, y2: axisYTop,
+      stroke: colors.accent, 'stroke-width': 1.5, 'stroke-linecap': 'round'
+    });
+    scaleCrosshair.appendChild(scaleHLine);
+    container.appendChild(scaleCrosshair);
+
+    const effectAxisBars = wrap.querySelectorAll('.y-axis-overlay.right .effect-axis-bar');
+    const showScaleTooltip = (bar, clientX, clientY) => {
+      if (!series.length) return;
+      const overlay = wrap.querySelector('.y-axis-overlay.right');
+      if (!overlay) return;
+      const overlayRect = overlay.getBoundingClientRect();
+      // 与 X 轴逻辑一致：除以界面缩放比例，修正设置了界面缩放时指针与识别位置的偏差
+      const y = Math.min(Math.max((clientY - overlayRect.top) / getUIScaleRatio(), axisYTop), axisYBottom);
+      // 横向实线贯穿整个图表
+      scaleCrosshair.setAttribute('display', 'block');
+      scaleHLine.setAttribute('y1', y);
+      scaleHLine.setAttribute('y2', y);
+      // 列出各药在当前 Y 下对应的血药浓度
+      const rows = series.map(s => {
+        const val = s.yMax * (axisYBottom - y) / chartH;
+        const unit = s.valueUnit || s.doseMassUnit || '';
+        return `<div style="color:${s.color}">${s.name}: ${val.toFixed(2)} ${unit}</div>`;
+      }).join('');
+      tooltip.innerHTML = rows;
+      tooltip.classList.add('visible');
+      tooltip.style.position = 'fixed';
+      const tRect = tooltip.getBoundingClientRect();
+      const vw = window.innerWidth;
+      const vh = window.innerHeight;
+      let left = clientX + 12;
+      let top = clientY - tRect.height - 12;
+      if (left + tRect.width + 12 > vw) left = clientX - tRect.width - 12;
+      if (left < 8) left = 8;
+      if (top < 8) top = clientY + 12;
+      if (top + tRect.height + 8 > vh) top = vh - tRect.height - 8;
+      tooltip.style.left = `${left}px`;
+      tooltip.style.top = `${top}px`;
+    };
+    const hideScaleTooltip = () => {
+      scaleCrosshair.setAttribute('display', 'none');
+      tooltip.classList.remove('visible');
+    };
+    effectAxisBars.forEach(bar => {
+      bar.addEventListener('mouseenter', e => showScaleTooltip(bar, e.clientX, e.clientY));
+      bar.addEventListener('mousemove', e => showScaleTooltip(bar, e.clientX, e.clientY));
+      bar.addEventListener('mouseleave', hideScaleTooltip);
+      // 触摸交互复用滚动锁定逻辑：锁定时阻止原生滚动并让 tooltip 跟随手指，
+      // 未锁定时交给原生滚动（触摸屏上仍可正常滑动视图）
+      bar.addEventListener('touchstart', e => {
+        if (isScrollLocked()) {
+          const touch = e.touches[0];
+          showScaleTooltip(bar, touch.clientX, touch.clientY);
+        }
+      }, { passive: true });
+      bar.addEventListener('touchmove', e => {
+        if (isScrollLocked()) {
+          if (e.cancelable) e.preventDefault();
+          const touch = e.touches[0];
+          showScaleTooltip(bar, touch.clientX, touch.clientY);
+        }
+      }, { passive: false });
+      bar.addEventListener('touchend', hideScaleTooltip, { passive: true });
+      bar.addEventListener('touchcancel', hideScaleTooltip, { passive: true });
+    });
+
+    // 血药浓度“上限/下限”标注浮层（固定在视口右侧，始终可见）
+    if (therapeuticLabels.length) {
+      renderTherapeuticLabelsOverlay(wrap, therapeuticLabels, height);
+    }
 
   }
 
@@ -2047,6 +2204,9 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
   }
   container.appendChild(timeAxisGroup);
 
+  // 收集血药浓度“上限/下限”标注，绘制到固定在视口右侧的浮层（始终可见）
+  const therapeuticLabels = [];
+
   series.forEach(s => {
     let bandD = `M ${xFor(s.data[0].t)} ${yFor(s.data[0].upper)}`;
     for (let i = 1; i < s.data.length; i++) {
@@ -2086,7 +2246,7 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
       'stroke-linejoin': 'round'
     }));
 
-    drawTherapeuticWindow(container, s, yFor, PADDING.left, width - PADDING.right, s.color);
+    drawTherapeuticWindow(container, s, yFor, PADDING.left, width - PADDING.right, s.color, therapeuticLabels);
 
     if (legendContainer) {
       const item = document.createElement('span');
@@ -2095,6 +2255,11 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
       legendContainer.appendChild(item);
     }
   });
+
+  // 血药浓度“上限/下限”标注浮层（固定在视口右侧，始终可见）
+  if (therapeuticLabels.length) {
+    renderTherapeuticLabelsOverlay(wrap, therapeuticLabels, height);
+  }
 
   const crosshairGroup = createSVGElement('g', { class: 'crosshair', display: 'none' });
   const crosshairStroke = `rgba(${hexToRgb(textMuted)}, 0.5)`;
