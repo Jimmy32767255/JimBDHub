@@ -38,7 +38,8 @@ const DEFAULT_THEME = {
   maxLoadedRecords: 100,
   dynamicAnimationSpeed: true,
   disableAnimations: false,
-  recordAddToast: true
+  recordAddToast: true,
+  customCSS: ''
 };
 
 const SYSTEM_PRESETS = {
@@ -123,6 +124,50 @@ function save(theme) {
   localStorage.setItem(STORAGE_KEY, JSON.stringify(theme));
 }
 
+// ---- 自定义 CSS（高级功能）----
+// 安全机制：仅注入纯样式规则。自动拦截 @import（外部加载），限制总长度，
+// 并利用浏览器 CSS 解析器（constructable stylesheet）做语法校验，非法内容不生效。
+export const CUSTOM_CSS_MAX_LENGTH = 32 * 1024;
+
+function stripImports(css) {
+  return css.replace(/@import\s+[^;]+;?/gi, '');
+}
+
+export function sanitizeCustomCSS(raw = '') {
+  if (typeof raw !== 'string') raw = '';
+  const css = stripImports(raw).trim();
+  if (css.length > CUSTOM_CSS_MAX_LENGTH) {
+    throw new Error('custom-css-too-long');
+  }
+  if (css && typeof CSSStyleSheet !== 'undefined'
+    && CSSStyleSheet.prototype && typeof CSSStyleSheet.prototype.replaceSync === 'function') {
+    try {
+      new CSSStyleSheet().replaceSync(css);
+    } catch {
+      throw new Error('custom-css-syntax');
+    }
+  }
+  return css;
+}
+
+function applyCustomCSS(css) {
+  let style = document.getElementById('custom-css-style');
+  if (!style) {
+    style = document.createElement('style');
+    style.id = 'custom-css-style';
+    document.head.appendChild(style);
+  }
+  let safe = '';
+  try {
+    safe = sanitizeCustomCSS(css);
+  } catch {
+    safe = '';
+  }
+  if (style.textContent !== safe) {
+    style.textContent = safe;
+  }
+}
+
 function applyCSS(theme) {
   const root = document.documentElement;
   root.style.setProperty('--theme-positive', theme.positiveColor);
@@ -166,6 +211,7 @@ function applyCSS(theme) {
   // 无障碍：关闭所有动画/过渡
   root.classList.toggle('no-animations', theme.disableAnimations === true);
   applyBackground(theme);
+  applyCustomCSS(theme.customCSS);
 }
 
 function applyBackground(theme) {

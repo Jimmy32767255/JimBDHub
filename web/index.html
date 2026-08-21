@@ -572,6 +572,14 @@
               </div>
               <small class="form-hint" data-i18n="settings.appearance.themeShareHint">导出仅包含外观设置，不含任何个人数据，可放心分享</small>
             </div>
+            <div class="setting-group">
+              <h4 data-i18n="settings.appearance.customCss">自定义 CSS（高级）</h4>
+              <textarea id="custom-css-input" class="custom-css-input" rows="6" spellcheck="false" data-i18n-placeholder="settings.appearance.customCssPlaceholder"></textarea>
+              <div class="settings-actions">
+                <button type="button" class="btn btn-primary" id="custom-css-save-btn" data-i18n="settings.appearance.customCssSave">保存并应用</button>
+              </div>
+              <small class="form-hint custom-css-warning" data-i18n="settings.appearance.customCssHint">高级功能：注入的 CSS 会直接作用于整个应用界面，可能改变外观甚至影响使用。请仅使用你自己编写或来源可信的配置；@import 与过长内容会被自动拦截。</small>
+            </div>
           </div>
         </div>
         <div class="card" data-settings-card="display">

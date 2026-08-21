@@ -1,7 +1,7 @@
 import { store } from './store.js';
 import { platform } from './platform.js';
 import { t, setLanguage, getLanguage, subscribe, updateDOM } from './i18n.js';
-import { getTheme, setTheme, resetTheme, applySystemTheme, subscribe as subscribeTheme } from './theme.js';
+import { getTheme, setTheme, resetTheme, applySystemTheme, sanitizeCustomCSS, subscribe as subscribeTheme } from './theme.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { enable as enableSync, disable as disableSync, subscribeStatus, getStatus } from './sync.js';
 import {
@@ -88,7 +88,8 @@ const THEME_EXPORT_KEYS = [
   'positiveColor', 'negativeColor', 'neutralColor',
   'backgroundColor', 'surfaceColor', 'surface2Color', 'surface3Color', 'surfaceAltColor',
   'textColor', 'textMutedColor', 'fontColorMode', 'accentColor',
-  'backgroundType', 'backgroundImage', 'backgroundGradient'
+  'backgroundType', 'backgroundImage', 'backgroundGradient',
+  'customCSS'
 ];
 
 function themeFileName() {
@@ -141,6 +142,22 @@ async function importTheme(text) {
     THEME_EXPORT_KEYS.forEach(key => {
       if (data.theme[key] !== undefined) preset[key] = data.theme[key];
     });
+    // 自定义 CSS 属于安全敏感内容：先提示来源可信再应用，并做安全校验，非法内容不生效
+    if (data.theme.customCSS !== undefined) {
+      const importedCss = typeof data.theme.customCSS === 'string' ? data.theme.customCSS : '';
+      if (importedCss.trim()) {
+        if (!(await showConfirm(t('settings.appearance.customCssImportConfirm')))) {
+          return;
+        }
+        try {
+          preset.customCSS = sanitizeCustomCSS(importedCss);
+        } catch {
+          preset.customCSS = '';
+        }
+      } else {
+        preset.customCSS = '';
+      }
+    }
     // 功能类设置（自动记录、简化模式、缩放、边距等）保持本机现状，仅覆盖外观
     setTheme({ ...preset, useSystemTheme: false }, 'ThemeImport');
     await showAlert(t('settings.appearance.themeImportSuccess'));
@@ -221,6 +238,38 @@ function bindThemeControls() {
 
   systemBtn?.addEventListener('click', applySystemTheme);
   resetBtn?.addEventListener('click', resetTheme);
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
+function bindCustomCssControl() {
+  const input = document.getElementById('custom-css-input');
+  const saveBtn = document.getElementById('custom-css-save-btn');
+  if (!input || !saveBtn) return;
+
+  function updateUIFromTheme(theme) {
+    input.value = theme.customCSS || '';
+  }
+
+  saveBtn.addEventListener('click', () => {
+    let css;
+    try {
+      css = sanitizeCustomCSS(input.value);
+    } catch (err) {
+      const msg = err.message === 'custom-css-too-long'
+        ? t('settings.appearance.customCssTooLong')
+        : t('settings.appearance.customCssSyntaxError');
+      showAlert(msg);
+      return;
+    }
+    setTheme({ customCSS: css, useSystemTheme: false }, 'CustomCSSChange');
+    input.value = css;
+    // 轻量反馈：按钮短暂显示“已应用”
+    const original = saveBtn.textContent;
+    saveBtn.textContent = t('settings.appearance.customCssSaved');
+    setTimeout(() => { saveBtn.textContent = original; }, 1500);
+  });
 
   updateUIFromTheme(getTheme());
   subscribeTheme(updateUIFromTheme);
@@ -1136,6 +1185,7 @@ export function initSettings() {
 
   bindThemeControls();
   bindBackgroundControls();
+  bindCustomCssControl();
   bindDisplayControls();
   bindConnectMoodDotsControl();
   bindSleepOverlayModeControl();

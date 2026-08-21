@@ -859,6 +859,27 @@ body {
 .form-hint.warning {
   color: var(--theme-accent);
 }
+.custom-css-warning {
+  color: var(--theme-accent);
+}
+.custom-css-input {
+  width: 100%;
+  min-height: 120px;
+  box-sizing: border-box;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  padding: 10px 12px;
+  color: var(--theme-text);
+  font-family: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+  font-size: 12px;
+  line-height: 1.5;
+  resize: vertical;
+  outline: none;
+}
+.custom-css-input:focus {
+  border-color: var(--theme-accent);
+}
 
 .schedule-list {
   display: flex;
