@@ -596,14 +596,20 @@ function generateHistoricalDoses(maxTime) {
         firstActualTs,
         capTime
       );
+      // 用药历史中的 amount 表示“每日总剂量”，按时间表次数均分到各次服药；
+      // 无时间表时视为每天一次，避免每日剂量被静默忽略。
       const schedule = Array.isArray(entry.schedule) ? entry.schedule : [];
-      const amount = Number(entry.amount) || 0;
-      if (!schedule.length || amount <= 0) return;
+      const dailyAmount = Number(entry.amount) || 0;
+      if (dailyAmount <= 0) return;
+      const times = schedule.length
+        ? schedule
+        : [String(new Date(entry.timestamp).getHours()).padStart(2, '0') + ':' + String(new Date(entry.timestamp).getMinutes()).padStart(2, '0')];
+      const perDoseAmount = dailyAmount / times.length;
 
       const startDay = new Date(entry.timestamp);
       startDay.setHours(0, 0, 0, 0);
       for (let dayTs = startDay.getTime(); dayTs < endTime; dayTs += DAY_MS) {
-        schedule.forEach(time => {
+        times.forEach(time => {
           const [h, min] = String(time).split(':').map(Number);
           if (Number.isNaN(h) || Number.isNaN(min)) return;
           const doseTs = dayTs + h * HOUR_MS + min * 60 * 1000;
@@ -611,7 +617,7 @@ function generateHistoricalDoses(maxTime) {
           virtualDoses.push({
             ...entry,
             timestamp: doseTs,
-            amount,
+            amount: perDoseAmount,
             historical: true
           });
         });
@@ -641,18 +647,22 @@ function doseMass(dose) {
   return (dose.amount || 0) * (dose.dosePerTablet || 1);
 }
 
-function effectAt(dtHours, dose, variant = 'upper') {
+function effectAt(dtHours, dose, variant = 'upper', pk) {
+  const shape = pk || dose;
   if (variant === 'upper') {
-    return doseMass(dose) * pkEffect(dtHours, dose.onsetMinHours, dose.peakMinHours, dose.halfLifeMaxHours);
+    return doseMass(dose) * pkEffect(dtHours, shape.onsetMinHours, shape.peakMinHours, shape.halfLifeMaxHours);
   }
-  return doseMass(dose) * pkEffect(dtHours, dose.onsetMaxHours, dose.peakMaxHours, dose.halfLifeMinHours);
+  return doseMass(dose) * pkEffect(dtHours, shape.onsetMaxHours, shape.peakMaxHours, shape.halfLifeMinHours);
 }
 
 export function effectEndTime(dose, threshold = 0.01) {
   const timestamp = dose.timestamp;
   const mass = doseMass(dose);
-  const peakHours = dose.peakMaxHours ?? dose.peakHours ?? 0;
-  const halfLifeHours = dose.halfLifeMaxHours ?? dose.halfLifeHours ?? 0.1;
+  const med = (dose.medicationId ? store.data.meds.find(m => m.id === dose.medicationId) : null)
+    || (dose.name ? store.data.meds.find(m => m.name === dose.name) : null);
+  const shape = med ? medPkFor({ medicationId: med.id, name: med.name }) : dose;
+  const peakHours = shape.peakMaxHours ?? shape.peakHours ?? 0;
+  const halfLifeHours = shape.halfLifeMaxHours ?? shape.halfLifeHours ?? 0.1;
   if (!mass || mass <= threshold || !halfLifeHours || halfLifeHours <= 0) {
     return timestamp + Math.max(0, peakHours) * HOUR_MS;
   }
@@ -782,6 +792,22 @@ function concentrationParamsFor(group) {
   return readConcentrationParams(dose);
 }
 
+// 该药当前配置的 PK 形状参数（起效/达峰/半衰期）。
+// 统一取当前药品配置，而不是记录创建时的快照，保证实际记录、用药历史与未来预测使用同一套计算逻辑。
+function medPkFor(group) {
+  const byId = group.medicationId ? store.data.meds.find(m => m.id === group.medicationId) : null;
+  const med = byId || (group.name ? store.data.meds.find(m => m.name === group.name) : null);
+  if (!med) return null;
+  return {
+    onsetMinHours: med.onsetMinHours ?? med.onsetHours ?? 1,
+    onsetMaxHours: med.onsetMaxHours ?? med.onsetHours ?? 1,
+    peakMinHours: med.peakMinHours ?? med.peakHours ?? 2,
+    peakMaxHours: med.peakMaxHours ?? med.peakHours ?? 2,
+    halfLifeMinHours: med.halfLifeMinHours ?? med.halfLifeHours ?? 12,
+    halfLifeMaxHours: med.halfLifeMaxHours ?? med.halfLifeHours ?? 12
+  };
+}
+
 // 单剂血药峰浓度，单位由 cp.unit 决定；缺少换算所需的 molarMass 等时返回 null。
 function concentrationCmax(dose, cp) {
   const cMgL = cp.f * doseMass(dose) / cp.vd;
@@ -793,22 +819,25 @@ function concentrationCmax(dose, cp) {
   return cMgL * (MGL_PER_UNIT[cp.unit] ?? 1);
 }
 
-function concentrationAt(dtHours, dose, variant, cp) {
+function concentrationAt(dtHours, dose, variant, cp, pk) {
   const peak = concentrationCmax(dose, cp);
   if (peak === null) return null;
+  const shape = pk || dose;
   if (variant === 'upper') {
-    return peak * pkEffect(dtHours, dose.onsetMinHours, dose.peakMinHours, dose.halfLifeMaxHours);
+    return peak * pkEffect(dtHours, shape.onsetMinHours, shape.peakMinHours, shape.halfLifeMaxHours);
   }
-  return peak * pkEffect(dtHours, dose.onsetMaxHours, dose.peakMaxHours, dose.halfLifeMinHours);
+  return peak * pkEffect(dtHours, shape.onsetMaxHours, shape.peakMaxHours, shape.halfLifeMinHours);
 }
 
 // 某药本次曲线使用的“值函数”：有 Vd/F 时返回真实血药浓度，否则回退到剂量质量（估算药效）。
+// PK 形状参数统一取自当前药品配置，使实际记录与预测使用同一套参数。
 function groupValueFn(group) {
   const cp = concentrationParamsFor(group);
+  const pk = medPkFor(group);
   if (cp) {
-    return { at: (dt, d, v) => concentrationAt(dt, d, v, cp), unit: cp.unit, concentration: true };
+    return { at: (dt, d, v) => concentrationAt(dt, d, v, cp, pk), unit: cp.unit, concentration: true };
   }
-  return { at: effectAt, unit: null, concentration: false };
+  return { at: (dt, d, v) => effectAt(dt, d, v, pk), unit: null, concentration: false };
 }
 
 // 绘制药物治疗窗上下限两条横向实心直线：仅当该药具备 Vd/F（纵轴为真实浓度）时绘制，
@@ -862,8 +891,10 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   clearYAxisOverlays(wrap);
   if (legendContainer) legendContainer.innerHTML = '';
 
+  // explicitDoses（来自 app.js 的 getEffectiveDoses）已包含实际记录与用药历史，
+  // 仅在未提供时自行生成，避免用药历史剂量被重复累加导致曲线偏高。
   let actualDoses = explicitDoses !== null ? explicitDoses : extractDoses(allRecords);
-  let historicalDoses = generateHistoricalDoses();
+  let historicalDoses = explicitDoses !== null ? [] : generateHistoricalDoses();
   let doses = [...actualDoses, ...historicalDoses, ...projectedDoses];
   let hasMoodData = records.length > 0 && showMood;
   let hasEffectData = doses.length > 0 && showEffect;

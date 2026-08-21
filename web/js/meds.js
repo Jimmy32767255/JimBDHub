@@ -286,7 +286,8 @@ function getLogsCustomRange() {
 
 export function predictDepletion(med) {
   if (!Array.isArray(med.schedule) || med.schedule.length === 0) return null;
-  if (med.remainingPills <= 0) return -1;
+  const remaining = Number(med.remainingPills);
+  if (!Number.isFinite(remaining) || remaining <= 0) return -1;
   const now = Date.now();
   const sortedSchedule = [...med.schedule].sort();
   const today = new Date(now);
@@ -299,14 +300,14 @@ export function predictDepletion(med) {
       return todayStart + h * 3600000 + min * 60000;
     })
     .filter(ts => ts > now);
-  let remaining = med.remainingPills;
+  let remainingCount = remaining;
   for (const ts of todayFutureTimes) {
-    remaining--;
-    if (remaining <= 0) return ts;
+    remainingCount--;
+    if (remainingCount <= 0) return ts;
   }
   const dailyCount = sortedSchedule.length;
-  const fullDays = Math.floor((remaining - 1) / dailyCount);
-  const remainder = (remaining - 1) % dailyCount;
+  const fullDays = Math.floor((remainingCount - 1) / dailyCount);
+  const remainder = (remainingCount - 1) % dailyCount;
   const [h, min] = sortedSchedule[remainder].split(':').map(Number);
   return todayStart + (fullDays + 1) * DAY_MS + h * 3600000 + min * 60000;
 }

@@ -698,7 +698,7 @@
             </div>
             <div class="setting-group" id="med-history-group">
               <h4 data-i18n="settings.meds.historyTitle">用药历史（补充药效）</h4>
-              <small class="form-hint" data-i18n="settings.meds.historyHint">添加开始用药或变更用药的时间点，用于在首次服药记录之前估算药效。变更点后的实际服药记录优先于历史记录。</small>
+              <small class="form-hint" data-i18n="settings.meds.historyHint">添加开始用药或变更用药的时间点，用于在首次服药记录之前估算药效。每日剂量为一天总共摄入的量，会自动按药品的每日服药时间表均分到各次服药；无时间表时视为每天一次。变更点后的实际服药记录优先于历史记录。</small>
               <div class="med-history-list" id="med-history-list"></div>
               <div class="med-history-form" id="med-history-form" hidden>
                 <input type="hidden" id="med-history-id">
@@ -714,7 +714,7 @@
                 </div>
                 <div class="form-row two-col">
                   <label class="form-field">
-                    <span class="form-label" data-i18n="settings.meds.historyAmount">每次剂量</span>
+                    <span class="form-label" data-i18n="settings.meds.historyAmount">每日剂量</span>
                     <input type="number" id="med-history-amount" min="0.1" step="0.01" required>
                   </label>
                   <label class="form-field">
