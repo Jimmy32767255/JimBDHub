@@ -92,7 +92,6 @@
   "chart.tooltip.dose": "Dose",
   "chart.effectTooltip": "Estimated effect",
   "chart.effectUnit": "mixed units",
-  "chart.effectAxisTooltip": "{name}: max {max} {unit}",
   "chart.therapeuticUpper": "Upper",
   "chart.therapeuticLower": "Lower",
   "chart.tooltip.event": "Event",
