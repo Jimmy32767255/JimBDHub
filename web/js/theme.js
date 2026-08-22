@@ -24,6 +24,8 @@ const DEFAULT_THEME = {
   accentColor: '#ef4444',
   backgroundType: 'solid',
   backgroundImage: '',
+  backgroundImageAutoColor: false,
+  autoColorSnapshot: null,
   backgroundGradient: 'linear-gradient(180deg, #0f172a 0%, #1e293b 100%)',
   useSystemTheme: false,
   uiScale: 100,
@@ -70,6 +72,154 @@ function hexToRgb(hex) {
   const g = parseInt(clean.slice(2, 4), 16);
   const b = parseInt(clean.slice(4, 6), 16);
   return `${r}, ${g}, ${b}`;
+}
+
+function hexToRgbObj(hex) {
+  const clean = (hex || '').replace('#', '');
+  if (clean.length !== 6) return { r: 0, g: 0, b: 0 };
+  return {
+    r: parseInt(clean.slice(0, 2), 16),
+    g: parseInt(clean.slice(2, 4), 16),
+    b: parseInt(clean.slice(4, 6), 16)
+  };
+}
+
+function rgbToHex({ r, g, b }) {
+  const toHex = n => Math.max(0, Math.min(255, Math.round(n))).toString(16).padStart(2, '0');
+  return `#${toHex(r)}${toHex(g)}${toHex(b)}`;
+}
+
+function clamp(num, min, max) {
+  return Math.max(min, Math.min(max, num));
+}
+
+function rgbToHsl(hex) {
+  let { r, g, b } = hexToRgbObj(hex);
+  r /= 255; g /= 255; b /= 255;
+  const max = Math.max(r, g, b);
+  const min = Math.min(r, g, b);
+  let h = 0; let s = 0; const l = (max + min) / 2;
+  if (max !== min) {
+    const d = max - min;
+    s = l > 0.5 ? d / (2 - max - min) : d / (max + min);
+    switch (max) {
+      case r: h = (g - b) / d + (g < b ? 6 : 0); break;
+      case g: h = (b - r) / d + 2; break;
+      case b: h = (r - g) / d + 4; break;
+    }
+    h /= 6;
+  }
+  return { h: h * 360, s, l };
+}
+
+function hslToRgbHex(h, s, l) {
+  h = ((h % 360) + 360) % 360 / 360;
+  s = clamp(s, 0, 1);
+  l = clamp(l, 0, 1);
+  const hue2rgb = (p, q, t) => {
+    if (t < 0) t += 1;
+    if (t > 1) t -= 1;
+    if (t < 1 / 6) return p + (q - p) * 6 * t;
+    if (t < 1 / 2) return q;
+    if (t < 2 / 3) return p + (q - p) * (2 / 3 - t) * 6;
+    return p;
+  };
+  let r, g, b;
+  if (s === 0) {
+    r = g = b = l;
+  } else {
+    const q = l < 0.5 ? l * (1 + s) : l + s - l * s;
+    const p = 2 * l - q;
+    r = hue2rgb(p, q, h + 1 / 3);
+    g = hue2rgb(p, q, h);
+    b = hue2rgb(p, q, h - 1 / 3);
+  }
+  return rgbToHex({ r: r * 255, g: g * 255, b: b * 255 });
+}
+
+const AUTO_COLOR_SNAPSHOT_KEYS = [
+  'positiveColor', 'negativeColor', 'neutralColor',
+  'backgroundColor', 'surfaceColor', 'surface2Color', 'surface3Color', 'surfaceAltColor',
+  'accentColor'
+];
+
+function deriveThemeColorsFromAverage(hex) {
+  const { h, s, l } = rgbToHsl(hex);
+  const bg = hslToRgbHex(h, s, l);
+  const surface = hslToRgbHex(h, s, clamp(l + 0.06, 0, 1));
+  const surface2 = hslToRgbHex(h, s, clamp(l + 0.12, 0, 1));
+  const surface3 = hslToRgbHex(h, s, clamp(l + 0.18, 0, 1));
+  const surfaceAlt = surface2;
+  const accentHue = (h + (s < 0.1 ? 30 : 180)) % 360;
+  const accent = hslToRgbHex(accentHue, Math.max(s, 0.55), 0.55);
+  const positive = accent;
+  const negative = hslToRgbHex((accentHue + 210) % 360, Math.max(s, 0.45), 0.5);
+  const neutral = hslToRgbHex(h, Math.min(s, 0.12), clamp(l + 0.22, 0, 1));
+  return {
+    positiveColor: positive,
+    negativeColor: negative,
+    neutralColor: neutral,
+    backgroundColor: bg,
+    surfaceColor: surface,
+    surface2Color: surface2,
+    surface3Color: surface3,
+    surfaceAltColor: surfaceAlt,
+    accentColor: accent
+  };
+}
+
+export function extractImageAverageColor(url) {
+  return new Promise((resolve, reject) => {
+    const img = new Image();
+    img.onload = () => {
+      const size = 100;
+      const canvas = document.createElement('canvas');
+      canvas.width = size;
+      canvas.height = size;
+      const ctx = canvas.getContext('2d');
+      ctx.drawImage(img, 0, 0, size, size);
+      try {
+        const data = ctx.getImageData(0, 0, size, size).data;
+        let r = 0, g = 0, b = 0, count = 0;
+        for (let i = 0; i < data.length; i += 4) {
+          if (data[i + 3] < 128) continue;
+          r += data[i];
+          g += data[i + 1];
+          b += data[i + 2];
+          count++;
+        }
+        if (!count) {
+          resolve('#0f172a');
+          return;
+        }
+        resolve(rgbToHex({
+          r: Math.round(r / count),
+          g: Math.round(g / count),
+          b: Math.round(b / count)
+        }));
+      } catch (err) {
+        reject(err);
+      }
+    };
+    img.onerror = () => reject(new Error('image-load-failed'));
+    img.src = url;
+  });
+}
+
+export function takeAutoColorSnapshot(theme) {
+  const snapshot = {};
+  AUTO_COLOR_SNAPSHOT_KEYS.forEach(key => { snapshot[key] = theme[key]; });
+  return snapshot;
+}
+
+export function buildAutoColorTheme(baseTheme, averageHex) {
+  return { ...baseTheme, ...deriveThemeColorsFromAverage(averageHex) };
+}
+
+export function isAutoColorActive(theme) {
+  return theme.backgroundImageAutoColor === true
+    && theme.backgroundType === 'image'
+    && !!theme.backgroundImage;
 }
 
 /** 按相对亮度判断颜色是否偏亮。 */

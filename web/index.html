@@ -544,6 +544,11 @@
               <div class="background-controls" id="background-image-control" hidden>
                 <input type="file" id="theme-background-image" accept="image/*">
                 <button type="button" class="btn btn-ghost btn-sm" id="theme-clear-background-image" data-i18n="common.clear">清除</button>
+                <label class="checkbox-field" style="margin-top: 0.5rem;">
+                  <input type="checkbox" id="theme-background-image-auto-color">
+                  <span data-i18n="settings.background.autoColor">根据背景图片自动取色</span>
+                </label>
+                <small class="form-hint" data-i18n="settings.background.autoColorHint">勾选后将根据图片自动计算主题色并禁用手动颜色控件</small>
               </div>
               <div class="background-controls" id="background-gradient-control" hidden>
                 <div class="color-row">

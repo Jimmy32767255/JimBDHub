@@ -1,7 +1,10 @@
 import { store } from './store.js';
 import { platform } from './platform.js';
 import { t, setLanguage, getLanguage, subscribe, updateDOM } from './i18n.js';
-import { getTheme, setTheme, resetTheme, applySystemTheme, sanitizeCustomCSS, subscribe as subscribeTheme } from './theme.js';
+import {
+  getTheme, setTheme, resetTheme, applySystemTheme, sanitizeCustomCSS, subscribe as subscribeTheme,
+  extractImageAverageColor, takeAutoColorSnapshot, buildAutoColorTheme, isAutoColorActive
+} from './theme.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { enable as enableSync, disable as disableSync, subscribeStatus, getStatus } from './sync.js';
 import {
@@ -88,7 +91,7 @@ const THEME_EXPORT_KEYS = [
   'positiveColor', 'negativeColor', 'neutralColor',
   'backgroundColor', 'surfaceColor', 'surface2Color', 'surface3Color', 'surfaceAltColor',
   'textColor', 'textMutedColor', 'fontColorMode', 'accentColor',
-  'backgroundType', 'backgroundImage', 'backgroundGradient',
+  'backgroundType', 'backgroundImage', 'backgroundImageAutoColor', 'backgroundGradient',
   'customCSS'
 ];
 
@@ -302,6 +305,7 @@ function bindBackgroundControls() {
   const backgroundInput = document.getElementById('theme-background-color');
   const imageInput = document.getElementById('theme-background-image');
   const clearImageBtn = document.getElementById('theme-clear-background-image');
+  const autoColorCheckbox = document.getElementById('theme-background-image-auto-color');
   const gradientStart = document.getElementById('theme-gradient-start');
   const gradientEnd = document.getElementById('theme-gradient-end');
   const gradientDirection = document.getElementById('theme-gradient-direction');
@@ -320,6 +324,7 @@ function bindBackgroundControls() {
         const dataUrl = await platform.pickBackgroundImage();
         if (dataUrl) {
           setTheme({ backgroundImage: dataUrl, backgroundType: 'image', useSystemTheme: false }, 'BackgroundChange');
+          if (autoColorCheckbox?.checked) await recomputeAutoColors();
         }
       } catch (err) {
         await showAlert(t('settings.background.imageError', { message: err.message }));
@@ -334,6 +339,56 @@ function bindBackgroundControls() {
     gradientControl.hidden = type !== 'gradient';
   }
 
+  function updateManualColorControlsDisabled(disabled) {
+    const ids = [
+      'theme-positive-color', 'theme-negative-color', 'theme-neutral-color',
+      'theme-background-color', 'theme-surface-color', 'theme-surface-alt-color', 'theme-accent-color'
+    ];
+    ids.forEach(id => {
+      const el = document.getElementById(id);
+      if (el) el.disabled = disabled;
+    });
+    const fontGroup = document.getElementById('theme-font-color-mode');
+    if (fontGroup) {
+      fontGroup.querySelectorAll('.segment-btn').forEach(btn => { btn.disabled = disabled; });
+    }
+  }
+
+  async function recomputeAutoColors() {
+    const theme = getTheme();
+    if (!isAutoColorActive(theme)) return;
+    try {
+      const avg = await extractImageAverageColor(theme.backgroundImage);
+      const computed = buildAutoColorTheme(theme, avg);
+      setTheme({ ...computed, autoColorSnapshot: theme.autoColorSnapshot, useSystemTheme: false }, 'AutoColorRecompute');
+    } catch (err) {
+      await showAlert(t('settings.background.imageError', { message: err.message }));
+    }
+  }
+
+  async function setAutoColorEnabled(enabled) {
+    const theme = getTheme();
+    if (enabled) {
+      if (!theme.backgroundImage) {
+        await showAlert(t('settings.background.autoColorNoImage'));
+        if (autoColorCheckbox) autoColorCheckbox.checked = false;
+        return;
+      }
+      const snapshot = theme.autoColorSnapshot || takeAutoColorSnapshot(theme);
+      try {
+        const avg = await extractImageAverageColor(theme.backgroundImage);
+        const computed = buildAutoColorTheme(theme, avg);
+        setTheme({ ...computed, backgroundImageAutoColor: true, autoColorSnapshot: snapshot, useSystemTheme: false }, 'AutoColorEnable');
+      } catch (err) {
+        await showAlert(t('settings.background.imageError', { message: err.message }));
+        if (autoColorCheckbox) autoColorCheckbox.checked = false;
+      }
+    } else {
+      const snapshot = theme.autoColorSnapshot || {};
+      setTheme({ ...snapshot, backgroundImageAutoColor: false, autoColorSnapshot: null }, 'AutoColorDisable');
+    }
+  }
+
   function updateUIFromTheme(theme) {
     const type = theme.backgroundType || 'solid';
     updatePanels(type);
@@ -341,16 +396,23 @@ function bindBackgroundControls() {
       btn.classList.toggle('active', btn.dataset.type === type);
     });
     if (backgroundInput) backgroundInput.value = theme.backgroundColor;
+    if (autoColorCheckbox) autoColorCheckbox.checked = theme.backgroundImageAutoColor === true;
+    updateManualColorControlsDisabled(theme.backgroundImageAutoColor === true);
     const parsed = parseGradient(theme.backgroundGradient);
     if (gradientStart) gradientStart.value = parsed.start;
     if (gradientEnd) gradientEnd.value = parsed.end;
     if (gradientDirection) gradientDirection.value = parsed.direction;
   }
 
-  typeGroup.addEventListener('click', (e) => {
+  typeGroup.addEventListener('click', async (e) => {
     const btn = e.target.closest('.segment-btn');
     if (!btn) return;
-    setTheme({ backgroundType: btn.dataset.type, useSystemTheme: false }, 'BackgroundChange');
+    const newType = btn.dataset.type;
+    const theme = getTheme();
+    if (newType !== 'image' && theme.backgroundImageAutoColor) {
+      await setAutoColorEnabled(false);
+    }
+    setTheme({ backgroundType: newType, useSystemTheme: false }, 'BackgroundChange');
   });
 
   backgroundInput?.addEventListener('input', () => {
@@ -363,14 +425,23 @@ function bindBackgroundControls() {
     try {
       const dataUrl = await readFileAsDataURL(file);
       setTheme({ backgroundImage: dataUrl, backgroundType: 'image', useSystemTheme: false }, 'BackgroundChange');
+      if (autoColorCheckbox?.checked) await recomputeAutoColors();
     } catch (err) {
       await showAlert(t('settings.background.imageError', { message: err.message }));
     }
     e.target.value = '';
   });
 
-  clearImageBtn?.addEventListener('click', () => {
+  clearImageBtn?.addEventListener('click', async () => {
+    const theme = getTheme();
+    if (theme.backgroundImageAutoColor) {
+      await setAutoColorEnabled(false);
+    }
     setTheme({ backgroundImage: '', backgroundType: 'solid', useSystemTheme: false }, 'BackgroundChange');
+  });
+
+  autoColorCheckbox?.addEventListener('change', async () => {
+    await setAutoColorEnabled(autoColorCheckbox.checked);
   });
 
   function updateGradient() {
