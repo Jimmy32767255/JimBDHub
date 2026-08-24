@@ -388,6 +388,20 @@ function drawChart() {
 
   const wrap = chartViews.mood.svg.parentElement;
 
+  // 记录各图表当前滚动中心比例，重绘后各自恢复，
+  // 避免滚动锁定等触发重绘时被强制统一到第一个图表
+  const firstDraw = !_viewRestored;
+  const resetToMiddle = _resetScrollOnNextDraw;
+  const prevCenters = {};
+  Object.entries(chartViews).forEach(([key, v]) => {
+    const w = v.svg.parentElement;
+    if (!w) return;
+    const scrollable = w.scrollWidth - w.clientWidth;
+    prevCenters[key] = scrollable > 0
+      ? (w.scrollLeft + w.clientWidth / 2) / w.scrollWidth
+      : 0.5;
+  });
+
   // 首次绘表：尝试恢复保存的视图位置
   let centerFraction;
   if (!_viewRestored) {
@@ -463,15 +477,22 @@ function drawChart() {
     registerChartWrap(chartViews[key].svg.parentElement);
   });
 
-  // 恢复视口中心到相同比例位置（各图表等宽，使用同一 scrollLeft）
-  const newScrollable = wrap.scrollWidth - wrap.clientWidth;
-  if (newScrollable > 0) {
-    const targetScrollLeft = Math.max(0, Math.min(newScrollable,
-      centerFraction * wrap.scrollWidth - wrap.clientWidth / 2));
-    Object.values(chartViews).forEach(v => {
-      v.svg.parentElement.scrollLeft = targetScrollLeft;
-    });
-  }
+  // 恢复各图表视口中心：切页回到中间；首次绘表跟随恢复的视图位置；
+  // 其余情况各自恢复到重绘前的滚动进度（等宽图表按中心比例换算 scrollLeft）
+  const restoreScroll = (key, w) => {
+    const scrollable = w.scrollWidth - w.clientWidth;
+    if (scrollable <= 0) return;
+    let frac;
+    if (resetToMiddle) {
+      frac = 0.5;
+    } else if (key === 'mood' || firstDraw) {
+      frac = centerFraction;
+    } else {
+      frac = prevCenters[key] ?? centerFraction;
+    }
+    w.scrollLeft = Math.max(0, Math.min(scrollable, frac * w.scrollWidth - w.clientWidth / 2));
+  };
+  Object.entries(chartViews).forEach(([key, v]) => restoreScroll(key, v.svg.parentElement));
 
   // 保存当前视图位置与页码
   saveViewPosition();

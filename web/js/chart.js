@@ -1160,10 +1160,10 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
     return;
   }
 
-  // 右侧血药浓度比例尺：只显示等距的小刻度横线；悬停/长按时绘制横向实线并弹出各药浓度
+  // 左侧血药浓度比例尺：只显示等距的小刻度横线；悬停/长按时绘制横向实线并弹出各药浓度
   const axisYTop = PADDING.top;
   const axisYBottom = base.height - PADDING.bottom;
-  const axisCenterX = PADDING.right / 2;
+  const axisCenterX = PADDING.left / 2;
   const tickCount = 10;
   const tickHalfLen = 5;
   const effectScaleLabels = [];
@@ -1178,9 +1178,9 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
   effectScaleLabels.push({
     value: '', y: 0, color: 'transparent', x: axisCenterX,
     isBar: true, barY: axisYTop, barHeight: axisYBottom - axisYTop,
-    barWidth: PADDING.right, medIdx: null, barColor: 'transparent', opacity: '1'
+    barWidth: PADDING.left, medIdx: null, barColor: 'transparent', opacity: '1'
   });
-  renderYAxisOverlay(wrap, 'right', effectScaleLabels, colors.textMuted, base.height);
+  renderYAxisOverlay(wrap, 'left', effectScaleLabels, colors.textMuted, base.height);
 
   // 收集血药浓度“上限/下限”标注，绘制到固定在视口右侧的浮层（始终可见）
   const therapeuticLabels = [];
@@ -1248,10 +1248,10 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
   scaleCrosshair.appendChild(scaleHLine);
   container.appendChild(scaleCrosshair);
 
-  const effectAxisBars = wrap.querySelectorAll('.y-axis-overlay.right .effect-axis-bar');
+  const effectAxisBars = wrap.querySelectorAll('.y-axis-overlay.left .effect-axis-bar');
   const showScaleTooltip = (bar, clientX, clientY) => {
     if (!series.length) return;
-    const overlay = wrap.querySelector('.y-axis-overlay.right');
+    const overlay = wrap.querySelector('.y-axis-overlay.left');
     if (!overlay) return;
     const overlayRect = overlay.getBoundingClientRect();
     // 与 X 轴逻辑一致：除以界面缩放比例，修正设置了界面缩放时指针与识别位置的偏差
@@ -1266,7 +1266,13 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
     }).join('');
     tooltip.innerHTML = rows;
     tooltip.classList.add('visible');
-    positionTooltip(wrap, tooltip, base.padLeft + base.width - base.padRight - wrap.scrollLeft, base.padTop + (y - axisYTop));
+    // 以比例尺触摸条的实际视口位置定位 tooltip（置于其右侧），
+    // 避免按滚动偏移计算导致 tooltip 被定位到视口外
+    const barRect = bar.getBoundingClientRect();
+    const wrapRect = wrap.getBoundingClientRect();
+    positionTooltip(wrap, tooltip,
+      barRect.left - wrapRect.left + barRect.width + 8,
+      base.padTop + (y - axisYTop));
   };
   const hideScaleTooltip = () => {
     scaleCrosshair.setAttribute('display', 'none');

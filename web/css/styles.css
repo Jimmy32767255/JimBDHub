@@ -458,14 +458,14 @@ body {
 }
 .y-axis-overlay.left { left: 0; width: 44px; }
 .y-axis-overlay.right { right: 0; width: 40px; }
-.y-axis-overlay.right .effect-axis-bar {
+.y-axis-overlay.left .effect-axis-bar {
   pointer-events: auto;
   cursor: pointer;
 }
-.y-axis-overlay.right .effect-axis-bar:hover {
+.y-axis-overlay.left .effect-axis-bar:hover {
   opacity: 0.4;
 }
-.y-axis-overlay.right .effect-axis-tick {
+.y-axis-overlay.left .effect-axis-tick {
   pointer-events: none;
 }
 .therapeutic-labels-overlay {
