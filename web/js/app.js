@@ -1,5 +1,5 @@
 import { store, getMaxLoadedRecords, updateSamplingRate } from './store.js';
-import { renderCombinedChart, MAX_MOOD_RANGE_MS, getEffectiveDoses, effectEndTime, EFFECT_VISIBLE_THRESHOLD } from './chart.js';
+import { renderMoodChart, renderEffectChart, renderSleepChart, renderEventsChart, computeChartDisplayRange, registerChartWrap, setChartSyncEnabled, MAX_MOOD_RANGE_MS, getEffectiveDoses, effectEndTime, EFFECT_VISIBLE_THRESHOLD } from './chart.js';
 import { initMeds, predictDepletion } from './meds.js';
 import { initRecords } from './records.js';
 import { initSettings } from './settings.js';
@@ -20,9 +20,33 @@ const views = {
   about: document.getElementById('about-view')
 };
 const pageTitle = document.getElementById('page-title');
-const combinedChartSvg = document.getElementById('combined-chart');
-const combinedChartTooltip = document.getElementById('combined-chart-tooltip');
-const combinedLegend = document.getElementById('combined-legend');
+// 拆分后的四张独立图表（情绪/药效/睡眠/事件）
+const chartViews = {
+  mood: {
+    svg: document.getElementById('mood-chart'),
+    tooltip: document.getElementById('mood-chart-tooltip'),
+    legend: document.getElementById('mood-legend'),
+    panel: document.getElementById('mood-chart-panel')
+  },
+  effect: {
+    svg: document.getElementById('effect-chart'),
+    tooltip: document.getElementById('effect-chart-tooltip'),
+    legend: document.getElementById('effect-legend'),
+    panel: document.getElementById('effect-chart-panel')
+  },
+  sleep: {
+    svg: document.getElementById('sleep-chart'),
+    tooltip: document.getElementById('sleep-chart-tooltip'),
+    legend: document.getElementById('sleep-legend'),
+    panel: document.getElementById('sleep-chart-panel')
+  },
+  events: {
+    svg: document.getElementById('events-chart'),
+    tooltip: document.getElementById('events-chart-tooltip'),
+    legend: document.getElementById('events-legend'),
+    panel: document.getElementById('events-chart-panel')
+  }
+};
 const chartDisclaimer = document.getElementById('chart-disclaimer');
 const sidebar = document.getElementById('sidebar');
 const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
@@ -33,6 +57,7 @@ const showMoodCheckbox = document.getElementById('show-mood');
 const showEffectCheckbox = document.getElementById('show-effect');
 const showSleepCheckbox = document.getElementById('show-sleep');
 const showForwardCheckbox = document.getElementById('show-forward');
+const syncScrollCheckbox = document.getElementById('sync-scroll');
 const scrollLockCheckbox = document.getElementById('chart-scroll-lock');
 
 const BASE_PX_PER_HOUR = 12;
@@ -120,7 +145,7 @@ function updateZoomDisplay() {
 const VIEW_KEY = 'jimbdhub_chart_view';
 
 function saveViewPosition() {
-  const wrap = combinedChartSvg.parentElement;
+  const wrap = chartViews.mood.svg.parentElement;
   try {
     const centerFraction = wrap.scrollWidth > 0
       ? (wrap.scrollLeft + wrap.clientWidth / 2) / wrap.scrollWidth
@@ -361,7 +386,7 @@ function drawChart() {
     if (pageRecordsLimited) chartLimitHint.textContent = t('chart.limitHint', { count: maxLoaded });
   }
 
-  const wrap = combinedChartSvg.parentElement;
+  const wrap = chartViews.mood.svg.parentElement;
 
   // 首次绘表：尝试恢复保存的视图位置
   let centerFraction;
@@ -386,23 +411,66 @@ function drawChart() {
       : 0.5;
   }
 
-  renderCombinedChart(pageData.records, pageData.sleeps, pageData.events, combinedChartSvg, combinedChartTooltip, combinedLegend, {
-    showMood: showMoodCheckbox.checked,
-    showEffect: showEffectCheckbox.checked,
-    showSleep: showSleepCheckbox.checked,
-    projectedDoses,
-    pxPerHour: currentPxPerHour,
-    displayRange: { min: pageData.pageStart, max: pageData.pageEnd, padStart: pageData.padStart, padEnd: pageData.padEnd },
-    boundaryRecords: pageData.boundaryRecords,
-    doses: pageData.doses,
-    depletionData: computeDepletionData()
+  // 所有图表共享同一时间窗口与像素密度，保证各图宽度一致，
+  // 勾选“同步滚动”后 scrollLeft 可直接对齐，十字线也按同一时刻同步
+  const displayRange = computeChartDisplayRange(pageData.records, pageData.sleeps, pageData.events, pageData.doses, {
+    displayRange: { min: pageData.pageStart, max: pageData.pageEnd, padStart: pageData.padStart, padEnd: pageData.padEnd }
+  });
+  const chartOptions = { pxPerHour: currentPxPerHour, ...displayRange };
+
+  const showMood = showMoodCheckbox.checked;
+  const showEffect = showEffectCheckbox.checked;
+  const showSleep = showSleepCheckbox.checked;
+
+  // 面板显隐（隐藏时清空内容，重新显示时再渲染）
+  chartViews.mood.panel.classList.toggle('hidden', !showMood);
+  chartViews.effect.panel.classList.toggle('hidden', !showEffect);
+  chartViews.sleep.panel.classList.toggle('hidden', !showSleep);
+
+  if (showMood) {
+    renderMoodChart(pageData.records, chartViews.mood.svg, chartViews.mood.tooltip, chartViews.mood.legend, {
+      ...chartOptions,
+      boundaryRecords: pageData.boundaryRecords
+    });
+  } else {
+    chartViews.mood.svg.innerHTML = '';
+    chartViews.mood.legend.innerHTML = '';
+  }
+
+  if (showEffect) {
+    renderEffectChart([...pageData.doses, ...projectedDoses], chartViews.effect.svg, chartViews.effect.tooltip, chartViews.effect.legend, {
+      ...chartOptions,
+      markerDoses: pageData.doses,
+      depletionData: computeDepletionData()
+    });
+  } else {
+    chartViews.effect.svg.innerHTML = '';
+    chartViews.effect.legend.innerHTML = '';
+  }
+
+  if (showSleep) {
+    renderSleepChart(pageData.sleeps, chartViews.sleep.svg, chartViews.sleep.tooltip, chartViews.sleep.legend, chartOptions);
+  } else {
+    chartViews.sleep.svg.innerHTML = '';
+    chartViews.sleep.legend.innerHTML = '';
+  }
+
+  renderEventsChart(pageData.events, chartViews.events.svg, chartViews.events.tooltip, chartViews.events.legend, chartOptions);
+
+  // 滚动与十字线同步接线
+  setChartSyncEnabled(syncScrollCheckbox.checked);
+  ['mood', 'effect', 'sleep', 'events'].forEach(key => {
+    registerChartWrap(chartViews[key].svg.parentElement);
   });
 
-  // 恢复视口中心到相同比例位置
+  // 恢复视口中心到相同比例位置（各图表等宽，使用同一 scrollLeft）
   const newScrollable = wrap.scrollWidth - wrap.clientWidth;
   if (newScrollable > 0) {
-    wrap.scrollLeft = Math.max(0, Math.min(newScrollable,
+    const targetScrollLeft = Math.max(0, Math.min(newScrollable,
       centerFraction * wrap.scrollWidth - wrap.clientWidth / 2));
+    Object.values(chartViews).forEach(v => {
+      v.svg.parentElement.scrollLeft = targetScrollLeft;
+    });
   }
 
   // 保存当前视图位置与页码
@@ -482,6 +550,11 @@ function initNavigation() {
   if (scrollLockCheckbox) {
     scrollLockCheckbox.addEventListener('change', () => {
       setTheme({ scrollLock: scrollLockCheckbox.checked }, 'DisplayChange');
+    });
+  }
+  if (syncScrollCheckbox) {
+    syncScrollCheckbox.addEventListener('change', () => {
+      setChartSyncEnabled(syncScrollCheckbox.checked);
     });
   }
 }
@@ -646,14 +719,15 @@ function continueInit() {
   drawChart();
 
   // 滚动时保存视图位置（防抖）
-  const chartWrap = document.getElementById('combined-chart-wrap');
-  if (chartWrap) {
+  Object.values(chartViews).forEach(v => {
+    const w = v.svg.parentElement;
+    if (!w) return;
     let scrollTimer;
-    chartWrap.addEventListener('scroll', () => {
+    w.addEventListener('scroll', () => {
       clearTimeout(scrollTimer);
       scrollTimer = setTimeout(saveViewPosition, 300);
     });
-  }
+  });
 
   // 页面关闭/刷新前保存
   window.addEventListener('beforeunload', saveViewPosition);

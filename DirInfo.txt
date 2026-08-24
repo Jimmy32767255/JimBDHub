@@ -15,7 +15,7 @@
 │   ├── css/styles.css      # 样式
 │   ├── js/                 # JS 脚本，本项目核心逻辑
 │   │   ├── app.js          # 入口与路由
-│   │   ├── chart.js        # 综合曲线图渲染
+│   │   ├── chart.js        # 图表渲染（情绪/药效/睡眠/事件独立图表 + 同步）
 │   │   ├── store.js        # 数据层（localStorage）
 │   │   ├── meds.js         # 药品库模块
 │   │   ├── records.js      # 记录模块

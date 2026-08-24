@@ -237,374 +237,6 @@ function renderTherapeuticLabelsOverlay(wrap, labels, height) {
 function isMoodRecord(r) {
   return r.type !== 'medication';
 }
-
-export function renderChart(records, container, tooltip) {
-  records = records.filter(isMoodRecord);
-  const theme = getTheme();
-  const colors = {
-    positive: theme.positiveColor,
-    negative: theme.negativeColor,
-    neutral: theme.neutralColor,
-    accent: theme.accentColor,
-    bg: theme.backgroundColor,
-    textMuted: cssVar('--theme-surface-text-muted') || theme.textMutedColor
-  };
-  const useCurve = theme.curveLine !== 'line';
-  const connectMoodDots = theme.connectMoodDots !== false;
-
-  const wrap = container.parentElement;
-  container.innerHTML = '';
-  clearYAxisOverlays(wrap);
-  if (records.length === 0) {
-    const empty = createSVGElement('text', {
-      x: '50%', y: '50%', 'text-anchor': 'middle', fill: colors.textMuted, 'font-size': '14'
-    });
-    empty.textContent = t('chart.empty');
-    container.appendChild(empty);
-    return;
-  }
-
-  const rect = wrap.getBoundingClientRect();
-  const wrapStyle = getComputedStyle(wrap);
-  const padTop = parseFloat(wrapStyle.paddingTop) || 0;
-  const padBottom = parseFloat(wrapStyle.paddingBottom) || 0;
-  const padLeft = parseFloat(wrapStyle.paddingLeft) || 0;
-  const padRight = parseFloat(wrapStyle.paddingRight) || 0;
-  const minTime = records[0].timestamp;
-  const maxTime = records[records.length - 1].timestamp;
-  const padMs = PAD_HOURS * HOUR_MS;
-  let displayMinTime = minTime - padMs;
-  let displayMaxTime = maxTime + padMs;
-  const clamped = clampDisplayRange(displayMinTime, displayMaxTime, MAX_MOOD_RANGE_MS);
-  displayMinTime = clamped.displayMinTime;
-  displayMaxTime = clamped.displayMaxTime;
-  records = records.filter(r => r.timestamp >= displayMinTime);
-  const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
-  const displaySpanHours = displaySpan / HOUR_MS;
-
-  const absoluteChartW = displaySpanHours * PX_PER_HOUR;
-  const minChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
-  const chartW = Math.max(absoluteChartW, minChartW);
-  const width = PADDING.left + chartW + PADDING.right;
-
-  container.setAttribute('width', width);
-  const height = wrap.clientHeight - padTop - padBottom;
-  const chartH = height - PADDING.top - PADDING.bottom;
-  container.setAttribute('height', height);
-  container.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  container.removeAttribute('preserveAspectRatio');
-
-  const defs = createSVGElement('defs');
-
-  const xFor = t => PADDING.left + ((t - displayMinTime) / HOUR_MS) * PX_PER_HOUR;
-  const yFor = v => PADDING.top + ((10 - v) / 20) * chartH;
-  const yTop = yFor(10);
-  const yBottom = yFor(-10);
-
-  const posGradient = createSVGElement('linearGradient', { id: 'grad-pos', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-  posGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
-  posGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': `rgba(${hexToRgb(colors.positive)}, 0.05)` }));
-  defs.appendChild(posGradient);
-
-  const negGradient = createSVGElement('linearGradient', { id: 'grad-neg', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-  negGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': `rgba(${hexToRgb(colors.negative)}, 0.05)` }));
-  negGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
-  defs.appendChild(negGradient);
-
-  const mixedGradient = createSVGElement('linearGradient', { id: 'grad-mixed', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-  mixedGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': `rgba(${hexToRgb(colors.positive)}, 0.45)` }));
-  mixedGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': `rgba(${hexToRgb(colors.neutral)}, 0.15)` }));
-  mixedGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': `rgba(${hexToRgb(colors.negative)}, 0.45)` }));
-  defs.appendChild(mixedGradient);
-
-  container.appendChild(defs);
-
-  const gridGroup = createSVGElement('g', { class: 'grid' });
-  const yLabels = [];
-  for (let v = -10; v <= 10; v += 2) {
-    const y = yFor(v);
-    const line = createSVGElement('line', {
-      x1: PADDING.left, y1: y, x2: width - PADDING.right, y2: y,
-      stroke: v === 0 ? colors.neutral : theme.neutralColor,
-      'stroke-width': v === 0 ? 1.5 : 1,
-      'stroke-dasharray': v === 0 ? '' : '4 4'
-    });
-    gridGroup.appendChild(line);
-    yLabels.push({ value: v > 0 ? `+${v}` : String(v), y });
-  }
-  container.appendChild(gridGroup);
-  renderYAxisOverlay(wrap, 'left', yLabels, colors.textMuted, height);
-
-  const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
-  const timeStepHours = getTimeStepHours(displaySpanHours);
-
-  // 对齐到本地时间的午夜，而不是UTC午夜
-  const refDate = new Date(displayMinTime);
-  refDate.setHours(0, 0, 0, 0);
-  const refTime = refDate.getTime();
-  const hoursSinceRef = (displayMinTime - refTime) / HOUR_MS;
-  const startHours = Math.ceil(hoursSinceRef / timeStepHours) * timeStepHours;
-  const startTs = refTime + startHours * HOUR_MS;
-  const endHours = Math.floor((displayMaxTime - refTime) / HOUR_MS / timeStepHours) * timeStepHours;
-  const endTs = refTime + endHours * HOUR_MS;
-
-  for (let ts = startTs; ts <= endTs; ts += timeStepHours * HOUR_MS) {
-    const x = xFor(ts);
-    const isMidnight = new Date(ts).getHours() === 0;
-    const gridLine = createSVGElement('line', {
-      x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
-      stroke: isMidnight ? `rgba(${hexToRgb(colors.accent)}, 0.6)` : `rgba(${hexToRgb(theme.neutralColor)}, 0.5)`,
-      'stroke-width': isMidnight ? 1.5 : 1,
-      'stroke-dasharray': isMidnight ? '2 6' : '3 3'
-    });
-    timeAxisGroup.appendChild(gridLine);
-    const label = createSVGElement('text', {
-      x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
-      fill: isMidnight ? colors.accent : colors.textMuted, 'font-size': '10'
-    });
-    label.textContent = formatAxisTime(ts, displaySpanHours, timeStepHours);
-    timeAxisGroup.appendChild(label);
-  }
-  container.appendChild(timeAxisGroup);
-
-  function curveSegment(x1, y1, x2, y2) {
-    if (!useCurve) return ` L ${x2} ${y2}`;
-    const cp1x = x1 + (x2 - x1) * 0.35;
-    const cp2x = x2 - (x2 - x1) * 0.35;
-    return ` C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
-  }
-
-  function makeCurveD(items, getValue) {
-    if (items.length === 0) return '';
-    let d = `M ${xFor(items[0].timestamp)} ${yFor(getValue(items[0]))}`;
-    for (let i = 1; i < items.length; i++) {
-      const prev = items[i - 1], curr = items[i];
-      const x1 = xFor(prev.timestamp), y1 = yFor(getValue(prev));
-      const x2 = xFor(curr.timestamp), y2 = yFor(getValue(curr));
-      d += curveSegment(x1, y1, x2, y2);
-    }
-    return d;
-  }
-
-  function makeAreaUnderCurveD(items, getValue, baselineY) {
-    if (items.length === 0) return '';
-    let d = `M ${xFor(items[0].timestamp)} ${baselineY}`;
-    d += ` L ${xFor(items[0].timestamp)} ${yFor(getValue(items[0]))}`;
-    for (let i = 1; i < items.length; i++) {
-      const prev = items[i - 1], curr = items[i];
-      const x1 = xFor(prev.timestamp), y1 = yFor(getValue(prev));
-      const x2 = xFor(curr.timestamp), y2 = yFor(getValue(curr));
-      d += curveSegment(x1, y1, x2, y2);
-    }
-    d += ` L ${xFor(items[items.length - 1].timestamp)} ${baselineY} Z`;
-    return d;
-  }
-
-  if (connectMoodDots) {
-    const hasMixed = records.some(r => r.mixed);
-    if (hasMixed) {
-      const mixedRecords = records.map(r => ({
-        ...r,
-        upper: r.mixed ? Math.max(r.value, r.mixedValue) : r.value,
-        lower: r.mixed ? Math.min(r.value, r.mixedValue) : r.value
-      }));
-
-      let areaD = `M ${xFor(mixedRecords[0].timestamp)} ${yFor(mixedRecords[0].upper)}`;
-      for (let i = 1; i < mixedRecords.length; i++) {
-        const prev = mixedRecords[i - 1], curr = mixedRecords[i];
-        const x1 = xFor(prev.timestamp), y1u = yFor(prev.upper);
-        const x2 = xFor(curr.timestamp), y2u = yFor(curr.upper);
-        areaD += curveSegment(x1, y1u, x2, y2u);
-      }
-      for (let i = mixedRecords.length - 1; i >= 0; i--) {
-        const curr = mixedRecords[i];
-        const x2 = xFor(curr.timestamp), y2l = yFor(curr.lower);
-        if (i === mixedRecords.length - 1) {
-          areaD += ` L ${x2} ${y2l}`;
-        } else {
-          const next = mixedRecords[i + 1];
-          const x1 = xFor(next.timestamp), y1l = yFor(next.lower);
-          areaD += curveSegment(x1, y1l, x2, y2l);
-        }
-      }
-      areaD += ' Z';
-      container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-mixed)', stroke: 'none' }));
-
-      container.appendChild(createSVGElement('path', {
-        d: makeCurveD(mixedRecords, r => r.upper),
-        fill: 'none', stroke: colors.positive, 'stroke-width': 2.5
-      }));
-      container.appendChild(createSVGElement('path', {
-        d: makeCurveD(mixedRecords, r => r.lower),
-        fill: 'none', stroke: colors.negative, 'stroke-width': 2.5
-      }));
-    } else {
-      const mainGradient = createSVGElement('linearGradient', { id: 'grad-main', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-      mainGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
-      mainGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': colors.neutral }));
-      mainGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
-      defs.appendChild(mainGradient);
-
-      container.appendChild(createSVGElement('path', {
-        d: makeCurveD(records, r => r.value),
-        fill: 'none', stroke: 'url(#grad-main)', 'stroke-width': 3,
-        'stroke-linecap': 'round', 'stroke-linejoin': 'round'
-      }));
-
-      const zeroY = yFor(0);
-      const areaD = makeAreaUnderCurveD(records, r => r.value, zeroY);
-      if (areaD) {
-        container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-main)', stroke: 'none', opacity: '0.12' }));
-      }
-    }
-  }
-
-  const crosshairGroup = createSVGElement('g', { class: 'crosshair', display: 'none' });
-  const crosshairStroke = `rgba(${hexToRgb(colors.textMuted)}, 0.5)`;
-  const vLine = createSVGElement('line', {
-    x1: 0, y1: PADDING.top, x2: 0, y2: height - PADDING.bottom,
-    stroke: crosshairStroke, 'stroke-width': 1, 'stroke-dasharray': '4 4'
-  });
-  const hLine = createSVGElement('line', {
-    x1: PADDING.left, y1: 0, x2: width - PADDING.right, y2: 0,
-    stroke: crosshairStroke, 'stroke-width': 1, 'stroke-dasharray': '4 4'
-  });
-  crosshairGroup.appendChild(vLine);
-  crosshairGroup.appendChild(hLine);
-  container.appendChild(crosshairGroup);
-
-  records.forEach((r, i) => {
-    const x = xFor(r.timestamp);
-    const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
-    values.forEach(v => {
-      const y = yFor(v);
-      const circle = createSVGElement('circle', {
-        cx: x, cy: y, r: 5,
-        fill: colorForValue(v, theme, 1),
-        stroke: colors.bg,
-        'stroke-width': 2,
-        class: 'chart-point'
-      });
-      circle.style.transition = 'r 0.2s ease';
-      container.appendChild(circle);
-
-      const anim = createSVGElement('circle', {
-        cx: x, cy: y, r: 5, fill: colorForValue(v, theme, 0.3), class: 'point-pulse'
-      });
-      const style = document.createElementNS('http://www.w3.org/2000/svg', 'style');
-      style.textContent = `@keyframes pulse-${i} { 0% { r: 5; opacity: 0.5; } 100% { r: 12; opacity: 0; } }`;
-      defs.appendChild(style);
-      anim.setAttribute('style', `animation: pulse-${i} 1.8s ease-out ${i * 60}ms infinite;`);
-      container.appendChild(anim);
-    });
-  });
-
-  let activePoint = null;
-
-  function showTooltip(r, v) {
-    crosshairGroup.setAttribute('display', 'block');
-    const x = xFor(r.timestamp);
-    const y = yFor(v);
-    vLine.setAttribute('x1', x);
-    vLine.setAttribute('x2', x);
-    hLine.setAttribute('y1', y);
-    hLine.setAttribute('y2', y);
-
-    const mixedText = r.mixed ? ` / ${r.mixedValue > 0 ? '+' : ''}${r.mixedValue}` : '';
-    const medText = (r.doses || []).length
-      ? `<div class="med">${r.doses.map(d => `${d.name} ${d.amount}${d.unit}`).join('、')}</div>`
-      : '';
-    tooltip.innerHTML = `
-      <time>${formatDateTime(r.timestamp)}</time>
-      <div class="value">${t('chart.tooltip.value')}: ${r.value > 0 ? '+' : ''}${r.value}${mixedText}</div>
-      ${medText}
-      ${r.note ? `<div class="note">${r.note}</div>` : ''}
-    `;
-    tooltip.classList.add('visible');
-
-    const tRect = tooltip.getBoundingClientRect();
-    const wrapRect = wrap.getBoundingClientRect();
-    const contentW = wrapRect.width - padLeft - padRight;
-    const contentH = wrapRect.height - padTop - padBottom;
-    const visibleX = padLeft + x - wrap.scrollLeft;
-    let left = padLeft + x + 16;
-    if (visibleX + 16 + tRect.width > contentW) left = padLeft + x - tRect.width - 16;
-    if (left - wrap.scrollLeft < 0) left = wrap.scrollLeft;
-    let top = padTop + y - 16;
-    if (padTop + y - 16 + tRect.height > contentH) top = padTop + y - tRect.height - 16;
-    if (top - wrap.scrollTop < padTop + PADDING.top) top = wrap.scrollTop + padTop + PADDING.top;
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${top}px`;
-  }
-
-  function hideTooltip() {
-    crosshairGroup.setAttribute('display', 'none');
-    tooltip.classList.remove('visible');
-    if (activePoint) {
-      activePoint.setAttribute('r', 5);
-      activePoint = null;
-    }
-  }
-
-  const points = Array.from(container.querySelectorAll('.chart-point'));
-  let flatIndex = 0;
-  records.forEach(r => {
-    const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
-    values.forEach(v => {
-      const pt = points[flatIndex++];
-      pt.addEventListener('mouseenter', () => {
-        activePoint = pt;
-        pt.setAttribute('r', 8);
-        showTooltip(r, v);
-      });
-      pt.addEventListener('mouseleave', hideTooltip);
-    });
-  });
-
-  container.addEventListener('mousemove', e => {
-    const x = clientXToChartX(container, e.clientX);
-    if (x < PADDING.left || x > width - PADDING.right) {
-      hideTooltip();
-      return;
-    }
-    const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
-    let nearest = records[0];
-    let minDiff = Infinity;
-    records.forEach(r => {
-      const diff = Math.abs(r.timestamp - t);
-      if (diff < minDiff) { minDiff = diff; nearest = r; }
-    });
-    const v = nearest.mixed ? (Math.abs(nearest.value) >= Math.abs(nearest.mixedValue) ? nearest.value : nearest.mixedValue) : nearest.value;
-    showTooltip(nearest, v);
-  });
-  container.addEventListener('mouseleave', hideTooltip);
-
-  function updateTooltipFromTouch(e) {
-    const touch = e.touches[0];
-    const x = clientXToChartX(container, touch.clientX);
-    if (x < PADDING.left || x > width - PADDING.right) return;
-    const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
-    let nearest = records[0];
-    let minDiff = Infinity;
-    records.forEach(r => {
-      const diff = Math.abs(r.timestamp - t);
-      if (diff < minDiff) { minDiff = diff; nearest = r; }
-    });
-    const v = nearest.mixed ? (Math.abs(nearest.value) >= Math.abs(nearest.mixedValue) ? nearest.value : nearest.mixedValue) : nearest.value;
-    showTooltip(nearest, v);
-  }
-
-  container.addEventListener('touchstart', e => {
-    updateTooltipFromTouch(e);
-  }, { passive: true });
-  container.addEventListener('touchmove', e => {
-    if (!isScrollLocked()) return;
-    if (e.cancelable) e.preventDefault();
-    updateTooltipFromTouch(e);
-  }, { passive: false });
-  container.addEventListener('touchend', hideTooltip, { passive: true });
-}
-
 export function extractDoses(records) {
   const doses = [];
   records.forEach(r => {
@@ -929,14 +561,118 @@ function drawTherapeuticWindow(container, group, yFor, xMin, xMax, color, labelO
 function cssVar(name) {
   return getComputedStyle(document.documentElement).getPropertyValue(name).trim();
 }
+// ===================== 多图表同步 =====================
+// 拆分后的多张图表共享同一时间窗口与像素密度（宽度一致），勾选“同步滚动”后：
+// - 拖动任一图表的滚动条，其余图表同步滚动；
+// - 手指/鼠标停留在某张图表上时，其余图表在同一时刻显示竖线（及各自数值对应的横线）与提示。
+let scrollSyncEnabled = false;
+const syncListeners = new Set();
+const scrollWraps = new Set();
+let applyingScrollSync = false;
 
-export function renderCombinedChart(records, sleeps = [], events = [], container, tooltip, legendContainer, options = {}) {
-  const allRecords = records;
-  records = records.filter(isMoodRecord);
-  const { showMood = true, showEffect = true, showSleep = true, projectedDoses = [], pxPerHour, displayRange, boundaryRecords = [], doses: explicitDoses = null, depletionData = [] } = options;
-  const effectivePxPerHour = pxPerHour || PX_PER_HOUR;
-  const theme = getTheme();
-  const colors = {
+export function setChartSyncEnabled(enabled) {
+  scrollSyncEnabled = enabled;
+}
+
+export function registerChartWrap(wrap) {
+  if (!wrap || scrollWraps.has(wrap)) return;
+  scrollWraps.add(wrap);
+  wrap.addEventListener('scroll', () => {
+    if (!scrollSyncEnabled || applyingScrollSync) return;
+    applyingScrollSync = true;
+    scrollWraps.forEach(w => {
+      if (w !== wrap) w.scrollLeft = wrap.scrollLeft;
+    });
+    applyingScrollSync = false;
+  });
+}
+
+function emitCrosshair(payload) {
+  syncListeners.forEach(fn => {
+    try { fn(payload); } catch {}
+  });
+}
+
+function subscribeCrosshair(cb) {
+  syncListeners.add(cb);
+  return () => syncListeners.delete(cb);
+}
+
+// 依据当前页全部数据计算所有图表共享的时间窗口（含药效衰减延伸），
+// 保证各图表宽度一致，滚动同步才能按 scrollLeft 直接对齐。
+export function computeChartDisplayRange(records, sleeps, events, doses = [], options = {}) {
+  const { displayRange } = options;
+  const padMs = PAD_HOURS * HOUR_MS;
+  const padStart = !(displayRange && displayRange.padStart === false);
+  const padEnd = !(displayRange && displayRange.padEnd === false);
+
+  let dataMaxTime;
+  let displayMinTime;
+  let displayMaxTime;
+  if (displayRange) {
+    dataMaxTime = displayRange.max;
+    displayMinTime = displayRange.min - (padStart ? padMs : 0);
+    displayMaxTime = displayRange.max + (padEnd ? padMs : 0);
+  } else {
+    const allTimestamps = records.map(r => r.timestamp)
+      .concat(sleeps.flatMap(s => [s.startTime, s.endTime, ...(s.bedTime ? [s.bedTime] : []), ...(s.getOutOfBedTime ? [s.getOutOfBedTime] : [])]))
+      .concat(events.map(e => e.timestamp))
+      .concat(doses.map(d => d.timestamp));
+    dataMaxTime = allTimestamps.length ? Math.max(...allTimestamps) : Date.now();
+    const dataMinTime = allTimestamps.length ? Math.min(...allTimestamps) : Date.now() - DAY_MS;
+    displayMinTime = dataMinTime - padMs;
+    displayMaxTime = dataMaxTime + padMs;
+  }
+
+  if (doses.length) {
+    const maxEffectEnd = Math.max(...doses.map(d => effectEndTime(d, EFFECT_VISIBLE_THRESHOLD)));
+    displayMaxTime = Math.max(displayMaxTime, Math.min(maxEffectEnd, dataMaxTime + (padEnd ? MAX_EFFECT_FUTURE_MS : 0)));
+  }
+
+  if (!displayRange) {
+    const clamped = clampDisplayRange(displayMinTime, displayMaxTime, MAX_MOOD_RANGE_MS);
+    displayMinTime = clamped.displayMinTime;
+    displayMaxTime = clamped.displayMaxTime;
+  }
+
+  return { displayMinTime, displayMaxTime };
+}
+
+// 创建图表基础几何（宽度/高度/坐标映射），并清理旧内容与同步监听
+function chartBase(wrap, container, displayMinTime, displayMaxTime, pxPerHour = PX_PER_HOUR) {
+  if (container._syncOff) {
+    container._syncOff();
+    container._syncOff = null;
+  }
+  container.innerHTML = '';
+  clearYAxisOverlays(wrap);
+  const rect = wrap.getBoundingClientRect();
+  const wrapStyle = getComputedStyle(wrap);
+  const padTop = parseFloat(wrapStyle.paddingTop) || 0;
+  const padBottom = parseFloat(wrapStyle.paddingBottom) || 0;
+  const padLeft = parseFloat(wrapStyle.paddingLeft) || 0;
+  const padRight = parseFloat(wrapStyle.paddingRight) || 0;
+  const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
+  const displaySpanHours = displaySpan / HOUR_MS;
+  const absoluteChartW = displaySpanHours * pxPerHour;
+  const minChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
+  const chartW = Math.max(absoluteChartW, minChartW);
+  const width = PADDING.left + chartW + PADDING.right;
+  container.setAttribute('width', width);
+  const height = wrap.clientHeight - padTop - padBottom;
+  const chartH = height - PADDING.top - PADDING.bottom;
+  container.setAttribute('height', height);
+  container.setAttribute('viewBox', `0 0 ${width} ${height}`);
+  container.removeAttribute('preserveAspectRatio');
+  return {
+    width, height, chartW, chartH, padLeft, padRight, padTop, padBottom,
+    displaySpan, displaySpanHours,
+    xFor: ts => PADDING.left + ((ts - displayMinTime) / HOUR_MS) * pxPerHour
+  };
+}
+
+function chartColors(theme) {
+  return {
     positive: theme.positiveColor,
     negative: theme.negativeColor,
     neutral: theme.neutralColor,
@@ -944,383 +680,12 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     bg: theme.backgroundColor,
     textMuted: cssVar('--theme-surface-text-muted') || theme.textMutedColor
   };
-  const useCurve = theme.curveLine !== 'line';
-  const connectMoodDots = theme.connectMoodDots !== false;
+}
 
-  const wrap = container.parentElement;
-  container.innerHTML = '';
-  clearYAxisOverlays(wrap);
-  if (legendContainer) legendContainer.innerHTML = '';
-
-  // explicitDoses（来自 app.js 的 getEffectiveDoses）已包含实际记录与用药历史，
-  // 仅在未提供时自行生成，避免用药历史剂量被重复累加导致曲线偏高。
-  let actualDoses = explicitDoses !== null ? explicitDoses : extractDoses(allRecords);
-  let historicalDoses = explicitDoses !== null ? [] : generateHistoricalDoses();
-  let doses = [...actualDoses, ...historicalDoses, ...projectedDoses];
-  let hasMoodData = records.length > 0 && showMood;
-  let hasEffectData = doses.length > 0 && showEffect;
-  let hasSleepData = sleeps.length > 0 && showSleep;
-  let hasEventData = events.length > 0;
-
-  if (!hasMoodData && !hasEffectData && !hasSleepData && !hasEventData) {
-    const empty = createSVGElement('text', {
-      x: '50%', y: '50%', 'text-anchor': 'middle', fill: colors.textMuted, 'font-size': '14'
-    });
-    empty.textContent = t('chart.empty');
-    container.appendChild(empty);
-    return;
-  }
-
-  // 确定数据时间窗
-  let dataMinTime;
-  let dataMaxTime;
-  if (displayRange) {
-    dataMinTime = displayRange.min;
-    dataMaxTime = displayRange.max;
-  } else {
-    const allTimestamps = records.map(r => r.timestamp)
-      .concat(doses.map(d => d.timestamp))
-      .concat(sleeps.flatMap(s => [s.startTime, s.endTime, ...(s.bedTime ? [s.bedTime] : []), ...(s.getOutOfBedTime ? [s.getOutOfBedTime] : [])]))
-      .concat(events.map(e => e.timestamp));
-    dataMinTime = Math.min(...allTimestamps);
-    dataMaxTime = Math.max(...allTimestamps);
-  }
-
-  // 过滤掉超出范围的数据
-  records = records.filter(r => r.timestamp >= dataMinTime && r.timestamp <= dataMaxTime);
-  sleeps = sleeps.filter(s => {
-    const bedStart = s.bedTime || s.startTime;
-    const bedEnd = s.getOutOfBedTime || s.endTime;
-    return bedEnd >= dataMinTime && bedStart <= dataMaxTime;
-  });
-  events = events.filter(e => e.timestamp >= dataMinTime && e.timestamp <= dataMaxTime);
-  if (explicitDoses === null) {
-    actualDoses = extractDoses(allRecords);
-    historicalDoses = generateHistoricalDoses();
-    doses = [...actualDoses, ...historicalDoses, ...projectedDoses];
-  }
-  hasMoodData = records.length > 0 && showMood;
-  hasEffectData = doses.length > 0 && showEffect;
-  hasSleepData = sleeps.length > 0 && showSleep;
-  hasEventData = events.length > 0;
-
-  if (!hasMoodData && !hasEffectData && !hasSleepData && !hasEventData) {
-    const empty = createSVGElement('text', {
-      x: '50%', y: '50%', 'text-anchor': 'middle', fill: colors.textMuted, 'font-size': '14'
-    });
-    empty.textContent = t('chart.empty');
-    container.appendChild(empty);
-    return;
-  }
-
-  // 计算显示范围（含药效衰减延伸）
-  const padMs = PAD_HOURS * HOUR_MS;
-  const padStart = !(displayRange && displayRange.padStart === false);
-  const padEnd = !(displayRange && displayRange.padEnd === false);
-  let displayMinTime = dataMinTime - (padStart ? padMs : 0);
-  let displayMaxTime = dataMaxTime + (padEnd ? padMs : 0);
-  if (hasEffectData) {
-    const maxEffectEnd = Math.max(...doses.map(d => effectEndTime(d, EFFECT_VISIBLE_THRESHOLD)));
-    displayMaxTime = Math.max(displayMaxTime, Math.min(maxEffectEnd, dataMaxTime + (padEnd ? MAX_EFFECT_FUTURE_MS : 0)));
-  }
-  if (!displayRange) {
-    const clamped = clampDisplayRange(displayMinTime, displayMaxTime, MAX_MOOD_RANGE_MS);
-    displayMinTime = clamped.displayMinTime;
-    displayMaxTime = clamped.displayMaxTime;
-  }
-
-  const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
-  const displaySpanHours = displaySpan / HOUR_MS;
-
-  const rect = wrap.getBoundingClientRect();
-  const wrapStyle = getComputedStyle(wrap);
-  const padTop = parseFloat(wrapStyle.paddingTop) || 0;
-  const padBottom = parseFloat(wrapStyle.paddingBottom) || 0;
-  const padLeft = parseFloat(wrapStyle.paddingLeft) || 0;
-  const containerChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
-  const absoluteChartW = displaySpanHours * effectivePxPerHour;
-  const chartW = Math.max(absoluteChartW, containerChartW);
-  const width = PADDING.left + chartW + PADDING.right;
-
-  container.setAttribute('width', width);
-  const height = wrap.clientHeight - padTop - padBottom;
-  const chartH = height - PADDING.top - PADDING.bottom;
-  container.setAttribute('height', height);
-  container.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  container.removeAttribute('preserveAspectRatio');
-
-  const xFor = ts => PADDING.left + ((ts - displayMinTime) / HOUR_MS) * effectivePxPerHour;
-  const yMoodFor = v => PADDING.top + ((10 - v) / 20) * chartH;
-  const yTop = yMoodFor(10);
-  const yBottom = yMoodFor(-10);
-
-  const defs = createSVGElement('defs');
-  container.appendChild(defs);
-
-  // Clip mood/effect curves to the visible chart area so boundary helper points
-  // do not draw outside the page.
-  const chartClipId = 'chart-area-clip';
-  const chartClip = createSVGElement('clipPath', { id: chartClipId });
-  chartClip.appendChild(createSVGElement('rect', {
-    x: PADDING.left, y: PADDING.top, width: chartW, height: chartH
-  }));
-  defs.appendChild(chartClip);
-
-  // 情绪渐变
-  if (hasMoodData) {
-    const mainGradient = createSVGElement('linearGradient', { id: 'grad-main', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-    mainGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
-    mainGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': colors.neutral }));
-    mainGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
-    defs.appendChild(mainGradient);
-
-    const posGradient = createSVGElement('linearGradient', { id: 'grad-pos', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-    posGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
-    posGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': `rgba(${hexToRgb(colors.positive)}, 0.05)` }));
-    defs.appendChild(posGradient);
-
-    const negGradient = createSVGElement('linearGradient', { id: 'grad-neg', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-    negGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': `rgba(${hexToRgb(colors.negative)}, 0.05)` }));
-    negGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
-    defs.appendChild(negGradient);
-
-    const mixedGradient = createSVGElement('linearGradient', { id: 'grad-mixed', gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
-    mixedGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': `rgba(${hexToRgb(colors.positive)}, 0.45)` }));
-    mixedGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': `rgba(${hexToRgb(colors.neutral)}, 0.15)` }));
-    mixedGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': `rgba(${hexToRgb(colors.negative)}, 0.45)` }));
-    defs.appendChild(mixedGradient);
-  }
-
-  // 绘制网格（情绪 Y 轴）
-  const gridGroup = createSVGElement('g', { class: 'grid' });
-  const moodYLabels = [];
-  for (let v = -10; v <= 10; v += 2) {
-    const y = yMoodFor(v);
-    const line = createSVGElement('line', {
-      x1: PADDING.left, y1: y, x2: width - PADDING.right, y2: y,
-      stroke: v === 0 ? colors.neutral : theme.neutralColor,
-      'stroke-width': v === 0 ? 1.5 : 1,
-      'stroke-dasharray': v === 0 ? '' : '4 4'
-    });
-    gridGroup.appendChild(line);
-    if (hasMoodData) {
-      moodYLabels.push({ value: v > 0 ? `+${v}` : String(v), y });
-    }
-  }
-  container.appendChild(gridGroup);
-  if (hasMoodData) {
-    renderYAxisOverlay(wrap, 'left', moodYLabels, colors.textMuted, height);
-  }
-
-  // 药效 Y 轴（右侧）
-  if (hasEffectData) {
-    const groups = groupDosesByMed(doses);
-    const sampleHours = Math.max(1, Math.floor(displaySpanHours / 200));
-    const samplePoints = [];
-    for (let h = 0; h <= displaySpanHours; h += sampleHours) {
-      samplePoints.push(displayMinTime + h * HOUR_MS);
-    }
-    if (samplePoints[samplePoints.length - 1] < displayMaxTime) {
-      samplePoints.push(displayMaxTime);
-    }
-
-    // 判断该药在当前视图范围内是否有服药记录（跨视图延续的药效尾巴不占用图例/工具提示空间）
-    const hasDoseInView = g => g.doses.some(d => d.timestamp >= displayMinTime && d.timestamp <= displayMaxTime);
-
-    const series = groups.map((g, idx) => {
-      const valueFn = groupValueFn(g);
-      const tw = valueFn.concentration ? therapeuticWindowFor(g) : null;
-      const data = samplePoints.map(ts => {
-        let upper = 0;
-        let lower = 0;
-        g.doses.forEach(d => {
-          const dt = (ts - d.timestamp) / HOUR_MS;
-          upper += valueFn.at(dt, d, 'upper');
-          lower += valueFn.at(dt, d, 'lower');
-        });
-        return { t: ts, upper, lower };
-      });
-      let maxUpper = Math.max(0.1, ...data.map(p => p.upper));
-      if (tw && tw.max > maxUpper) maxUpper = tw.max;
-      const yMax = Math.ceil(maxUpper * 1.1);
-      const yEffectFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
-      const visible = truncateSeriesData(data, EFFECT_VISIBLE_THRESHOLD);
-      return {
-        ...g,
-        color: medColor(idx, g.medicationId),
-        data,
-        activeInView: hasDoseInView(g),
-        yMax,
-        peakUpper: maxUpper,
-        concentration: valueFn.concentration,
-        valueUnit: valueFn.unit,
-        yEffectFor,
-        visible
-      };
-    }).filter(s => s.visible);
-
-    // 右侧血药浓度比例尺：只显示等距的小刻度横线，不再为每种药各画一列数字，
-    // 避免多种药刻度互相堆叠；悬停/长按时在图表上绘制横向实线并弹出各药浓度。
-    const axisYTop = PADDING.top;
-    const axisYBottom = height - PADDING.bottom;
-    const axisCenterX = PADDING.right / 2;
-    const tickCount = 10;
-    const tickHalfLen = 5;
-    const effectScaleLabels = [];
-    for (let i = 0; i < tickCount; i++) {
-      const y = axisYTop + (i / (tickCount - 1)) * (axisYBottom - axisYTop);
-      effectScaleLabels.push({
-        isTick: true, y,
-        x1: axisCenterX - tickHalfLen, x2: axisCenterX + tickHalfLen,
-        color: colors.textMuted
-      });
-    }
-    // 覆盖整个比例尺的可交互透明区域（不显示任何内容，仅用于悬停/长按）
-    effectScaleLabels.push({
-      value: '', y: 0, color: 'transparent', x: axisCenterX,
-      isBar: true, barY: axisYTop, barHeight: axisYBottom - axisYTop,
-      barWidth: PADDING.right, medIdx: null, barColor: 'transparent', opacity: '1'
-    });
-    renderYAxisOverlay(wrap, 'right', effectScaleLabels, colors.textMuted, height);
-
-    // 收集血药浓度“上限/下限”标注，绘制到固定在视口右侧的浮层（始终可见）
-    const therapeuticLabels = [];
-
-    // 绘制药效区间（最高/最低两条曲线）
-    series.forEach(s => {
-      const visible = s.visible;
-      const yEffectFor = s.yEffectFor;
-
-      let bandD = `M ${xFor(visible[0].t)} ${yEffectFor(visible[0].upper)}`;
-      for (let i = 1; i < visible.length; i++) {
-        bandD += ` L ${xFor(visible[i].t)} ${yEffectFor(visible[i].upper)}`;
-      }
-      for (let i = visible.length - 1; i >= 0; i--) {
-        bandD += ` L ${xFor(visible[i].t)} ${yEffectFor(visible[i].lower)}`;
-      }
-      bandD += ' Z';
-      container.appendChild(createSVGElement('path', {
-        d: bandD,
-        fill: `rgba(${hexToRgb(s.color)}, 0.15)`,
-        stroke: 'none'
-      }));
-
-      let upperD = `M ${xFor(visible[0].t)} ${yEffectFor(visible[0].upper)}`;
-      let lowerD = `M ${xFor(visible[0].t)} ${yEffectFor(visible[0].lower)}`;
-      for (let i = 1; i < visible.length; i++) {
-        upperD += ` L ${xFor(visible[i].t)} ${yEffectFor(visible[i].upper)}`;
-        lowerD += ` L ${xFor(visible[i].t)} ${yEffectFor(visible[i].lower)}`;
-      }
-      container.appendChild(createSVGElement('path', {
-        d: upperD,
-        fill: 'none',
-        stroke: s.color,
-        'stroke-width': 2.5,
-        'stroke-linecap': 'round',
-        'stroke-linejoin': 'round'
-      }));
-      container.appendChild(createSVGElement('path', {
-        d: lowerD,
-        fill: 'none',
-        stroke: s.color,
-        'stroke-width': 1.5,
-        'stroke-dasharray': '4 4',
-        'stroke-linecap': 'round',
-        'stroke-linejoin': 'round'
-      }));
-
-      drawTherapeuticWindow(container, s, s.yEffectFor, PADDING.left, width - PADDING.right, s.color, therapeuticLabels);
-
-      // 当前视图范围内没有再服用的药不显示在图例里
-      if (legendContainer && s.activeInView) {
-        const item = document.createElement('span');
-        item.className = 'legend-item';
-        item.innerHTML = `<i class="dot" style="background:${s.color}"></i><span>${s.name}</span>`;
-        legendContainer.appendChild(item);
-      }
-    });
-
-    // 右侧比例尺悬停/长按：绘制贯穿整个图表宽度的横向实线，并显示各药在当前 Y 下的浓度
-    const scaleCrosshair = createSVGElement('g', { class: 'scale-crosshair', display: 'none' });
-    const scaleHLine = createSVGElement('line', {
-      x1: PADDING.left, y1: axisYTop, x2: width - PADDING.right, y2: axisYTop,
-      stroke: colors.accent, 'stroke-width': 1.5, 'stroke-linecap': 'round'
-    });
-    scaleCrosshair.appendChild(scaleHLine);
-    container.appendChild(scaleCrosshair);
-
-    const effectAxisBars = wrap.querySelectorAll('.y-axis-overlay.right .effect-axis-bar');
-    const showScaleTooltip = (bar, clientX, clientY) => {
-      if (!series.length) return;
-      const overlay = wrap.querySelector('.y-axis-overlay.right');
-      if (!overlay) return;
-      const overlayRect = overlay.getBoundingClientRect();
-      // 与 X 轴逻辑一致：除以界面缩放比例，修正设置了界面缩放时指针与识别位置的偏差
-      const y = Math.min(Math.max((clientY - overlayRect.top) / getUIScaleRatio(), axisYTop), axisYBottom);
-      // 横向实线贯穿整个图表
-      scaleCrosshair.setAttribute('display', 'block');
-      scaleHLine.setAttribute('y1', y);
-      scaleHLine.setAttribute('y2', y);
-      // 列出各药在当前 Y 下对应的血药浓度
-      const rows = series.map(s => {
-        const val = s.yMax * (axisYBottom - y) / chartH;
-        const unit = s.valueUnit || s.doseMassUnit || '';
-        return `<div style="color:${s.color}">${s.name}: ${val.toFixed(2)} ${unit}</div>`;
-      }).join('');
-      tooltip.innerHTML = rows;
-      tooltip.classList.add('visible');
-      tooltip.style.position = 'fixed';
-      const tRect = tooltip.getBoundingClientRect();
-      const vw = window.innerWidth;
-      const vh = window.innerHeight;
-      let left = clientX + 12;
-      let top = clientY - tRect.height - 12;
-      if (left + tRect.width + 12 > vw) left = clientX - tRect.width - 12;
-      if (left < 8) left = 8;
-      if (top < 8) top = clientY + 12;
-      if (top + tRect.height + 8 > vh) top = vh - tRect.height - 8;
-      tooltip.style.left = `${left}px`;
-      tooltip.style.top = `${top}px`;
-    };
-    const hideScaleTooltip = () => {
-      scaleCrosshair.setAttribute('display', 'none');
-      tooltip.classList.remove('visible');
-    };
-    effectAxisBars.forEach(bar => {
-      bar.addEventListener('mouseenter', e => showScaleTooltip(bar, e.clientX, e.clientY));
-      bar.addEventListener('mousemove', e => showScaleTooltip(bar, e.clientX, e.clientY));
-      bar.addEventListener('mouseleave', hideScaleTooltip);
-      // 触摸交互复用滚动锁定逻辑：锁定时阻止原生滚动并让 tooltip 跟随手指，
-      // 未锁定时交给原生滚动（触摸屏上仍可正常滑动视图）
-      bar.addEventListener('touchstart', e => {
-        if (isScrollLocked()) {
-          const touch = e.touches[0];
-          showScaleTooltip(bar, touch.clientX, touch.clientY);
-        }
-      }, { passive: true });
-      bar.addEventListener('touchmove', e => {
-        if (isScrollLocked()) {
-          if (e.cancelable) e.preventDefault();
-          const touch = e.touches[0];
-          showScaleTooltip(bar, touch.clientX, touch.clientY);
-        }
-      }, { passive: false });
-      bar.addEventListener('touchend', hideScaleTooltip, { passive: true });
-      bar.addEventListener('touchcancel', hideScaleTooltip, { passive: true });
-    });
-
-    // 血药浓度“上限/下限”标注浮层（固定在视口右侧，始终可见）
-    if (therapeuticLabels.length) {
-      renderTherapeuticLabelsOverlay(wrap, therapeuticLabels, height);
-    }
-
-  }
-
-  // 时间轴
+// 时间轴（含网格竖线），各图表共用，保证刻度一致
+function renderTimeAxis(container, base, colors, theme, displayMinTime, displayMaxTime, pxPerHour) {
   const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
-  const timeStepHours = getTimeStepHours(displaySpanHours, effectivePxPerHour);
-
-  // 对齐到本地时间的午夜，而不是UTC午夜
+  const timeStepHours = getTimeStepHours(base.displaySpanHours, pxPerHour);
   const refDate = new Date(displayMinTime);
   refDate.setHours(0, 0, 0, 0);
   const refTime = refDate.getTime();
@@ -1329,677 +694,336 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
   const startTs = refTime + startHours * HOUR_MS;
   const endHours = Math.floor((displayMaxTime - refTime) / HOUR_MS / timeStepHours) * timeStepHours;
   const endTs = refTime + endHours * HOUR_MS;
-
+  const yBottom = base.height - PADDING.bottom;
   for (let ts = startTs; ts <= endTs; ts += timeStepHours * HOUR_MS) {
-    const x = xFor(ts);
+    const x = base.xFor(ts);
     const isMidnight = new Date(ts).getHours() === 0;
     const gridLine = createSVGElement('line', {
-      x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
+      x1: x, y1: PADDING.top, x2: x, y2: yBottom,
       stroke: isMidnight ? `rgba(${hexToRgb(colors.accent)}, 0.6)` : `rgba(${hexToRgb(theme.neutralColor)}, 0.5)`,
       'stroke-width': isMidnight ? 1.5 : 1,
       'stroke-dasharray': isMidnight ? '2 6' : '3 3'
     });
     timeAxisGroup.appendChild(gridLine);
     const label = createSVGElement('text', {
-      x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
+      x, y: yBottom + 16, 'text-anchor': 'middle',
       fill: isMidnight ? colors.accent : colors.textMuted, 'font-size': '10'
     });
-    label.textContent = formatAxisTime(ts, displaySpanHours, timeStepHours);
+    label.textContent = formatAxisTime(ts, base.displaySpanHours, timeStepHours);
     timeAxisGroup.appendChild(label);
   }
   container.appendChild(timeAxisGroup);
+}
 
-  // 当前时间线
+// 当前时间线
+function renderNowLine(container, base, colors, displayMinTime, displayMaxTime) {
   const now = Date.now();
-  if (now >= displayMinTime && now <= displayMaxTime) {
-    const nowX = xFor(now);
-    const nowGroup = createSVGElement('g', { class: 'current-time-line' });
-    nowGroup.appendChild(createSVGElement('line', {
-      x1: nowX, y1: PADDING.top, x2: nowX, y2: height - PADDING.bottom,
-      stroke: `rgba(${hexToRgb(colors.textMuted)}, 0.6)`,
-      'stroke-width': 1.5,
-      'stroke-dasharray': '5 3'
-    }));
-    const nowLabel = createSVGElement('text', {
-      x: nowX, y: PADDING.top - 8, 'text-anchor': 'middle',
-      fill: colors.textMuted, 'font-size': '10'
-    });
-    nowLabel.textContent = t('chart.now');
-    nowGroup.appendChild(nowLabel);
-    container.appendChild(nowGroup);
+  if (now < displayMinTime || now > displayMaxTime) return;
+  const x = base.xFor(now);
+  const nowGroup = createSVGElement('g', { class: 'current-time-line' });
+  nowGroup.appendChild(createSVGElement('line', {
+    x1: x, y1: PADDING.top, x2: x, y2: base.height - PADDING.bottom,
+    stroke: `rgba(${hexToRgb(colors.textMuted)}, 0.6)`,
+    'stroke-width': 1.5,
+    'stroke-dasharray': '5 3'
+  }));
+  const nowLabel = createSVGElement('text', {
+    x, y: PADDING.top - 8, 'text-anchor': 'middle',
+    fill: colors.textMuted, 'font-size': '10'
+  });
+  nowLabel.textContent = t('chart.now');
+  nowGroup.appendChild(nowLabel);
+  container.appendChild(nowGroup);
+}
+
+// 十字线组（竖线 + 横线）
+function createCrosshair(container, colors, base) {
+  const group = createSVGElement('g', { class: 'crosshair', display: 'none' });
+  const stroke = `rgba(${hexToRgb(colors.textMuted)}, 0.5)`;
+  const vLine = createSVGElement('line', {
+    x1: 0, y1: PADDING.top, x2: 0, y2: base.height - PADDING.bottom,
+    stroke, 'stroke-width': 1, 'stroke-dasharray': '4 4'
+  });
+  const hLine = createSVGElement('line', {
+    x1: PADDING.left, y1: 0, x2: base.width - PADDING.right, y2: 0,
+    stroke, 'stroke-width': 1, 'stroke-dasharray': '4 4'
+  });
+  group.appendChild(vLine);
+  group.appendChild(hLine);
+  container.appendChild(group);
+  return { group, vLine, hLine };
+}
+
+function showChartEmpty(container, colors, msg) {
+  const empty = createSVGElement('text', {
+    x: '50%', y: '50%', 'text-anchor': 'middle', fill: colors.textMuted, 'font-size': '14'
+  });
+  empty.textContent = msg;
+  container.appendChild(empty);
+}
+
+// 将 tooltip 固定定位到图表可视区附近（visibleX/Y 为 wrap 内可见偏移）
+function positionTooltip(wrap, tooltip, visibleX, visibleY) {
+  const wrapRect = wrap.getBoundingClientRect();
+  const tRect = tooltip.getBoundingClientRect();
+  const vw = window.innerWidth;
+  const vh = window.innerHeight;
+  const vx = wrapRect.left + visibleX;
+  const vy = wrapRect.top + visibleY;
+  let left = vx + 16;
+  if (left + tRect.width + 12 > vw) left = vx - tRect.width - 16;
+  if (left < 8) left = 8;
+  let top = vy - tRect.height - 12;
+  if (top < 8) top = vy + 12;
+  if (top + tRect.height + 8 > vh) top = vh - tRect.height - 8;
+  if (top < 8) top = 8;
+  tooltip.style.position = 'fixed';
+  tooltip.style.left = `${left}px`;
+  tooltip.style.top = `${top}px`;
+}
+
+// 绑定鼠标/触摸交互：本地显示十字线并广播给其他图表；
+// show(ts) 返回吸附后的时间戳，供广播使用
+function bindChartPointer({ container, wrap, cross, base, displayMinTime, pxPerHour, show, hide }) {
+  function handle(xLogical) {
+    if (xLogical < PADDING.left || xLogical > base.width - PADDING.right) {
+      hide();
+      emitCrosshair({ type: 'hide', source: cross });
+      return;
+    }
+    const ts = displayMinTime + (xLogical - PADDING.left) * HOUR_MS / pxPerHour;
+    const snapped = show(ts) || ts;
+    emitCrosshair({ type: 'crosshair', source: cross, ts: snapped });
   }
 
-  // 绘制睡眠条（在零值基线上）
-  if (hasSleepData) {
-    const sleepOverlayMode = theme.sleepDisplayMode === 'overlay';
-    const sleepBarHeight = 14;
-    const sleepY = yMoodFor(0) - sleepBarHeight / 2;
-    const sleepClipId = 'sleep-bar-clip';
+  container.addEventListener('mousemove', e => {
+    handle(clientXToChartX(container, e.clientX));
+  });
+  container.addEventListener('mouseleave', () => {
+    hide();
+    emitCrosshair({ type: 'hide', source: cross });
+  });
 
-    sleeps.forEach((sleep, sleepIdx) => {
-      const xStart = xFor(sleep.startTime);
-      const xEnd = xFor(sleep.endTime);
-      const bedStart = Math.min(sleep.bedTime || sleep.startTime, sleep.startTime);
-      const bedEnd = Math.max(sleep.getOutOfBedTime || sleep.endTime, sleep.endTime);
-      const xBedStart = xFor(bedStart);
-      const xBedEnd = xFor(bedEnd);
-      const clipWidth = xBedEnd - xBedStart;
-      if (clipWidth <= 0) return;
+  function updateTouch(e) {
+    const touch = e.touches[0];
+    if (!touch) return;
+    handle(clientXToChartX(container, touch.clientX));
+  }
+  container.addEventListener('touchstart', updateTouch, { passive: true });
+  container.addEventListener('touchmove', e => {
+    if (!isScrollLocked()) return;
+    if (e.cancelable) e.preventDefault();
+    updateTouch(e);
+  }, { passive: false });
+  const endTouch = () => {
+    hide();
+    emitCrosshair({ type: 'hide', source: cross });
+  };
+  container.addEventListener('touchend', endTouch, { passive: true });
+  container.addEventListener('touchcancel', endTouch, { passive: true });
+}
 
-      if (sleepOverlayMode) {
-        const overlayTop = PADDING.top;
-        const overlayHeight = height - PADDING.top - PADDING.bottom;
-        const quality = Math.max(0, Math.min(5, Number(sleep.quality) || 0));
-        const baseOpacity = 0.08 + (quality / 5) * 0.22;
-        const overlayGroup = createSVGElement('g', { class: 'sleep-overlay-group' });
+// 接收其他图表的十字线同步
+function subscribeCrosshairSync(container, cross, show, hide) {
+  container._syncOff = subscribeCrosshair(payload => {
+    if (payload.source === cross) return;
+    if (payload.type === 'crosshair') {
+      show(payload.ts);
+    } else {
+      hide();
+    }
+  });
+}
+// ===================== 情绪图 =====================
+export function renderMoodChart(records, container, tooltip, legendContainer, options = {}) {
+  const { pxPerHour = PX_PER_HOUR, displayMinTime, displayMaxTime, boundaryRecords = [] } = options;
+  const theme = getTheme();
+  const colors = chartColors(theme);
+  const useCurve = theme.curveLine !== 'line';
+  const connectMoodDots = theme.connectMoodDots !== false;
+  const uid = 'mood';
 
-        // 在床上的整个时段（浅紫色）
-        const bedRect = createSVGElement('rect', {
-          x: xBedStart, y: overlayTop, width: clipWidth, height: overlayHeight,
-          fill: '#c4b5fd', opacity: String(baseOpacity), rx: 4, ry: 4
-        });
-        overlayGroup.appendChild(bedRect);
+  const wrap = container.parentElement;
+  const base = chartBase(wrap, container, displayMinTime, displayMaxTime, pxPerHour);
+  const defs = createSVGElement('defs');
+  container.appendChild(defs);
+  if (legendContainer) legendContainer.innerHTML = '';
 
-        // 根据入睡/清醒和中断计算各段
-        const segments = [];
-        let cursor = sleep.startTime;
-        const interruptions = [...(sleep.interruptions || [])].sort((a, b) => a.awakeAt - b.awakeAt);
-        interruptions.forEach(i => {
-          if (i.awakeAt > cursor) {
-            segments.push({ type: 'asleep', start: cursor, end: i.awakeAt });
-          }
-          segments.push({ type: 'awake', start: i.awakeAt, end: i.asleepAt });
-          cursor = i.asleepAt;
-        });
-        if (cursor < sleep.endTime) {
-          segments.push({ type: 'asleep', start: cursor, end: sleep.endTime });
-        }
+  records = records.filter(isMoodRecord)
+    .filter(r => r.timestamp >= displayMinTime && r.timestamp <= displayMaxTime);
 
-        segments.forEach(seg => {
-          const sx = xFor(seg.start);
-          const sw = xFor(seg.end) - sx;
-          if (sw <= 0) return;
-          const fill = seg.type === 'asleep' ? '#8b5cf6' : theme.surface2Color;
-          const opacity = seg.type === 'asleep' ? String(baseOpacity + 0.15) : String(baseOpacity + 0.1);
-          overlayGroup.appendChild(createSVGElement('rect', {
-            x: sx, y: overlayTop, width: sw, height: overlayHeight,
-            fill, opacity
-          }));
-        });
-
-        // 入睡/清醒边界线
-        if (sleep.bedTime && sleep.bedTime < sleep.startTime) {
-          const x = xFor(sleep.bedTime);
-          overlayGroup.appendChild(createSVGElement('line', {
-            x1: x, y1: overlayTop, x2: x, y2: overlayTop + overlayHeight,
-            stroke: '#c4b5fd', 'stroke-width': 1.5, 'stroke-dasharray': '3 3'
-          }));
-        }
-        if (sleep.getOutOfBedTime && sleep.getOutOfBedTime > sleep.endTime) {
-          const x = xFor(sleep.getOutOfBedTime);
-          overlayGroup.appendChild(createSVGElement('line', {
-            x1: x, y1: overlayTop, x2: x, y2: overlayTop + overlayHeight,
-            stroke: '#c4b5fd', 'stroke-width': 1.5, 'stroke-dasharray': '3 3'
-          }));
-        }
-
-        // 中断线
-        interruptions.forEach(i => {
-          const ix1 = xFor(i.awakeAt);
-          const ix2 = xFor(i.asleepAt);
-          if (ix1 >= xBedStart && ix1 <= xBedEnd) {
-            overlayGroup.appendChild(createSVGElement('line', {
-              x1: ix1, y1: overlayTop, x2: ix1, y2: overlayTop + overlayHeight,
-              stroke: '#ef4444', 'stroke-width': 1.5
-            }));
-          }
-          if (ix2 >= xBedStart && ix2 <= xBedEnd) {
-            overlayGroup.appendChild(createSVGElement('line', {
-              x1: ix2, y1: overlayTop, x2: ix2, y2: overlayTop + overlayHeight,
-              stroke: '#ef4444', 'stroke-width': 1.5
-            }));
-          }
-        });
-
-        // 质量显示在最上方
-        const centerX = (xBedStart + xBedEnd) / 2;
-        const qualityLabel = createSVGElement('text', {
-          x: centerX, y: overlayTop + 16, 'text-anchor': 'middle',
-          fill: '#8b5cf6', 'font-size': '12', 'font-weight': '600'
-        });
-        qualityLabel.textContent = `Q${sleep.quality}`;
-        overlayGroup.appendChild(qualityLabel);
-
-        container.appendChild(overlayGroup);
-        return;
-      }
-
-      const interruptions = [...(sleep.interruptions || [])].sort((a, b) => a.awakeAt - b.awakeAt);
-      const segments = [];
-      let cursor = sleep.startTime;
-
-      interruptions.forEach(i => {
-        if (i.awakeAt > cursor) {
-          segments.push({ type: 'asleep', start: cursor, end: i.awakeAt });
-        }
-        segments.push({ type: 'awake', start: i.awakeAt, end: i.asleepAt });
-        cursor = i.asleepAt;
-      });
-      if (cursor < sleep.endTime) {
-        segments.push({ type: 'asleep', start: cursor, end: sleep.endTime });
-      }
-
-      const clipId = `${sleepClipId}-${sleepIdx}`;
-      const clipPath = createSVGElement('clipPath', { id: clipId });
-      clipPath.appendChild(createSVGElement('rect', {
-        x: xBedStart, y: sleepY, width: clipWidth, height: sleepBarHeight,
-        rx: sleepBarHeight / 2, ry: sleepBarHeight / 2
-      }));
-      defs.appendChild(clipPath);
-
-      const group = createSVGElement('g', { class: 'sleep-bar-group', 'clip-path': `url(#${clipId})` });
-      const overlayGroup = createSVGElement('g', { class: 'sleep-bar-overlay' });
-
-      // 在床上底色（包含入睡前和醒来后仍躺床上的时段）
-      const bedRect = createSVGElement('rect', {
-        x: xBedStart, y: sleepY, width: clipWidth, height: sleepBarHeight,
-        fill: '#c4b5fd'
-      });
-      group.appendChild(bedRect);
-
-      segments.forEach(seg => {
-        const sx = xFor(seg.start);
-        const sw = xFor(seg.end) - sx;
-        if (sw <= 0) return;
-        const segRect = createSVGElement('rect', {
-          x: sx, y: sleepY, width: sw, height: sleepBarHeight,
-          fill: seg.type === 'asleep' ? '#8b5cf6' : theme.surface2Color
-        });
-        group.appendChild(segRect);
-      });
-
-      interruptions.forEach(i => {
-        const ix1 = xFor(i.awakeAt);
-        const ix2 = xFor(i.asleepAt);
-        if (ix1 >= xStart && ix1 <= xEnd) {
-          group.appendChild(createSVGElement('line', {
-            x1: ix1, y1: sleepY - 2, x2: ix1, y2: sleepY + sleepBarHeight + 2,
-            stroke: '#ef4444', 'stroke-width': 1.5
-          }));
-        }
-        if (ix2 >= xStart && ix2 <= xEnd) {
-          group.appendChild(createSVGElement('line', {
-            x1: ix2, y1: sleepY - 2, x2: ix2, y2: sleepY + sleepBarHeight + 2,
-            stroke: '#ef4444', 'stroke-width': 1.5
-          }));
-        }
-      });
-
-      container.appendChild(group);
-
-      // 质量标记 Qx（放在 clipPath 外避免被裁剪）
-      const centerX = (xStart + xEnd) / 2;
-      const labelY = sleepY - 6;
-      const qualityLabel = createSVGElement('text', {
-        x: centerX, y: labelY, 'text-anchor': 'middle',
-        fill: '#8b5cf6', 'font-size': '11', 'font-weight': '600'
-      });
-      qualityLabel.textContent = `Q${sleep.quality}`;
-      overlayGroup.appendChild(qualityLabel);
-      container.appendChild(overlayGroup);
-    });
+  if (records.length === 0) {
+    showChartEmpty(container, colors, t('chart.empty'));
+    return;
   }
 
-  // 绘制情绪曲线
-  if (hasMoodData) {
+  const yFor = v => PADDING.top + ((10 - v) / 20) * base.chartH;
+  const yTop = yFor(10);
+  const yBottom = yFor(-10);
+
+  const mainGradient = createSVGElement('linearGradient', { id: `grad-main-${uid}`, gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+  mainGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
+  mainGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': colors.neutral }));
+  mainGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
+  defs.appendChild(mainGradient);
+
+  const posGradient = createSVGElement('linearGradient', { id: `grad-pos-${uid}`, gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+  posGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': colors.positive }));
+  posGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': `rgba(${hexToRgb(colors.positive)}, 0.05)` }));
+  defs.appendChild(posGradient);
+
+  const negGradient = createSVGElement('linearGradient', { id: `grad-neg-${uid}`, gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+  negGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': `rgba(${hexToRgb(colors.negative)}, 0.05)` }));
+  negGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': colors.negative }));
+  defs.appendChild(negGradient);
+
+  const mixedGradient = createSVGElement('linearGradient', { id: `grad-mixed-${uid}`, gradientUnits: 'userSpaceOnUse', x1: 0, y1: yTop, x2: 0, y2: yBottom });
+  mixedGradient.appendChild(createSVGElement('stop', { offset: '0%', 'stop-color': `rgba(${hexToRgb(colors.positive)}, 0.45)` }));
+  mixedGradient.appendChild(createSVGElement('stop', { offset: '50%', 'stop-color': `rgba(${hexToRgb(colors.neutral)}, 0.15)` }));
+  mixedGradient.appendChild(createSVGElement('stop', { offset: '100%', 'stop-color': `rgba(${hexToRgb(colors.negative)}, 0.45)` }));
+  defs.appendChild(mixedGradient);
+
+  // 网格（情绪 Y 轴）
+  const gridGroup = createSVGElement('g', { class: 'grid' });
+  const yLabels = [];
+  for (let v = -10; v <= 10; v += 2) {
+    const y = yFor(v);
+    const line = createSVGElement('line', {
+      x1: PADDING.left, y1: y, x2: base.width - PADDING.right, y2: y,
+      stroke: v === 0 ? colors.neutral : theme.neutralColor,
+      'stroke-width': v === 0 ? 1.5 : 1,
+      'stroke-dasharray': v === 0 ? '' : '4 4'
+    });
+    gridGroup.appendChild(line);
+    yLabels.push({ value: v > 0 ? `+${v}` : String(v), y });
+  }
+  container.appendChild(gridGroup);
+  renderYAxisOverlay(wrap, 'left', yLabels, colors.textMuted, base.height);
+
+  renderTimeAxis(container, base, colors, theme, displayMinTime, displayMaxTime, pxPerHour);
+  renderNowLine(container, base, colors, displayMinTime, displayMaxTime);
+
+  // 情绪曲线与面积（含相邻页边界记录，保证跨页斜率连续）
+  if (connectMoodDots) {
+    const curveRecords = [...records, ...boundaryRecords].sort((a, b) => a.timestamp - b.timestamp);
+    const chartClipId = `chart-area-clip-${uid}`;
+    const chartClip = createSVGElement('clipPath', { id: chartClipId });
+    chartClip.appendChild(createSVGElement('rect', { x: PADDING.left, y: PADDING.top, width: base.chartW, height: base.chartH }));
+    defs.appendChild(chartClip);
+
     function curveSegment(x1, y1, x2, y2) {
       if (!useCurve) return ` L ${x2} ${y2}`;
       const cp1x = x1 + (x2 - x1) * 0.35;
       const cp2x = x2 - (x2 - x1) * 0.35;
       return ` C ${cp1x} ${y1}, ${cp2x} ${y2}, ${x2} ${y2}`;
     }
-
     function makeCurveD(items, getValue) {
       if (items.length === 0) return '';
-      let d = `M ${xFor(items[0].timestamp)} ${yMoodFor(getValue(items[0]))}`;
+      let d = `M ${base.xFor(items[0].timestamp)} ${yFor(getValue(items[0]))}`;
       for (let i = 1; i < items.length; i++) {
         const prev = items[i - 1], curr = items[i];
-        const x1 = xFor(prev.timestamp), y1 = yMoodFor(getValue(prev));
-        const x2 = xFor(curr.timestamp), y2 = yMoodFor(getValue(curr));
-        d += curveSegment(x1, y1, x2, y2);
+        d += curveSegment(base.xFor(prev.timestamp), yFor(getValue(prev)), base.xFor(curr.timestamp), yFor(getValue(curr)));
       }
       return d;
     }
-
     function makeAreaUnderCurveD(items, getValue, baselineY) {
       if (items.length === 0) return '';
-      let d = `M ${xFor(items[0].timestamp)} ${baselineY}`;
-      d += ` L ${xFor(items[0].timestamp)} ${yMoodFor(getValue(items[0]))}`;
+      let d = `M ${base.xFor(items[0].timestamp)} ${baselineY}`;
+      d += ` L ${base.xFor(items[0].timestamp)} ${yFor(getValue(items[0]))}`;
       for (let i = 1; i < items.length; i++) {
         const prev = items[i - 1], curr = items[i];
-        const x1 = xFor(prev.timestamp), y1 = yMoodFor(getValue(prev));
-        const x2 = xFor(curr.timestamp), y2 = yMoodFor(getValue(curr));
-        d += curveSegment(x1, y1, x2, y2);
+        d += curveSegment(base.xFor(prev.timestamp), yFor(getValue(prev)), base.xFor(curr.timestamp), yFor(getValue(curr)));
       }
-      d += ` L ${xFor(items[items.length - 1].timestamp)} ${baselineY} Z`;
+      d += ` L ${base.xFor(items[items.length - 1].timestamp)} ${baselineY} Z`;
       return d;
     }
 
-    if (connectMoodDots) {
-      // Include adjacent-page records when drawing the curve so the slope at the
-      // page boundary stays continuous; the actual points are still only rendered
-      // for records inside the page.
-      const curveRecords = [...records, ...boundaryRecords].sort((a, b) => a.timestamp - b.timestamp);
-
-      const hasMixed = curveRecords.some(r => r.mixed);
-      if (hasMixed) {
-        const mixedRecords = curveRecords.map(r => ({
-          ...r,
-          upper: r.mixed ? Math.max(r.value, r.mixedValue) : r.value,
-          lower: r.mixed ? Math.min(r.value, r.mixedValue) : r.value
-        }));
-
-        let areaD = `M ${xFor(mixedRecords[0].timestamp)} ${yMoodFor(mixedRecords[0].upper)}`;
-        for (let i = 1; i < mixedRecords.length; i++) {
-          const prev = mixedRecords[i - 1], curr = mixedRecords[i];
-          const x1 = xFor(prev.timestamp), y1u = yMoodFor(prev.upper);
-          const x2 = xFor(curr.timestamp), y2u = yMoodFor(curr.upper);
-          areaD += curveSegment(x1, y1u, x2, y2u);
+    const hasMixed = curveRecords.some(r => r.mixed);
+    if (hasMixed) {
+      const mixedRecords = curveRecords.map(r => ({
+        ...r,
+        upper: r.mixed ? Math.max(r.value, r.mixedValue) : r.value,
+        lower: r.mixed ? Math.min(r.value, r.mixedValue) : r.value
+      }));
+      let areaD = `M ${base.xFor(mixedRecords[0].timestamp)} ${yFor(mixedRecords[0].upper)}`;
+      for (let i = 1; i < mixedRecords.length; i++) {
+        const prev = mixedRecords[i - 1], curr = mixedRecords[i];
+        areaD += curveSegment(base.xFor(prev.timestamp), yFor(prev.upper), base.xFor(curr.timestamp), yFor(curr.upper));
+      }
+      for (let i = mixedRecords.length - 1; i >= 0; i--) {
+        const curr = mixedRecords[i];
+        const x2 = base.xFor(curr.timestamp), y2l = yFor(curr.lower);
+        if (i === mixedRecords.length - 1) {
+          areaD += ` L ${x2} ${y2l}`;
+        } else {
+          const next = mixedRecords[i + 1];
+          areaD += curveSegment(base.xFor(next.timestamp), yFor(next.lower), x2, y2l);
         }
-        for (let i = mixedRecords.length - 1; i >= 0; i--) {
-          const curr = mixedRecords[i];
-          const x2 = xFor(curr.timestamp), y2l = yMoodFor(curr.lower);
-          if (i === mixedRecords.length - 1) {
-            areaD += ` L ${x2} ${y2l}`;
-          } else {
-            const next = mixedRecords[i + 1];
-            const x1 = xFor(next.timestamp), y1l = yMoodFor(next.lower);
-            areaD += curveSegment(x1, y1l, x2, y2l);
-          }
-        }
-        areaD += ' Z';
-        container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-mixed)', stroke: 'none', 'clip-path': `url(#${chartClipId})` }));
-
-        container.appendChild(createSVGElement('path', {
-          d: makeCurveD(mixedRecords, r => r.upper),
-          fill: 'none', stroke: colors.positive, 'stroke-width': 2.5,
-          'clip-path': `url(#${chartClipId})`
-        }));
-        container.appendChild(createSVGElement('path', {
-          d: makeCurveD(mixedRecords, r => r.lower),
-          fill: 'none', stroke: colors.negative, 'stroke-width': 2.5,
-          'clip-path': `url(#${chartClipId})`
-        }));
-      } else {
-        container.appendChild(createSVGElement('path', {
-          d: makeCurveD(curveRecords, r => r.value),
-          fill: 'none', stroke: 'url(#grad-main)', 'stroke-width': 3,
-          'stroke-linecap': 'round', 'stroke-linejoin': 'round',
-          'clip-path': `url(#${chartClipId})`
-        }));
-
-        const zeroY = yMoodFor(0);
-        const areaD = makeAreaUnderCurveD(curveRecords, r => r.value, zeroY);
-        if (areaD) {
-          container.appendChild(createSVGElement('path', { d: areaD, fill: 'url(#grad-main)', stroke: 'none', opacity: '0.12', 'clip-path': `url(#${chartClipId})` }));
-        }
+      }
+      areaD += ' Z';
+      container.appendChild(createSVGElement('path', { d: areaD, fill: `url(#grad-mixed-${uid})`, stroke: 'none', 'clip-path': `url(#${chartClipId})` }));
+      container.appendChild(createSVGElement('path', {
+        d: makeCurveD(mixedRecords, r => r.upper),
+        fill: 'none', stroke: colors.positive, 'stroke-width': 2.5,
+        'clip-path': `url(#${chartClipId})`
+      }));
+      container.appendChild(createSVGElement('path', {
+        d: makeCurveD(mixedRecords, r => r.lower),
+        fill: 'none', stroke: colors.negative, 'stroke-width': 2.5,
+        'clip-path': `url(#${chartClipId})`
+      }));
+    } else {
+      container.appendChild(createSVGElement('path', {
+        d: makeCurveD(curveRecords, r => r.value),
+        fill: 'none', stroke: `url(#grad-main-${uid})`, 'stroke-width': 3,
+        'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+        'clip-path': `url(#${chartClipId})`
+      }));
+      const zeroY = yFor(0);
+      const areaD = makeAreaUnderCurveD(curveRecords, r => r.value, zeroY);
+      if (areaD) {
+        container.appendChild(createSVGElement('path', { d: areaD, fill: `url(#grad-main-${uid})`, stroke: 'none', opacity: '0.12', 'clip-path': `url(#${chartClipId})` }));
       }
     }
-
-    // 情绪数据点（仅渲染当前页内的记录）
-    records.forEach(r => {
-      const x = xFor(r.timestamp);
-      const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
-      values.forEach(v => {
-        const y = yMoodFor(v);
-        const circle = createSVGElement('circle', {
-          cx: x, cy: y, r: 5,
-          fill: colorForValue(v, theme, 1),
-          stroke: colors.bg,
-          'stroke-width': 2,
-          class: 'chart-point'
-        });
-        circle.style.transition = 'r 0.2s ease';
-        container.appendChild(circle);
-      });
-    });
   }
 
-  // 事件竖线（始终显示）
-  if (events.length > 0) {
-    events.forEach(ev => {
-      const ex = xFor(ev.timestamp);
-      if (ex < PADDING.left || ex > width - PADDING.right) return;
-      const line = createSVGElement('line', {
-        x1: ex, y1: PADDING.top, x2: ex, y2: height - PADDING.bottom,
-        stroke: ev.color || colors.accent, 'stroke-width': 2, class: 'event-line', 'data-event-id': ev.id
-      });
-      line.style.pointerEvents = 'none';
-      container.appendChild(line);
-
-      const dot = createSVGElement('circle', {
-        cx: ex, cy: PADDING.top, r: 4, fill: ev.color || colors.accent, class: 'event-dot', 'data-event-id': ev.id
-      });
-      dot.style.pointerEvents = 'auto';
-      dot.style.cursor = 'pointer';
-      container.appendChild(dot);
-    });
-  }
-
-  // 药品耗尽点虚线（始终显示）
-  const reminderDays = theme.depletionReminderDays || 3;
-  if (depletionData.length > 0) {
-    const depletionGroup = createSVGElement('g', { class: 'depletion-lines' });
-    depletionData.forEach(dep => {
-      const lineColor = dep.color || medColor(dep.medIndex);
-      // 耗尽点虚线
-      const dx = xFor(dep.depletionTime);
-      if (dx >= PADDING.left && dx <= width - PADDING.right) {
-        depletionGroup.appendChild(createSVGElement('line', {
-          x1: dx, y1: PADDING.top, x2: dx, y2: height - PADDING.bottom,
-          stroke: lineColor, 'stroke-width': 2, 'stroke-dasharray': '6 4',
-          class: 'depletion-line'
-        }));
-      }
-      // 提前预警虚线
-      const warningTime = dep.depletionTime - reminderDays * DAY_MS;
-      if (warningTime > displayMinTime) {
-        const wx = xFor(warningTime);
-        if (wx >= PADDING.left && wx <= width - PADDING.right) {
-          depletionGroup.appendChild(createSVGElement('line', {
-            x1: wx, y1: PADDING.top, x2: wx, y2: height - PADDING.bottom,
-            stroke: lineColor, 'stroke-width': 1.5, 'stroke-dasharray': '3 6',
-            opacity: '0.6',
-            class: 'depletion-warning-line'
-          }));
-        }
-      }
-    });
-    container.appendChild(depletionGroup);
-  }
-
-  // 服药记录点（与药效显示开关同步）
-  const doseMarkerMap = new Map();
-  if (hasEffectData) {
-    const doseGroups = groupDosesByMed(actualDoses);
-    doseGroups.forEach((g, idx) => {
-      const color = medColor(idx, g.medicationId);
-      g.doses.forEach(d => doseMarkerMap.set(d, color));
-    });
-
-    // 同一时刻服用多种药时，各药记录点垂直向下排开，避免相互遮挡
-    const MARKER_STEP = 9;
-    const markerStacks = new Map(); // timestamp -> { medKey: row }
-    actualDoses.forEach(d => {
-      const dx = xFor(d.timestamp);
-      if (dx < PADDING.left || dx > width - PADDING.right) return;
-      const color = doseMarkerMap.get(d) || medColor(0);
-      const medKey = d.medicationId || d.name;
-
-      let stack = markerStacks.get(d.timestamp);
-      if (!stack) {
-        stack = new Map();
-        markerStacks.set(d.timestamp, stack);
-      }
-      let row = stack.get(medKey);
-      if (row === undefined) {
-        row = stack.size;
-        stack.set(medKey, row);
-      }
-
-      const markerY = PADDING.top + 10 + row * MARKER_STEP;
-      const size = 4;
-      // 使用菱形标记
-      const diamond = createSVGElement('polygon', {
-        points: `${dx},${markerY - size} ${dx + size},${markerY} ${dx},${markerY + size} ${dx - size},${markerY}`,
-        fill: color,
+  // 情绪数据点
+  records.forEach(r => {
+    const x = base.xFor(r.timestamp);
+    const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
+    values.forEach(v => {
+      const y = yFor(v);
+      const circle = createSVGElement('circle', {
+        cx: x, cy: y, r: 5,
+        fill: colorForValue(v, theme, 1),
         stroke: colors.bg,
-        'stroke-width': 1.5,
-        class: 'dose-marker',
-        'data-dose-time': d.timestamp
+        'stroke-width': 2,
+        class: 'chart-point'
       });
-      diamond.style.pointerEvents = 'auto';
-      diamond.style.cursor = 'pointer';
-      container.appendChild(diamond);
+      circle.style.transition = 'r 0.2s ease';
+      container.appendChild(circle);
     });
-  }
+  });
 
-  // 情绪图例
-  if (hasMoodData && legendContainer) {
+  // 图例
+  if (legendContainer) {
     const moodLegend = document.createElement('span');
     moodLegend.className = 'legend-item';
     moodLegend.innerHTML = `<i class="dot" style="background:${colors.positive}"></i><span data-i18n="chart.legend.manic">${t('chart.legend.manic')}</span>`;
     legendContainer.appendChild(moodLegend);
-
     const moodLegend2 = document.createElement('span');
     moodLegend2.className = 'legend-item';
     moodLegend2.innerHTML = `<i class="dot" style="background:${colors.negative}"></i><span data-i18n="chart.legend.depressed">${t('chart.legend.depressed')}</span>`;
     legendContainer.appendChild(moodLegend2);
   }
 
-  if (hasSleepData && legendContainer) {
-    const sleepLegend = document.createElement('span');
-    sleepLegend.className = 'legend-item';
-    sleepLegend.innerHTML = `<i class="dot" style="background:#8b5cf6"></i><span data-i18n="chart.legend.sleep">${t('chart.legend.sleep')}</span>`;
-    legendContainer.appendChild(sleepLegend);
-
-    const bedLegend = document.createElement('span');
-    bedLegend.className = 'legend-item';
-    bedLegend.innerHTML = `<i class="dot" style="background:#c4b5fd"></i><span data-i18n="chart.legend.bed">${t('chart.legend.bed')}</span>`;
-    legendContainer.appendChild(bedLegend);
-  }
-
-  if (events.length > 0 && legendContainer) {
-    const eventLegend = document.createElement('span');
-    eventLegend.className = 'legend-item';
-    eventLegend.innerHTML = `<i class="dot" style="background:${colors.accent}; width: 2px; border-radius: 0;"></i><span data-i18n="chart.legend.event">${t('chart.legend.event')}</span>`;
-    legendContainer.appendChild(eventLegend);
-  }
-
-  if (depletionData.length > 0 && legendContainer) {
-    const depletionLegend = document.createElement('span');
-    depletionLegend.className = 'legend-item';
-    depletionLegend.innerHTML = `<i class="dot" style="background:${depletionData[0].color || medColor(0)}; width: 2px; height: 16px; border-radius: 0;"></i><span data-i18n="chart.legend.depletion">${t('chart.legend.depletion')}</span>`;
-    legendContainer.appendChild(depletionLegend);
-    const warningLegend = document.createElement('span');
-    warningLegend.className = 'legend-item';
-    warningLegend.innerHTML = `<i class="dot" style="background:${depletionData[0].color || medColor(0)}; width: 2px; height: 16px; border-radius: 0; opacity: 0.6;"></i><span data-i18n="chart.legend.depletionWarning">${t('chart.legend.depletionWarning')}</span>`;
-    legendContainer.appendChild(warningLegend);
-  }
-
-  if (hasEffectData && legendContainer) {
-    const doseLegend = document.createElement('span');
-    doseLegend.className = 'legend-item';
-    doseLegend.innerHTML = `<i class="dot" style="background:${colors.textMuted}; transform: rotate(45deg); border-radius: 0;"></i><span data-i18n="chart.legend.dose">${t('chart.legend.dose')}</span>`;
-    legendContainer.appendChild(doseLegend);
-  }
-
-  // 十字线和交互
-  const crosshairGroup = createSVGElement('g', { class: 'crosshair', display: 'none' });
-  const crosshairStroke = `rgba(${hexToRgb(colors.textMuted)}, 0.5)`;
-  const vLine = createSVGElement('line', {
-    x1: 0, y1: PADDING.top, x2: 0, y2: height - PADDING.bottom,
-    stroke: crosshairStroke, 'stroke-width': 1, 'stroke-dasharray': '4 4'
-  });
-  crosshairGroup.appendChild(vLine);
-  container.appendChild(crosshairGroup);
+  // 十字线与交互
+  const cross = createCrosshair(container, colors, base);
 
   let activePoint = null;
 
-  function showCombinedTooltip(ts, cursorX = null) {
-    let nearest = null;
-    let nearestValue = null;
-    let nearestPxDist = Infinity;
-    if (hasMoodData) {
-      let minDiff = Infinity;
-      records.forEach(r => {
-        const diff = Math.abs(r.timestamp - ts);
-        if (diff < minDiff) { minDiff = diff; nearest = r; }
-      });
-      if (nearest) {
-        nearestValue = nearest.mixed
-          ? (Math.abs(nearest.value) >= Math.abs(nearest.mixedValue) ? nearest.value : nearest.mixedValue)
-          : nearest.value;
-        nearestPxDist = Math.abs(xFor(nearest.timestamp) - xFor(ts));
-      }
-    }
-
-    // 附近的事件
-    const NEAR_THRESHOLD_PX = 24;
-    let nearestEvent = null;
-    let nearestEventPxDist = Infinity;
-    events.forEach(ev => {
-      const dist = Math.abs(xFor(ev.timestamp) - xFor(ts));
-      if (dist < nearestEventPxDist) { nearestEventPxDist = dist; nearestEvent = ev; }
-    });
-    const showEventDetail = nearestEvent && (cursorX === null || nearestEventPxDist <= NEAR_THRESHOLD_PX);
-
-    // 附近的服药记录点（同一时刻服用多种药时全部列出）
-    let nearestDoses = [];
-    let nearestDose = null;
-    let nearestDosePxDist = Infinity;
-    actualDoses.forEach(d => {
-      const dist = Math.abs(xFor(d.timestamp) - xFor(ts));
-      if (dist < nearestDosePxDist) { nearestDosePxDist = dist; nearestDose = d; }
-      if (cursorX === null) {
-        // 悬停情绪数据点时，列出该时刻（同一记录）服用的所有药
-        if (d.timestamp === ts) nearestDoses.push(d);
-      } else if (dist <= NEAR_THRESHOLD_PX) {
-        nearestDoses.push(d);
-      }
-    });
-    const showDoseDetail = hasEffectData && nearestDoses.length > 0;
-
-    // 仅当光标与情绪数据点足够接近时才显示情绪详情，并吸附到该点
-    const snapToPoint = hasMoodData && nearest && (cursorX === null || nearestPxDist <= NEAR_THRESHOLD_PX);
-    const showMoodDetail = snapToPoint;
-    let tooltipTs = snapToPoint ? nearest.timestamp : ts;
-    if (showEventDetail && !snapToPoint) tooltipTs = nearestEvent.timestamp;
-    if (showDoseDetail && !snapToPoint && !showEventDetail) tooltipTs = nearestDose.timestamp;
-
-    crosshairGroup.setAttribute('display', 'block');
-    const x = xFor(tooltipTs);
-    vLine.setAttribute('x1', x);
-    vLine.setAttribute('x2', x);
-
-    if (!showMoodDetail && !hasEffectData && !hasSleepData && !showEventDetail && !showDoseDetail) {
-      hideTooltip();
-      return;
-    }
-
-    let content = `<time>${formatDateTime(tooltipTs)}</time>`;
-
-    // 事件信息
-    if (showEventDetail) {
-      content += `<div style="color:${nearestEvent.color || colors.accent}; font-weight:600;">${t('chart.tooltip.event')}: ${nearestEvent.title}</div>`;
-      if (nearestEvent.showElapsedTime) {
-        const diff = Date.now() - nearestEvent.timestamp;
-        const suffix = diff >= 0 ? 'past' : 'future';
-        const elapsed = formatDuration(Math.abs(diff));
-        content += `<div class="note">${t(`chart.tooltip.eventElapsed.${suffix}`, { duration: elapsed })}</div>`;
-      }
-      if (nearestEvent.note) content += `<div class="note">${nearestEvent.note}</div>`;
-    }
-
-    // 服药记录点信息
-    if (showDoseDetail) {
-      // 按药物汇总，每种药显示各自的颜色与摄入量
-      const medTotals = new Map();
-      nearestDoses.forEach(d => {
-        const key = d.medicationId || d.name;
-        if (!medTotals.has(key)) {
-          medTotals.set(key, { name: d.name, color: doseMarkerMap.get(d) || medColor(0), amount: 0, unit: d.unit });
-        }
-        medTotals.get(key).amount += Number(d.amount) || 0;
-      });
-      content += `<div style="font-weight:600;">${t('chart.tooltip.dose')}:</div>`;
-      medTotals.forEach(mt => {
-        content += `<div style="color:${mt.color}; padding-left: 10px;">${mt.name} ${mt.amount}${mt.unit}</div>`;
-      });
-      const doseNote = nearestDoses.find(d => d.note);
-      if (doseNote) content += `<div class="note">${doseNote.note}</div>`;
-    }
-
-    // 情绪信息
-    if (showMoodDetail) {
-      const mixedText = nearest.mixed ? ` / ${nearest.mixedValue > 0 ? '+' : ''}${nearest.mixedValue}` : '';
-      const medText = (nearest.doses || []).length
-        ? `<div class="med">${nearest.doses.map(d => `${d.name} ${d.amount}${d.unit}`).join('、')}</div>`
-        : '';
-      content += `<div class="value">${t('chart.tooltip.value')}: ${nearest.value > 0 ? '+' : ''}${nearest.value}${mixedText}</div>${medText}`;
-      if (nearest.note) content += `<div class="note">${nearest.note}</div>`;
-    }
-
-    // 药效信息
-    if (hasEffectData) {
-      const groups = groupDosesByMed(doses);
-      groups.forEach((g, idx) => {
-        // 当前视图范围内没有再服用的药不显示在工具提示里
-        if (!g.doses.some(d => d.timestamp >= displayMinTime && d.timestamp <= displayMaxTime)) return;
-        const valueFn = groupValueFn(g);
-        let upper = 0;
-        let lower = 0;
-        g.doses.forEach(d => {
-          const dt = (tooltipTs - d.timestamp) / HOUR_MS;
-          upper += valueFn.at(dt, d, 'upper');
-          lower += valueFn.at(dt, d, 'lower');
-        });
-        if (upper >= EFFECT_VISIBLE_THRESHOLD) {
-          const unit = valueFn.unit || g.doseMassUnit || 'mg';
-          content += `<div style="color:${medColor(idx, g.medicationId)}">${g.name}: ${lower.toFixed(2)} ~ ${upper.toFixed(2)} ${unit}</div>`;
-        }
-      });
-    }
-
-    // 睡眠信息
-    if (hasSleepData) {
-      const overlapping = sleeps.filter(s => {
-        const bedStart = s.bedTime || s.startTime;
-        const bedEnd = s.getOutOfBedTime || s.endTime;
-        return tooltipTs >= bedStart && tooltipTs <= bedEnd;
-      });
-      overlapping.forEach(s => {
-        let stateText;
-        const bedEnd = s.getOutOfBedTime || s.endTime;
-        if (s.bedTime && tooltipTs >= s.bedTime && tooltipTs < s.startTime) {
-          stateText = t('records.history.bed');
-        } else if (s.getOutOfBedTime && tooltipTs > s.endTime && tooltipTs <= s.getOutOfBedTime) {
-          stateText = t('records.history.bed');
-        } else {
-          const inInterruption = (s.interruptions || []).some(i => tooltipTs >= i.awakeAt && tooltipTs <= i.asleepAt);
-          stateText = inInterruption ? t('records.history.awake') : t('records.history.asleep');
-        }
-        const rangeText = s.bedTime || s.getOutOfBedTime
-          ? `${formatDateTime(s.bedTime || s.startTime)} ~ ${formatDateTime(s.getOutOfBedTime || s.endTime)}`
-          : `${formatDateTime(s.startTime)} ~ ${formatDateTime(s.endTime)}`;
-        content += `<div style="color:#8b5cf6">${t('records.history.sleep')}: ${stateText} (${rangeText})</div>`;
-      });
-    }
-
-    tooltip.innerHTML = content;
-    tooltip.classList.add('visible');
-    tooltip.style.position = 'fixed';
-
-    const tRect = tooltip.getBoundingClientRect();
-    const wrapRect = wrap.getBoundingClientRect();
-    const viewportX = wrapRect.left + padLeft + x - wrap.scrollLeft;
-    let viewportY = wrapRect.top + padTop + PADDING.top;
-    if (nearestValue !== null) viewportY = wrapRect.top + padTop + yMoodFor(nearestValue);
-
-    const vw = window.innerWidth;
-    const vh = window.innerHeight;
-    let left = viewportX + 16;
-    let top = viewportY - tRect.height - 16;
-    if (left + tRect.width + 12 > vw) left = viewportX - tRect.width - 16;
-    if (left < 8) left = 8;
-    if (top < 8) top = viewportY + 16;
-    if (top + tRect.height + 8 > vh) top = vh - tRect.height - 8;
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${top}px`;
-  }
-
-  function hideTooltip() {
-    crosshairGroup.setAttribute('display', 'none');
+  function hideMoodTooltip() {
+    cross.group.setAttribute('display', 'none');
     tooltip.classList.remove('visible');
     if (activePoint) {
       activePoint.setAttribute('r', 5);
@@ -2007,213 +1031,171 @@ export function renderCombinedChart(records, sleeps = [], events = [], container
     }
   }
 
-  // 数据点悬停
-  if (hasMoodData) {
-    const points = Array.from(container.querySelectorAll('.chart-point'));
-    let flatIndex = 0;
+  // 吸附到最近的情绪数据点（24px 阈值内），返回吸附后的时间戳供跨图表同步
+  function showMoodTooltip(ts) {
+    let snapped = ts;
+    let nearest = null;
+    let minDiff = Infinity;
     records.forEach(r => {
-      const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
-      values.forEach(() => {
-        const pt = points[flatIndex++];
-        if (pt) {
-          pt.addEventListener('mouseenter', () => {
-            activePoint = pt;
-            pt.setAttribute('r', 8);
-            showCombinedTooltip(r.timestamp);
-          });
-          pt.addEventListener('mouseleave', hideTooltip);
-        }
-      });
+      const diff = Math.abs(r.timestamp - ts);
+      if (diff < minDiff) { minDiff = diff; nearest = r; }
     });
+
+    cross.group.setAttribute('display', 'block');
+    if (nearest) {
+      const pxDist = Math.abs(base.xFor(nearest.timestamp) - base.xFor(ts));
+      if (pxDist <= 24) snapped = nearest.timestamp;
+    }
+    const x = base.xFor(snapped);
+    cross.vLine.setAttribute('x1', x);
+    cross.vLine.setAttribute('x2', x);
+
+    if (!nearest || Math.abs(base.xFor(nearest.timestamp) - base.xFor(ts)) > 24) {
+      tooltip.classList.remove('visible');
+      return snapped;
+    }
+    const displayValue = nearest.mixed
+      ? (Math.abs(nearest.value) >= Math.abs(nearest.mixedValue) ? nearest.value : nearest.mixedValue)
+      : nearest.value;
+    const mixedText = nearest.mixed ? ` / ${nearest.mixedValue > 0 ? '+' : ''}${nearest.mixedValue}` : '';
+    const medText = (nearest.doses || []).length
+      ? `<div class="med">${nearest.doses.map(d => `${d.name} ${d.amount}${d.unit}`).join('、')}</div>`
+      : '';
+    let content = `<time>${formatDateTime(snapped)}</time>`;
+    content += `<div class="value">${t('chart.tooltip.value')}: ${nearest.value > 0 ? '+' : ''}${nearest.value}${mixedText}</div>${medText}`;
+    if (nearest.note) content += `<div class="note">${nearest.note}</div>`;
+    tooltip.innerHTML = content;
+    tooltip.classList.add('visible');
+    positionTooltip(wrap, tooltip, base.padLeft + x - wrap.scrollLeft, base.padTop + yFor(displayValue));
+    return snapped;
   }
 
-  container.addEventListener('mousemove', e => {
-    const x = clientXToChartX(container, e.clientX);
-    if (x < PADDING.left || x > width - PADDING.right) {
-      hideTooltip();
-      return;
-    }
-    const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / effectivePxPerHour;
-    showCombinedTooltip(ts, x);
+  // 数据点悬停：放大并显示该记录的详情
+  const points = Array.from(container.querySelectorAll('.chart-point'));
+  let flatIndex = 0;
+  records.forEach(r => {
+    const values = r.mixed ? [r.value, r.mixedValue] : [r.value];
+    values.forEach(() => {
+      const pt = points[flatIndex++];
+      if (pt) {
+        pt.addEventListener('mouseenter', () => {
+          activePoint = pt;
+          pt.setAttribute('r', 8);
+          showMoodTooltip(r.timestamp);
+        });
+        pt.addEventListener('mouseleave', hideMoodTooltip);
+      }
+    });
   });
-  container.addEventListener('mouseleave', hideTooltip);
 
-  function updateTooltipFromTouch(e) {
-    const touch = e.touches[0];
-    const x = clientXToChartX(container, touch.clientX);
-    if (x < PADDING.left || x > width - PADDING.right) {
-      hideTooltip();
-      return;
-    }
-    const ts = displayMinTime + (x - PADDING.left) * HOUR_MS / effectivePxPerHour;
-    showCombinedTooltip(ts, x);
-  }
-
-  container.addEventListener('touchstart', e => {
-    updateTooltipFromTouch(e);
-  }, { passive: true });
-  container.addEventListener('touchmove', e => {
-    // 滚动锁定时阻止原生滚动（手指滑动仅浏览），否则交给原生滚动拖动视图；
-    // 两种情况 tooltip 都跟随手指实时更新
-    if (isScrollLocked()) {
-      if (e.cancelable) e.preventDefault();
-    }
-    updateTooltipFromTouch(e);
-  }, { passive: false });
-  container.addEventListener('touchend', hideTooltip, { passive: true });
+  bindChartPointer({ container, wrap, cross, base, displayMinTime, pxPerHour, show: showMoodTooltip, hide: hideMoodTooltip });
+  subscribeCrosshairSync(container, cross, showMoodTooltip, hideMoodTooltip);
 }
-
-export function renderEffectChart(records, container, tooltip, legendContainer) {
+// ===================== 药效图 =====================
+export function renderEffectChart(doses, container, tooltip, legendContainer, options = {}) {
+  const { pxPerHour = PX_PER_HOUR, displayMinTime, displayMaxTime, markerDoses = null, depletionData = [] } = options;
   const theme = getTheme();
-  const textMuted = cssVar('--theme-surface-text-muted') || theme.textMutedColor;
+  const colors = chartColors(theme);
+
   const wrap = container.parentElement;
-  container.innerHTML = '';
-  clearYAxisOverlays(wrap);
+  const base = chartBase(wrap, container, displayMinTime, displayMaxTime, pxPerHour);
+  const defs = createSVGElement('defs');
+  container.appendChild(defs);
   if (legendContainer) legendContainer.innerHTML = '';
 
-  let doses = getEffectiveDoses(records);
+  doses = doses.filter(d => d.timestamp <= displayMaxTime);
   if (doses.length === 0) {
-    const empty = createSVGElement('text', {
-      x: '50%', y: '50%', 'text-anchor': 'middle', fill: textMuted, 'font-size': '14'
-    });
-    empty.textContent = t('chart.effectEmpty');
-    container.appendChild(empty);
+    showChartEmpty(container, colors, t('chart.effectEmpty'));
     return;
   }
 
-  const allTimestamps = records.map(r => r.timestamp).concat(doses.map(d => d.timestamp));
-  const minTime = Math.min(...allTimestamps);
-  const maxTime = Math.max(...allTimestamps);
-  const padMs = PAD_HOURS * HOUR_MS;
-  let displayMinTime = minTime - padMs;
-  let displayMaxTime = maxTime + padMs;
-  const clamped = clampDisplayRange(displayMinTime, displayMaxTime, MAX_EFFECT_RANGE_MS);
-  displayMinTime = clamped.displayMinTime;
-  displayMaxTime = clamped.displayMaxTime;
-  doses = doses.filter(d => d.timestamp >= displayMinTime);
-  const displaySpan = Math.max(1, displayMaxTime - displayMinTime);
-  const displaySpanHours = displaySpan / HOUR_MS;
-
-  const rect = wrap.getBoundingClientRect();
-  const wrapStyle = getComputedStyle(wrap);
-  const padTop = parseFloat(wrapStyle.paddingTop) || 0;
-  const padBottom = parseFloat(wrapStyle.paddingBottom) || 0;
-  const padLeft = parseFloat(wrapStyle.paddingLeft) || 0;
-  const padRight = parseFloat(wrapStyle.paddingRight) || 0;
-  const absoluteChartW = displaySpanHours * PX_PER_HOUR;
-  const minChartW = Math.max(0, rect.width - 40 - PADDING.left - PADDING.right);
-  const chartW = Math.max(absoluteChartW, minChartW);
-  const width = PADDING.left + chartW + PADDING.right;
-
-  container.setAttribute('width', width);
-  const height = wrap.clientHeight - padTop - padBottom;
-  const chartH = height - PADDING.top - PADDING.bottom;
-  container.setAttribute('height', height);
-  container.setAttribute('viewBox', `0 0 ${width} ${height}`);
-  container.removeAttribute('preserveAspectRatio');
-
-  const xFor = t => PADDING.left + ((t - displayMinTime) / HOUR_MS) * PX_PER_HOUR;
-
-  const groups = groupDosesByMed(doses);
-  const sampleHours = Math.max(1, Math.floor(displaySpanHours / 200));
+  // 右侧药效比例尺（刻度 + 可交互背景条）
+  const sampleHours = Math.max(1, Math.floor(base.displaySpanHours / 200));
   const samplePoints = [];
-  for (let h = 0; h <= displaySpanHours; h += sampleHours) {
+  for (let h = 0; h <= base.displaySpanHours; h += sampleHours) {
     samplePoints.push(displayMinTime + h * HOUR_MS);
   }
   if (samplePoints[samplePoints.length - 1] < displayMaxTime) {
     samplePoints.push(displayMaxTime);
   }
 
+  // 判断该药在当前视图范围内是否有服药记录（跨视图延续的药效尾巴不占用图例/工具提示空间）
+  const hasDoseInView = g => g.doses.some(d => d.timestamp >= displayMinTime && d.timestamp <= displayMaxTime);
+
+  const groups = groupDosesByMed(doses);
   const series = groups.map((g, idx) => {
     const valueFn = groupValueFn(g);
     const tw = valueFn.concentration ? therapeuticWindowFor(g) : null;
-    const data = samplePoints.map(t => {
+    const data = samplePoints.map(ts => {
       let upper = 0;
       let lower = 0;
       g.doses.forEach(d => {
-        const dt = (t - d.timestamp) / HOUR_MS;
+        const dt = (ts - d.timestamp) / HOUR_MS;
         upper += valueFn.at(dt, d, 'upper');
         lower += valueFn.at(dt, d, 'lower');
       });
-      return { t, upper, lower };
+      return { t: ts, upper, lower };
     });
-    const peakUpper = Math.max(0, ...data.map(p => p.upper));
+    let maxUpper = Math.max(0.1, ...data.map(p => p.upper));
+    if (tw && tw.max > maxUpper) maxUpper = tw.max;
+    const yMax = Math.ceil(maxUpper * 1.1);
+    const yEffectFor = v => PADDING.top + ((yMax - v) / yMax) * base.chartH;
+    const visible = truncateSeriesData(data, EFFECT_VISIBLE_THRESHOLD);
     return {
       ...g,
       color: medColor(idx, g.medicationId),
       data,
-      peakUpper,
+      activeInView: hasDoseInView(g),
+      yMax,
+      peakUpper: maxUpper,
       concentration: valueFn.concentration,
       valueUnit: valueFn.unit,
-      therapeutic: tw
+      yEffectFor,
+      visible
     };
+  }).filter(s => s.visible);
+
+  if (series.length === 0) {
+    showChartEmpty(container, colors, t('chart.effectEmpty'));
+    return;
+  }
+
+  // 右侧血药浓度比例尺：只显示等距的小刻度横线；悬停/长按时绘制横向实线并弹出各药浓度
+  const axisYTop = PADDING.top;
+  const axisYBottom = base.height - PADDING.bottom;
+  const axisCenterX = PADDING.right / 2;
+  const tickCount = 10;
+  const tickHalfLen = 5;
+  const effectScaleLabels = [];
+  for (let i = 0; i < tickCount; i++) {
+    const y = axisYTop + (i / (tickCount - 1)) * (axisYBottom - axisYTop);
+    effectScaleLabels.push({
+      isTick: true, y,
+      x1: axisCenterX - tickHalfLen, x2: axisCenterX + tickHalfLen,
+      color: colors.textMuted
+    });
+  }
+  effectScaleLabels.push({
+    value: '', y: 0, color: 'transparent', x: axisCenterX,
+    isBar: true, barY: axisYTop, barHeight: axisYBottom - axisYTop,
+    barWidth: PADDING.right, medIdx: null, barColor: 'transparent', opacity: '1'
   });
-
-  const maxEffect = Math.max(0.1, ...series.flatMap(s => [s.therapeutic ? Math.max(s.peakUpper, s.therapeutic.max) : s.peakUpper]));
-  const yMax = Math.ceil(maxEffect * 1.1);
-  const yFor = v => PADDING.top + ((yMax - v) / yMax) * chartH;
-
-  const defs = createSVGElement('defs');
-  container.appendChild(defs);
-
-  const gridGroup = createSVGElement('g', { class: 'grid' });
-  const yLabels = [];
-  for (let v = 0; v <= yMax; v += Math.max(1, Math.round(yMax / 4))) {
-    const y = yFor(v);
-    const line = createSVGElement('line', {
-      x1: PADDING.left, y1: y, x2: width - PADDING.right, y2: y,
-      stroke: theme.neutralColor,
-      'stroke-width': v === 0 ? 1.5 : 1,
-      'stroke-dasharray': v === 0 ? '' : '4 4'
-    });
-    gridGroup.appendChild(line);
-    yLabels.push({ value: String(v), y });
-  }
-  container.appendChild(gridGroup);
-  renderYAxisOverlay(wrap, 'left', yLabels, textMuted, height);
-
-  const timeAxisGroup = createSVGElement('g', { class: 'time-axis' });
-  const timeStepHours = getTimeStepHours(displaySpanHours);
-
-  // 对齐到本地时间的午夜，而不是UTC午夜
-  const refDate = new Date(displayMinTime);
-  refDate.setHours(0, 0, 0, 0);
-  const refTime = refDate.getTime();
-  const hoursSinceRef = (displayMinTime - refTime) / HOUR_MS;
-  const startHours = Math.ceil(hoursSinceRef / timeStepHours) * timeStepHours;
-  const startTs = refTime + startHours * HOUR_MS;
-  const endHours = Math.floor((displayMaxTime - refTime) / HOUR_MS / timeStepHours) * timeStepHours;
-  const endTs = refTime + endHours * HOUR_MS;
-
-  for (let ts = startTs; ts <= endTs; ts += timeStepHours * HOUR_MS) {
-    const x = xFor(ts);
-    const isMidnight = new Date(ts).getHours() === 0;
-    const gridLine = createSVGElement('line', {
-      x1: x, y1: PADDING.top, x2: x, y2: height - PADDING.bottom,
-      stroke: isMidnight ? `rgba(${hexToRgb(theme.accentColor)}, 0.6)` : `rgba(${hexToRgb(theme.neutralColor)}, 0.5)`,
-      'stroke-width': isMidnight ? 1.5 : 1,
-      'stroke-dasharray': isMidnight ? '2 6' : '3 3'
-    });
-    timeAxisGroup.appendChild(gridLine);
-    const label = createSVGElement('text', {
-      x: x, y: height - PADDING.bottom + 16, 'text-anchor': 'middle',
-      fill: isMidnight ? theme.accentColor : textMuted, 'font-size': '10'
-    });
-    label.textContent = formatAxisTime(ts, displaySpanHours, timeStepHours);
-    timeAxisGroup.appendChild(label);
-  }
-  container.appendChild(timeAxisGroup);
+  renderYAxisOverlay(wrap, 'right', effectScaleLabels, colors.textMuted, base.height);
 
   // 收集血药浓度“上限/下限”标注，绘制到固定在视口右侧的浮层（始终可见）
   const therapeuticLabels = [];
 
+  // 绘制药效区间（最高/最低两条曲线）
   series.forEach(s => {
-    let bandD = `M ${xFor(s.data[0].t)} ${yFor(s.data[0].upper)}`;
-    for (let i = 1; i < s.data.length; i++) {
-      bandD += ` L ${xFor(s.data[i].t)} ${yFor(s.data[i].upper)}`;
+    const visible = s.visible;
+    const yEffectFor = s.yEffectFor;
+
+    let bandD = `M ${base.xFor(visible[0].t)} ${yEffectFor(visible[0].upper)}`;
+    for (let i = 1; i < visible.length; i++) {
+      bandD += ` L ${base.xFor(visible[i].t)} ${yEffectFor(visible[i].upper)}`;
     }
-    for (let i = s.data.length - 1; i >= 0; i--) {
-      bandD += ` L ${xFor(s.data[i].t)} ${yFor(s.data[i].lower)}`;
+    for (let i = visible.length - 1; i >= 0; i--) {
+      bandD += ` L ${base.xFor(visible[i].t)} ${yEffectFor(visible[i].lower)}`;
     }
     bandD += ' Z';
     container.appendChild(createSVGElement('path', {
@@ -2222,11 +1204,11 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
       stroke: 'none'
     }));
 
-    let upperD = `M ${xFor(s.data[0].t)} ${yFor(s.data[0].upper)}`;
-    let lowerD = `M ${xFor(s.data[0].t)} ${yFor(s.data[0].lower)}`;
-    for (let i = 1; i < s.data.length; i++) {
-      upperD += ` L ${xFor(s.data[i].t)} ${yFor(s.data[i].upper)}`;
-      lowerD += ` L ${xFor(s.data[i].t)} ${yFor(s.data[i].lower)}`;
+    let upperD = `M ${base.xFor(visible[0].t)} ${yEffectFor(visible[0].upper)}`;
+    let lowerD = `M ${base.xFor(visible[0].t)} ${yEffectFor(visible[0].lower)}`;
+    for (let i = 1; i < visible.length; i++) {
+      upperD += ` L ${base.xFor(visible[i].t)} ${yEffectFor(visible[i].upper)}`;
+      lowerD += ` L ${base.xFor(visible[i].t)} ${yEffectFor(visible[i].lower)}`;
     }
     container.appendChild(createSVGElement('path', {
       d: upperD,
@@ -2246,9 +1228,10 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
       'stroke-linejoin': 'round'
     }));
 
-    drawTherapeuticWindow(container, s, yFor, PADDING.left, width - PADDING.right, s.color, therapeuticLabels);
+    drawTherapeuticWindow(container, s, s.yEffectFor, PADDING.left, base.width - PADDING.right, s.color, therapeuticLabels);
 
-    if (legendContainer) {
+    // 当前视图范围内没有再服用的药不显示在图例里
+    if (legendContainer && s.activeInView) {
       const item = document.createElement('span');
       item.className = 'legend-item';
       item.innerHTML = `<i class="dot" style="background:${s.color}"></i><span>${s.name}</span>`;
@@ -2256,84 +1239,469 @@ export function renderEffectChart(records, container, tooltip, legendContainer) 
     }
   });
 
+  // 右侧比例尺悬停/长按：横向实线 + 各药浓度
+  const scaleCrosshair = createSVGElement('g', { class: 'scale-crosshair', display: 'none' });
+  const scaleHLine = createSVGElement('line', {
+    x1: PADDING.left, y1: axisYTop, x2: base.width - PADDING.right, y2: axisYTop,
+    stroke: colors.accent, 'stroke-width': 1.5, 'stroke-linecap': 'round'
+  });
+  scaleCrosshair.appendChild(scaleHLine);
+  container.appendChild(scaleCrosshair);
+
+  const effectAxisBars = wrap.querySelectorAll('.y-axis-overlay.right .effect-axis-bar');
+  const showScaleTooltip = (bar, clientX, clientY) => {
+    if (!series.length) return;
+    const overlay = wrap.querySelector('.y-axis-overlay.right');
+    if (!overlay) return;
+    const overlayRect = overlay.getBoundingClientRect();
+    // 与 X 轴逻辑一致：除以界面缩放比例，修正设置了界面缩放时指针与识别位置的偏差
+    const y = Math.min(Math.max((clientY - overlayRect.top) / getUIScaleRatio(), axisYTop), axisYBottom);
+    scaleCrosshair.setAttribute('display', 'block');
+    scaleHLine.setAttribute('y1', y);
+    scaleHLine.setAttribute('y2', y);
+    const rows = series.map(s => {
+      const val = s.yMax * (axisYBottom - y) / base.chartH;
+      const unit = s.valueUnit || s.doseMassUnit || '';
+      return `<div style="color:${s.color}">${s.name}: ${val.toFixed(2)} ${unit}</div>`;
+    }).join('');
+    tooltip.innerHTML = rows;
+    tooltip.classList.add('visible');
+    positionTooltip(wrap, tooltip, base.padLeft + base.width - base.padRight - wrap.scrollLeft, base.padTop + (y - axisYTop));
+  };
+  const hideScaleTooltip = () => {
+    scaleCrosshair.setAttribute('display', 'none');
+    tooltip.classList.remove('visible');
+  };
+  effectAxisBars.forEach(bar => {
+    bar.addEventListener('mouseenter', e => showScaleTooltip(bar, e.clientX, e.clientY));
+    bar.addEventListener('mousemove', e => showScaleTooltip(bar, e.clientX, e.clientY));
+    bar.addEventListener('mouseleave', hideScaleTooltip);
+    bar.addEventListener('touchstart', e => {
+      if (isScrollLocked()) {
+        const touch = e.touches[0];
+        showScaleTooltip(bar, touch.clientX, touch.clientY);
+      }
+    }, { passive: true });
+    bar.addEventListener('touchmove', e => {
+      if (isScrollLocked()) {
+        if (e.cancelable) e.preventDefault();
+        const touch = e.touches[0];
+        showScaleTooltip(bar, touch.clientX, touch.clientY);
+      }
+    }, { passive: false });
+    bar.addEventListener('touchend', hideScaleTooltip, { passive: true });
+    bar.addEventListener('touchcancel', hideScaleTooltip, { passive: true });
+  });
+
   // 血药浓度“上限/下限”标注浮层（固定在视口右侧，始终可见）
   if (therapeuticLabels.length) {
-    renderTherapeuticLabelsOverlay(wrap, therapeuticLabels, height);
+    renderTherapeuticLabelsOverlay(wrap, therapeuticLabels, base.height);
   }
 
-  const crosshairGroup = createSVGElement('g', { class: 'crosshair', display: 'none' });
-  const crosshairStroke = `rgba(${hexToRgb(textMuted)}, 0.5)`;
-  const vLine = createSVGElement('line', {
-    x1: 0, y1: PADDING.top, x2: 0, y2: height - PADDING.bottom,
-    stroke: crosshairStroke, 'stroke-width': 1, 'stroke-dasharray': '4 4'
+  renderTimeAxis(container, base, colors, theme, displayMinTime, displayMaxTime, pxPerHour);
+  renderNowLine(container, base, colors, displayMinTime, displayMaxTime);
+
+  // 药品耗尽点虚线（始终显示）
+  const reminderDays = theme.depletionReminderDays || 3;
+  if (depletionData.length > 0) {
+    const depletionGroup = createSVGElement('g', { class: 'depletion-lines' });
+    depletionData.forEach(dep => {
+      const lineColor = dep.color || medColor(dep.medIndex);
+      const dx = base.xFor(dep.depletionTime);
+      if (dx >= PADDING.left && dx <= base.width - PADDING.right) {
+        depletionGroup.appendChild(createSVGElement('line', {
+          x1: dx, y1: PADDING.top, x2: dx, y2: base.height - PADDING.bottom,
+          stroke: lineColor, 'stroke-width': 2, 'stroke-dasharray': '6 4',
+          class: 'depletion-line'
+        }));
+      }
+      const warningTime = dep.depletionTime - reminderDays * DAY_MS;
+      if (warningTime > displayMinTime) {
+        const wx = base.xFor(warningTime);
+        if (wx >= PADDING.left && wx <= base.width - PADDING.right) {
+          depletionGroup.appendChild(createSVGElement('line', {
+            x1: wx, y1: PADDING.top, x2: wx, y2: base.height - PADDING.bottom,
+            stroke: lineColor, 'stroke-width': 1.5, 'stroke-dasharray': '3 6',
+            opacity: '0.6',
+            class: 'depletion-warning-line'
+          }));
+        }
+      }
+    });
+    container.appendChild(depletionGroup);
+
+    if (legendContainer) {
+      const depletionLegend = document.createElement('span');
+      depletionLegend.className = 'legend-item';
+      depletionLegend.innerHTML = `<i class="dot" style="background:${depletionData[0].color || medColor(0)}; width: 2px; height: 16px; border-radius: 0;"></i><span data-i18n="chart.legend.depletion">${t('chart.legend.depletion')}</span>`;
+      legendContainer.appendChild(depletionLegend);
+      const warningLegend = document.createElement('span');
+      warningLegend.className = 'legend-item';
+      warningLegend.innerHTML = `<i class="dot" style="background:${depletionData[0].color || medColor(0)}; width: 2px; height: 16px; border-radius: 0; opacity: 0.6;"></i><span data-i18n="chart.legend.depletionWarning">${t('chart.legend.depletionWarning')}</span>`;
+      legendContainer.appendChild(warningLegend);
+    }
+  }
+
+  // 服药记录点（菱形标记，同一时刻多种药垂直排开）
+  const markerDoseList = markerDoses !== null ? markerDoses : doses.filter(d => !d.projected);
+  const doseMarkerMap = new Map();
+  const doseGroups = groupDosesByMed(markerDoseList);
+  doseGroups.forEach((g, idx) => {
+    const color = medColor(idx, g.medicationId);
+    g.doses.forEach(d => doseMarkerMap.set(d, color));
   });
-  crosshairGroup.appendChild(vLine);
-  container.appendChild(crosshairGroup);
+  const MARKER_STEP = 9;
+  const markerStacks = new Map();
+  markerDoseList.forEach(d => {
+    const dx = base.xFor(d.timestamp);
+    if (dx < PADDING.left || dx > base.width - PADDING.right) return;
+    const color = doseMarkerMap.get(d) || medColor(0);
+    const medKey = d.medicationId || d.name;
+    let stack = markerStacks.get(d.timestamp);
+    if (!stack) {
+      stack = new Map();
+      markerStacks.set(d.timestamp, stack);
+    }
+    let row = stack.get(medKey);
+    if (row === undefined) {
+      row = stack.size;
+      stack.set(medKey, row);
+    }
+    const markerY = PADDING.top + 10 + row * MARKER_STEP;
+    const size = 4;
+    const diamond = createSVGElement('polygon', {
+      points: `${dx},${markerY - size} ${dx + size},${markerY} ${dx},${markerY + size} ${dx - size},${markerY}`,
+      fill: color,
+      stroke: colors.bg,
+      'stroke-width': 1.5,
+      class: 'dose-marker',
+      'data-dose-time': d.timestamp
+    });
+    diamond.style.pointerEvents = 'auto';
+    diamond.style.cursor = 'pointer';
+    container.appendChild(diamond);
+  });
 
-  function showEffectTooltip(timestamp) {
-    crosshairGroup.setAttribute('display', 'block');
-    const x = xFor(timestamp);
-    vLine.setAttribute('x1', x);
-    vLine.setAttribute('x2', x);
+  if (legendContainer && markerDoseList.length > 0) {
+    const doseLegend = document.createElement('span');
+    doseLegend.className = 'legend-item';
+    doseLegend.innerHTML = `<i class="dot" style="background:${colors.textMuted}; transform: rotate(45deg); border-radius: 0;"></i><span data-i18n="chart.legend.dose">${t('chart.legend.dose')}</span>`;
+    legendContainer.appendChild(doseLegend);
+  }
 
+  // 十字线与交互
+  const cross = createCrosshair(container, colors, base);
+
+  function showEffectTooltip(ts) {
+    cross.group.setAttribute('display', 'block');
+    const x = base.xFor(ts);
+    cross.vLine.setAttribute('x1', x);
+    cross.vLine.setAttribute('x2', x);
     const rows = series.map(s => {
       const closest = s.data.reduce((best, p) =>
-        Math.abs(p.t - timestamp) < Math.abs(best.t - timestamp) ? p : best, s.data[0]);
-      return `<div style="color:${s.color}">${s.name}: ${closest.lower.toFixed(2)} ~ ${closest.upper.toFixed(2)} ${s.concentration ? s.valueUnit : (s.doseMassUnit || 'mg')}</div>`;
+        Math.abs(p.t - ts) < Math.abs(best.t - ts) ? p : best, s.data[0]);
+      return `<div style="color:${s.color}">${s.name}: ${closest.lower.toFixed(2)} ~ ${closest.upper.toFixed(2)} ${s.valueUnit || s.doseMassUnit || 'mg'}</div>`;
     }).join('');
-
-    tooltip.innerHTML = `
-      <time>${formatDateTime(timestamp)}</time>
-      <div class="value">${t('chart.effectTooltip')}</div>
-      ${rows}
-    `;
+    let content = `<time>${formatDateTime(ts)}</time>`;
+    content += `<div class="value">${t('chart.effectTooltip')}</div>${rows}`;
+    tooltip.innerHTML = content;
     tooltip.classList.add('visible');
-
-    const tRect = tooltip.getBoundingClientRect();
-    const wrapRect = wrap.getBoundingClientRect();
-    const contentW = wrapRect.width - padLeft - padRight;
-    const contentH = wrapRect.height - padTop - padBottom;
-    const visibleX = padLeft + x - wrap.scrollLeft;
-    let left = padLeft + x + 16;
-    if (visibleX + 16 + tRect.width > contentW) left = padLeft + x - tRect.width - 16;
-    if (left - wrap.scrollLeft < 0) left = wrap.scrollLeft;
-    let top = padTop + PADDING.top;
-    if (top + tRect.height > contentH) top = contentH - tRect.height - 8;
-    tooltip.style.left = `${left}px`;
-    tooltip.style.top = `${top}px`;
+    positionTooltip(wrap, tooltip, base.padLeft + x - wrap.scrollLeft, base.padTop + PADDING.top);
+    return ts;
   }
 
   function hideEffectTooltip() {
-    crosshairGroup.setAttribute('display', 'none');
+    cross.group.setAttribute('display', 'none');
     tooltip.classList.remove('visible');
   }
 
-  container.addEventListener('mousemove', e => {
-    const x = clientXToChartX(container, e.clientX);
-    if (x < PADDING.left || x > width - PADDING.right) {
-      hideEffectTooltip();
-      return;
-    }
-    const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
-    showEffectTooltip(t);
-  });
-  container.addEventListener('mouseleave', hideEffectTooltip);
+  bindChartPointer({ container, wrap, cross, base, displayMinTime, pxPerHour, show: showEffectTooltip, hide: hideEffectTooltip });
+  subscribeCrosshairSync(container, cross, showEffectTooltip, hideEffectTooltip);
+}
+// ===================== 睡眠图 =====================
+export function renderSleepChart(sleeps, container, tooltip, legendContainer, options = {}) {
+  const { pxPerHour = PX_PER_HOUR, displayMinTime, displayMaxTime } = options;
+  const theme = getTheme();
+  const colors = chartColors(theme);
 
-  function updateTooltipFromTouch(e) {
-    const touch = e.touches[0];
-    const x = clientXToChartX(container, touch.clientX);
-    if (x < PADDING.left || x > width - PADDING.right) return;
-    const t = displayMinTime + (x - PADDING.left) * HOUR_MS / PX_PER_HOUR;
-    showEffectTooltip(t);
+  const wrap = container.parentElement;
+  const base = chartBase(wrap, container, displayMinTime, displayMaxTime, pxPerHour);
+  const defs = createSVGElement('defs');
+  container.appendChild(defs);
+  if (legendContainer) legendContainer.innerHTML = '';
+
+  sleeps = sleeps.filter(s => {
+    const bedStart = s.bedTime || s.startTime;
+    const bedEnd = s.getOutOfBedTime || s.endTime;
+    return bedEnd >= displayMinTime && bedStart <= displayMaxTime;
+  });
+
+  if (sleeps.length === 0) {
+    showChartEmpty(container, colors, t('chart.empty'));
+    return;
   }
 
-  container.addEventListener('touchstart', e => {
-    updateTooltipFromTouch(e);
-  }, { passive: true });
-  container.addEventListener('touchmove', e => {
-    if (!isScrollLocked()) return;
-    if (e.cancelable) e.preventDefault();
-    updateTooltipFromTouch(e);
-  }, { passive: false });
-  container.addEventListener('touchend', hideEffectTooltip, { passive: true });
+  // 睡眠条水平居中基线
+  const sleepBarHeight = 14;
+  const sleepY = PADDING.top + (base.chartH - sleepBarHeight) / 2;
+  const baseline = createSVGElement('line', {
+    x1: PADDING.left, y1: sleepY + sleepBarHeight / 2,
+    x2: base.width - PADDING.right, y2: sleepY + sleepBarHeight / 2,
+    stroke: `rgba(${hexToRgb(theme.neutralColor)}, 0.5)`, 'stroke-width': 1
+  });
+  container.appendChild(baseline);
+
+  sleeps.forEach((sleep, sleepIdx) => {
+    const xStart = base.xFor(sleep.startTime);
+    const xEnd = base.xFor(sleep.endTime);
+    const bedStart = Math.min(sleep.bedTime || sleep.startTime, sleep.startTime);
+    const bedEnd = Math.max(sleep.getOutOfBedTime || sleep.endTime, sleep.endTime);
+    const xBedStart = base.xFor(bedStart);
+    const xBedEnd = base.xFor(bedEnd);
+    const clipWidth = xBedEnd - xBedStart;
+    if (clipWidth <= 0) return;
+
+    const interruptions = [...(sleep.interruptions || [])].sort((a, b) => a.awakeAt - b.awakeAt);
+    const segments = [];
+    let cursor = sleep.startTime;
+    interruptions.forEach(i => {
+      if (i.awakeAt > cursor) {
+        segments.push({ type: 'asleep', start: cursor, end: i.awakeAt });
+      }
+      segments.push({ type: 'awake', start: i.awakeAt, end: i.asleepAt });
+      cursor = i.asleepAt;
+    });
+    if (cursor < sleep.endTime) {
+      segments.push({ type: 'asleep', start: cursor, end: sleep.endTime });
+    }
+
+    const clipId = `sleep-bar-clip-${sleepIdx}`;
+    const clipPath = createSVGElement('clipPath', { id: clipId });
+    clipPath.appendChild(createSVGElement('rect', {
+      x: xBedStart, y: sleepY, width: clipWidth, height: sleepBarHeight,
+      rx: sleepBarHeight / 2, ry: sleepBarHeight / 2
+    }));
+    defs.appendChild(clipPath);
+
+    const group = createSVGElement('g', { class: 'sleep-bar-group', 'clip-path': `url(#${clipId})` });
+    const overlayGroup = createSVGElement('g', { class: 'sleep-bar-overlay' });
+
+    // 在床上底色（包含入睡前和醒来后仍躺床上的时段）
+    group.appendChild(createSVGElement('rect', {
+      x: xBedStart, y: sleepY, width: clipWidth, height: sleepBarHeight,
+      fill: '#c4b5fd'
+    }));
+
+    segments.forEach(seg => {
+      const sx = base.xFor(seg.start);
+      const sw = base.xFor(seg.end) - sx;
+      if (sw <= 0) return;
+      group.appendChild(createSVGElement('rect', {
+        x: sx, y: sleepY, width: sw, height: sleepBarHeight,
+        fill: seg.type === 'asleep' ? '#8b5cf6' : theme.surface2Color
+      }));
+    });
+
+    interruptions.forEach(i => {
+      const ix1 = base.xFor(i.awakeAt);
+      const ix2 = base.xFor(i.asleepAt);
+      if (ix1 >= xStart && ix1 <= xEnd) {
+        group.appendChild(createSVGElement('line', {
+          x1: ix1, y1: sleepY - 2, x2: ix1, y2: sleepY + sleepBarHeight + 2,
+          stroke: '#ef4444', 'stroke-width': 1.5
+        }));
+      }
+      if (ix2 >= xStart && ix2 <= xEnd) {
+        group.appendChild(createSVGElement('line', {
+          x1: ix2, y1: sleepY - 2, x2: ix2, y2: sleepY + sleepBarHeight + 2,
+          stroke: '#ef4444', 'stroke-width': 1.5
+        }));
+      }
+    });
+
+    container.appendChild(group);
+
+    // 质量标记 Qx（放在 clipPath 外避免被裁剪）
+    const centerX = (xStart + xEnd) / 2;
+    const qualityLabel = createSVGElement('text', {
+      x: centerX, y: sleepY - 6, 'text-anchor': 'middle',
+      fill: '#8b5cf6', 'font-size': '11', 'font-weight': '600'
+    });
+    qualityLabel.textContent = `Q${sleep.quality}`;
+    overlayGroup.appendChild(qualityLabel);
+    container.appendChild(overlayGroup);
+  });
+
+  renderTimeAxis(container, base, colors, theme, displayMinTime, displayMaxTime, pxPerHour);
+  renderNowLine(container, base, colors, displayMinTime, displayMaxTime);
+
+  // 图例
+  if (legendContainer) {
+    const sleepLegend = document.createElement('span');
+    sleepLegend.className = 'legend-item';
+    sleepLegend.innerHTML = `<i class="dot" style="background:#8b5cf6"></i><span data-i18n="chart.legend.sleep">${t('chart.legend.sleep')}</span>`;
+    legendContainer.appendChild(sleepLegend);
+    const bedLegend = document.createElement('span');
+    bedLegend.className = 'legend-item';
+    bedLegend.innerHTML = `<i class="dot" style="background:#c4b5fd"></i><span data-i18n="chart.legend.bed">${t('chart.legend.bed')}</span>`;
+    legendContainer.appendChild(bedLegend);
+  }
+
+  // 十字线与交互
+  const cross = createCrosshair(container, colors, base);
+
+  function showSleepTooltip(ts) {
+    cross.group.setAttribute('display', 'block');
+    const x = base.xFor(ts);
+    cross.vLine.setAttribute('x1', x);
+    cross.vLine.setAttribute('x2', x);
+
+    const overlapping = sleeps.filter(s => {
+      const bedStart = s.bedTime || s.startTime;
+      const bedEnd = s.getOutOfBedTime || s.endTime;
+      return ts >= bedStart && ts <= bedEnd;
+    });
+    if (!overlapping.length) {
+      tooltip.classList.remove('visible');
+      return ts;
+    }
+
+    let content = `<time>${formatDateTime(ts)}</time>`;
+    overlapping.forEach(s => {
+      let stateText;
+      const bedEnd = s.getOutOfBedTime || s.endTime;
+      if (s.bedTime && ts >= s.bedTime && ts < s.startTime) {
+        stateText = t('records.history.bed');
+      } else if (s.getOutOfBedTime && ts > s.endTime && ts <= s.getOutOfBedTime) {
+        stateText = t('records.history.bed');
+      } else {
+        const inInterruption = (s.interruptions || []).some(i => ts >= i.awakeAt && ts <= i.asleepAt);
+        stateText = inInterruption ? t('records.history.awake') : t('records.history.asleep');
+      }
+      const rangeText = s.bedTime || s.getOutOfBedTime
+        ? `${formatDateTime(s.bedTime || s.startTime)} ~ ${formatDateTime(s.getOutOfBedTime || s.endTime)}`
+        : `${formatDateTime(s.startTime)} ~ ${formatDateTime(s.endTime)}`;
+      content += `<div style="color:#8b5cf6">${t('records.history.sleep')}: ${stateText} (${rangeText})</div>`;
+      if (s.quality != null) content += `<div class="note">Q${s.quality}</div>`;
+    });
+    tooltip.innerHTML = content;
+    tooltip.classList.add('visible');
+    positionTooltip(wrap, tooltip, base.padLeft + x - wrap.scrollLeft, base.padTop + PADDING.top);
+    return ts;
+  }
+
+  function hideSleepTooltip() {
+    cross.group.setAttribute('display', 'none');
+    tooltip.classList.remove('visible');
+  }
+
+  bindChartPointer({ container, wrap, cross, base, displayMinTime, pxPerHour, show: showSleepTooltip, hide: hideSleepTooltip });
+  subscribeCrosshairSync(container, cross, showSleepTooltip, hideSleepTooltip);
+}
+// ===================== 事件图 =====================
+export function renderEventsChart(events, container, tooltip, legendContainer, options = {}) {
+  const { pxPerHour = PX_PER_HOUR, displayMinTime, displayMaxTime } = options;
+  const theme = getTheme();
+  const colors = chartColors(theme);
+
+  const wrap = container.parentElement;
+  const base = chartBase(wrap, container, displayMinTime, displayMaxTime, pxPerHour);
+  const defs = createSVGElement('defs');
+  container.appendChild(defs);
+  if (legendContainer) legendContainer.innerHTML = '';
+
+  events = events.filter(e => e.timestamp >= displayMinTime && e.timestamp <= displayMaxTime);
+
+  if (events.length === 0) {
+    showChartEmpty(container, colors, t('chart.empty'));
+    return;
+  }
+
+  // 事件竖线 + 顶部圆点（点击交互通过 tooltip 提供详情）
+  events.forEach(ev => {
+    const ex = base.xFor(ev.timestamp);
+    if (ex < PADDING.left || ex > base.width - PADDING.right) return;
+    const line = createSVGElement('line', {
+      x1: ex, y1: PADDING.top, x2: ex, y2: base.height - PADDING.bottom,
+      stroke: ev.color || colors.accent, 'stroke-width': 2, class: 'event-line', 'data-event-id': ev.id
+    });
+    line.style.pointerEvents = 'none';
+    container.appendChild(line);
+
+    const dot = createSVGElement('circle', {
+      cx: ex, cy: PADDING.top, r: 4, fill: ev.color || colors.accent, class: 'event-dot', 'data-event-id': ev.id
+    });
+    dot.style.pointerEvents = 'auto';
+    dot.style.cursor = 'pointer';
+    container.appendChild(dot);
+
+    // 事件标题（截断避免溢出）
+    const title = String(ev.title || '');
+    const shortTitle = title.length > 12 ? title.slice(0, 12) + '…' : title;
+    const label = createSVGElement('text', {
+      x: ex, y: PADDING.top - 8, 'text-anchor': 'middle',
+      fill: ev.color || colors.accent, 'font-size': '10',
+      class: 'event-title-label'
+    });
+    label.textContent = shortTitle;
+    container.appendChild(label);
+  });
+
+  renderTimeAxis(container, base, colors, theme, displayMinTime, displayMaxTime, pxPerHour);
+  renderNowLine(container, base, colors, displayMinTime, displayMaxTime);
+
+  // 图例
+  if (legendContainer) {
+    const eventLegend = document.createElement('span');
+    eventLegend.className = 'legend-item';
+    eventLegend.innerHTML = `<i class="dot" style="background:${colors.accent}; width: 2px; border-radius: 0;"></i><span data-i18n="chart.legend.event">${t('chart.legend.event')}</span>`;
+    legendContainer.appendChild(eventLegend);
+  }
+
+  // 十字线与交互
+  const cross = createCrosshair(container, colors, base);
+
+  function showEventsTooltip(ts) {
+    let snapped = ts;
+    let nearest = null;
+    let minDist = Infinity;
+    events.forEach(ev => {
+      const d = Math.abs(ev.timestamp - ts);
+      if (d < minDist) { minDist = d; nearest = ev; }
+    });
+
+    cross.group.setAttribute('display', 'block');
+    if (nearest && Math.abs(base.xFor(nearest.timestamp) - base.xFor(ts)) <= 24) {
+      snapped = nearest.timestamp;
+    }
+    const x = base.xFor(snapped);
+    cross.vLine.setAttribute('x1', x);
+    cross.vLine.setAttribute('x2', x);
+
+    if (!nearest || Math.abs(base.xFor(nearest.timestamp) - base.xFor(ts)) > 24) {
+      tooltip.classList.remove('visible');
+      return snapped;
+    }
+    let content = `<time>${formatDateTime(snapped)}</time>`;
+    content += `<div style="color:${nearest.color || colors.accent}; font-weight:600;">${t('chart.tooltip.event')}: ${nearest.title}</div>`;
+    if (nearest.showElapsedTime) {
+      const diff = Date.now() - nearest.timestamp;
+      const suffix = diff >= 0 ? 'past' : 'future';
+      const elapsed = formatDuration(Math.abs(diff));
+      content += `<div class="note">${t(`chart.tooltip.eventElapsed.${suffix}`, { duration: elapsed })}</div>`;
+    }
+    if (nearest.note) content += `<div class="note">${nearest.note}</div>`;
+    tooltip.innerHTML = content;
+    tooltip.classList.add('visible');
+    positionTooltip(wrap, tooltip, base.padLeft + x - wrap.scrollLeft, base.padTop + PADDING.top);
+    return snapped;
+  }
+
+  function hideEventsTooltip() {
+    cross.group.setAttribute('display', 'none');
+    tooltip.classList.remove('visible');
+  }
+
+  bindChartPointer({ container, wrap, cross, base, displayMinTime, pxPerHour, show: showEventsTooltip, hide: hideEventsTooltip });
+  subscribeCrosshairSync(container, cross, showEventsTooltip, hideEventsTooltip);
 }

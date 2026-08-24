@@ -59,14 +59,7 @@
       </header>
 
       <section class="view view-active" id="overview-view" aria-labelledby="page-title">
-        <div class="card chart-card combined-chart-card">
-          <div class="card-header">
-            <h3 data-i18n="chart.combinedTitle">综合曲线</h3>
-            <div class="chart-header-side">
-              <span class="sampling-rate" id="chart-sampling-rate" hidden></span>
-              <div class="chart-legend" id="combined-legend"></div>
-            </div>
-          </div>
+        <div class="card chart-card overview-chart-card">
           <div class="chart-toolbar">
             <div class="page-controls hidden" id="page-controls">
               <button class="page-btn" id="chart-prev-page" aria-label="上一页" data-i18n-aria="chart.prevPage">‹</button>
@@ -82,28 +75,76 @@
               <button class="zoom-btn" id="zoom-in" aria-label="Zoom in">+</button>
               <button class="zoom-btn reset" id="zoom-reset" data-i18n="chart.zoomReset">重置</button>
             </div>
+            <span class="sampling-rate" id="chart-sampling-rate" hidden></span>
           </div>
-          <div class="chart-wrap" id="combined-chart-wrap">
-            <svg id="combined-chart"></svg>
-            <div class="chart-tooltip" id="combined-chart-tooltip" aria-hidden="true"></div>
+
+          <div class="charts-grid">
+            <div class="card chart-panel" id="mood-chart-panel">
+              <div class="card-header">
+                <h3 data-i18n="chart.moodTitle">情绪</h3>
+                <div class="chart-legend" id="mood-legend"></div>
+              </div>
+              <div class="chart-wrap" id="mood-chart-wrap">
+                <svg id="mood-chart"></svg>
+                <div class="chart-tooltip" id="mood-chart-tooltip" aria-hidden="true"></div>
+              </div>
+            </div>
+
+            <div class="card chart-panel" id="effect-chart-panel">
+              <div class="card-header">
+                <h3 data-i18n="chart.effectTitle">药效</h3>
+                <div class="chart-legend" id="effect-legend"></div>
+              </div>
+              <div class="chart-wrap" id="effect-chart-wrap">
+                <svg id="effect-chart"></svg>
+                <div class="chart-tooltip" id="effect-chart-tooltip" aria-hidden="true"></div>
+              </div>
+            </div>
+
+            <div class="card chart-panel" id="sleep-chart-panel">
+              <div class="card-header">
+                <h3 data-i18n="chart.sleepTitle">睡眠</h3>
+                <div class="chart-legend" id="sleep-legend"></div>
+              </div>
+              <div class="chart-wrap" id="sleep-chart-wrap">
+                <svg id="sleep-chart"></svg>
+                <div class="chart-tooltip" id="sleep-chart-tooltip" aria-hidden="true"></div>
+              </div>
+            </div>
+
+            <div class="card chart-panel" id="events-chart-panel">
+              <div class="card-header">
+                <h3 data-i18n="chart.eventsTitle">事件</h3>
+                <div class="chart-legend" id="events-legend"></div>
+              </div>
+              <div class="chart-wrap" id="events-chart-wrap">
+                <svg id="events-chart"></svg>
+                <div class="chart-tooltip" id="events-chart-tooltip" aria-hidden="true"></div>
+              </div>
+            </div>
           </div>
+
           <p class="records-limit-hint chart-limit-hint" id="chart-limit-hint" hidden></p>
           <div class="chart-controls">
             <label class="chart-checkbox">
               <input type="checkbox" id="show-mood" checked>
-              <span data-i18n="chart.showMood">情绪曲线</span>
+              <span data-i18n="chart.showMood">情绪</span>
             </label>
             <label class="chart-checkbox">
               <input type="checkbox" id="show-effect" checked>
-              <span data-i18n="chart.showEffect">药效曲线</span>
+              <span data-i18n="chart.showEffect">药效</span>
             </label>
             <label class="chart-checkbox">
               <input type="checkbox" id="show-sleep" checked>
-              <span data-i18n="chart.showSleep">睡眠条</span>
+              <span data-i18n="chart.showSleep">睡眠</span>
             </label>
             <label class="chart-checkbox">
               <input type="checkbox" id="show-forward">
               <span data-i18n="chart.showForward">预测药效</span>
+            </label>
+            <label class="chart-checkbox">
+              <input type="checkbox" id="sync-scroll">
+              <span data-i18n="chart.syncScroll">同步滚动</span>
             </label>
             <label class="chart-checkbox">
               <input type="checkbox" id="chart-scroll-lock">
