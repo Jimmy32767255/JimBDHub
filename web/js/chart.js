@@ -1399,21 +1399,33 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
   const cross = createCrosshair(container, colors, base);
 
   function showEffectTooltip(ts) {
+    // 自动吸附到最近的服药记录点（与情绪图吸附逻辑一致，24px 阈值内吸附）
+    let snapped = ts;
+    let nearest = null;
+    let minDiff = Infinity;
+    markerDoseList.forEach(d => {
+      const diff = Math.abs(d.timestamp - ts);
+      if (diff < minDiff) { minDiff = diff; nearest = d; }
+    });
+
     cross.group.setAttribute('display', 'block');
-    const x = base.xFor(ts);
+    if (nearest && Math.abs(base.xFor(nearest.timestamp) - base.xFor(ts)) <= 24) {
+      snapped = nearest.timestamp;
+    }
+    const x = base.xFor(snapped);
     cross.vLine.setAttribute('x1', x);
     cross.vLine.setAttribute('x2', x);
     const rows = series.map(s => {
       const closest = s.data.reduce((best, p) =>
-        Math.abs(p.t - ts) < Math.abs(best.t - ts) ? p : best, s.data[0]);
+        Math.abs(p.t - snapped) < Math.abs(best.t - snapped) ? p : best, s.data[0]);
       return `<div style="color:${s.color}">${s.name}: ${closest.lower.toFixed(2)} ~ ${closest.upper.toFixed(2)} ${s.valueUnit || s.doseMassUnit || 'mg'}</div>`;
     }).join('');
-    let content = `<time>${formatDateTime(ts)}</time>`;
+    let content = `<time>${formatDateTime(snapped)}</time>`;
     content += `<div class="value">${t('chart.effectTooltip')}</div>${rows}`;
     tooltip.innerHTML = content;
     tooltip.classList.add('visible');
     positionTooltip(wrap, tooltip, base.padLeft + x - wrap.scrollLeft, base.padTop + PADDING.top);
-    return ts;
+    return snapped;
   }
 
   function hideEffectTooltip() {
