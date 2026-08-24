@@ -824,10 +824,20 @@ function bindChartPointer({ container, wrap, cross, base, displayMinTime, pxPerH
 }
 
 // 接收其他图表的十字线同步
-function subscribeCrosshairSync(container, cross, show, hide) {
+function subscribeCrosshairSync(container, cross, show, hide, base) {
   container._syncOff = subscribeCrosshair(payload => {
     if (payload.source === cross) return;
     if (payload.type === 'crosshair') {
+      // 检查十字线位置是否在当前图表可见范围内，不可见时隐藏工具提示，
+      // 避免其他图表滚动到不同位置时工具提示卡在界面边缘
+      if (base) {
+        const x = base.xFor(payload.ts);
+        const wrap = container.parentElement;
+        if (x < wrap.scrollLeft - 10 || x > wrap.scrollLeft + wrap.clientWidth + 10) {
+          hide();
+          return;
+        }
+      }
       show(payload.ts);
     } else {
       hide();
@@ -1089,7 +1099,7 @@ export function renderMoodChart(records, container, tooltip, legendContainer, op
   });
 
   bindChartPointer({ container, wrap, cross, base, displayMinTime, pxPerHour, show: showMoodTooltip, hide: hideMoodTooltip });
-  subscribeCrosshairSync(container, cross, showMoodTooltip, hideMoodTooltip);
+  subscribeCrosshairSync(container, cross, showMoodTooltip, hideMoodTooltip, base);
 }
 // ===================== 药效图 =====================
 export function renderEffectChart(doses, container, tooltip, legendContainer, options = {}) {
@@ -1434,7 +1444,7 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
   }
 
   bindChartPointer({ container, wrap, cross, base, displayMinTime, pxPerHour, show: showEffectTooltip, hide: hideEffectTooltip });
-  subscribeCrosshairSync(container, cross, showEffectTooltip, hideEffectTooltip);
+  subscribeCrosshairSync(container, cross, showEffectTooltip, hideEffectTooltip, base);
 }
 // ===================== 睡眠图 =====================
 export function renderSleepChart(sleeps, container, tooltip, legendContainer, options = {}) {
@@ -1614,7 +1624,7 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
   }
 
   bindChartPointer({ container, wrap, cross, base, displayMinTime, pxPerHour, show: showSleepTooltip, hide: hideSleepTooltip });
-  subscribeCrosshairSync(container, cross, showSleepTooltip, hideSleepTooltip);
+  subscribeCrosshairSync(container, cross, showSleepTooltip, hideSleepTooltip, base);
 }
 // ===================== 事件图 =====================
 export function renderEventsChart(events, container, tooltip, legendContainer, options = {}) {
@@ -1721,5 +1731,5 @@ export function renderEventsChart(events, container, tooltip, legendContainer, o
   }
 
   bindChartPointer({ container, wrap, cross, base, displayMinTime, pxPerHour, show: showEventsTooltip, hide: hideEventsTooltip });
-  subscribeCrosshairSync(container, cross, showEventsTooltip, hideEventsTooltip);
+  subscribeCrosshairSync(container, cross, showEventsTooltip, hideEventsTooltip, base);
 }
