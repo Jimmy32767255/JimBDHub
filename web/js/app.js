@@ -56,6 +56,7 @@ const SIDEBAR_COLLAPSED_KEY = 'jimbdhub_sidebar_collapsed';
 const showMoodCheckbox = document.getElementById('show-mood');
 const showEffectCheckbox = document.getElementById('show-effect');
 const showSleepCheckbox = document.getElementById('show-sleep');
+const showEventsCheckbox = document.getElementById('show-events');
 const showForwardCheckbox = document.getElementById('show-forward');
 const syncScrollCheckbox = document.getElementById('sync-scroll');
 const scrollLockCheckbox = document.getElementById('chart-scroll-lock');
@@ -435,11 +436,13 @@ function drawChart() {
   const showMood = showMoodCheckbox.checked;
   const showEffect = showEffectCheckbox.checked;
   const showSleep = showSleepCheckbox.checked;
+  const showEvents = showEventsCheckbox.checked;
 
   // 面板显隐（隐藏时清空内容，重新显示时再渲染）
   chartViews.mood.panel.classList.toggle('hidden', !showMood);
   chartViews.effect.panel.classList.toggle('hidden', !showEffect);
   chartViews.sleep.panel.classList.toggle('hidden', !showSleep);
+  chartViews.events.panel.classList.toggle('hidden', !showEvents);
 
   if (showMood) {
     renderMoodChart(pageData.records, chartViews.mood.svg, chartViews.mood.tooltip, chartViews.mood.legend, {
@@ -469,7 +472,12 @@ function drawChart() {
     chartViews.sleep.legend.innerHTML = '';
   }
 
-  renderEventsChart(pageData.events, chartViews.events.svg, chartViews.events.tooltip, chartViews.events.legend, chartOptions);
+  if (showEvents) {
+    renderEventsChart(pageData.events, chartViews.events.svg, chartViews.events.tooltip, chartViews.events.legend, chartOptions);
+  } else {
+    chartViews.events.svg.innerHTML = '';
+    chartViews.events.legend.innerHTML = '';
+  }
 
   // 滚动与十字线同步接线
   setChartSyncEnabled(syncScrollCheckbox.checked);
@@ -564,6 +572,7 @@ function initNavigation() {
   showMoodCheckbox.addEventListener('change', drawChart);
   showEffectCheckbox.addEventListener('change', drawChart);
   showSleepCheckbox.addEventListener('change', drawChart);
+  showEventsCheckbox.addEventListener('change', drawChart);
   showForwardCheckbox.addEventListener('change', () => {
     saveShowForward(showForwardCheckbox.checked);
     drawChart();

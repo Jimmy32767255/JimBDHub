@@ -74,6 +74,7 @@
   "chart.showMood": "Mood",
   "chart.showEffect": "Effect",
   "chart.showSleep": "Sleep",
+  "chart.showEvents": "Events",
   "chart.showForward": "Projected effects (7Days)",
   "chart.scrollLock": "Scroll lock",
   "chart.legend.manic": "Manic / Elevated",

@@ -74,6 +74,7 @@
   "chart.showMood": "情绪",
   "chart.showEffect": "药效",
   "chart.showSleep": "睡眠",
+  "chart.showEvents": "事件",
   "chart.showForward": "预测药效（7天内）",
   "chart.scrollLock": "滚动锁定",
   "chart.legend.manic": "躁狂 / 亢奋",
