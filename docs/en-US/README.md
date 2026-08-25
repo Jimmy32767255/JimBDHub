@@ -1,5 +1,7 @@
 # JimBDHub
 
+![JimBDHubIcon](../../assets/JimBDHubIcon256.png)
+
 A cross-platform app for people living with **bipolar disorder** to track mood, manage medication, and monitor sleep. All data is stored locally — nothing is uploaded to any cloud service.
 
 [简体中文](../../README.md) | English

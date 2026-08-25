@@ -1,5 +1,7 @@
 # JimBDHub
 
+![JimBDHubIcon](assets/JimBDHubIcon256.png)
+
 一个给**双相情感障碍**患者记录情绪、管理药物、追踪睡眠的跨平台应用。数据完全存储在本地，不上传任何云端。
 
 简体中文 | [English](./docs/en-US/README.md)
@@ -28,11 +30,11 @@
 
 ## 支持平台
 
-| 平台 | 说明 |
-|---|---|
-| Windows | 绿色 exe 程序，双击即用 |
-| GNU/Linux | AppImage 格式，免安装 |
-| Android | APK 安装包，含桌面小部件与系统提醒 |
+| 平台        | 说明                  |
+| --------- | ------------------- |
+| Windows   | 绿色 exe 程序，双击即用      |
+| GNU/Linux | AppImage 格式，免安装     |
+| Android   | APK 安装包，含桌面小部件与系统提醒 |
 
 三种平台共享同一套界面与数据，数据始终保存在本地设备上。
 
@@ -41,8 +43,9 @@
 从 [Releases](https://github.com/Jimmy32767255/JimBDHub/releases) 页面下载对应平台的安装包：
 
 - **Windows**：下载 `Microsoft-Windows-amd64.exe`，双击运行即可，无需安装。
-- **GNU/Linux**：下载 `GNU-Linux-amd64.AppImage`，赋予执行权限后运行：
 
+- **GNU/Linux**：下载 `GNU-Linux-amd64.AppImage`，赋予执行权限后运行：
+  
   ```bash
   chmod +x GNU-Linux-amd64.AppImage
   ./GNU-Linux-amd64.AppImage
