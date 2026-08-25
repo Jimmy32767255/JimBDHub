@@ -203,6 +203,26 @@ Widget CLI: `python desktop/main.py --sleep-log-toggle` (no GUI; toggles sleep t
 
 Open the `android/` directory with Android Studio, sync Gradle, and run. `android/app/src/main/assets/web` is a symlink to `./web`, so frontend changes need no manual copying.
 
+### Windows symlinks
+
+The repo uses git symlinks (index mode `120000`), e.g. `web/contribution`, `web/JimBDHubIcon256.png`, `android/app/src/main/assets/web`. On Windows `core.symlinks` defaults to `false`, so a plain clone checks these out as small text files containing only the target path, breaking web / Android build references.
+
+**To clone correctly** (requires Windows Developer Mode first, otherwise creating symlinks is not permitted):
+
+```bash
+git config --global core.symlinks true
+git clone <repo-url>
+```
+
+**If you already cloned and have placeholder files**, run the in-repo script to fix them automatically (tries to create real symlinks; falls back to copying the target file/directory when it lacks permission):
+
+```bash
+python Tools/Script/fix_link4win.py            # auto-fix
+python Tools/Script/fix_link4win.py --dry-run  # list what would be fixed, change nothing
+```
+
+> Note: without symlink permission (not admin / Developer Mode off), the script falls back to copying — everything works, but `git status` will show those files as modified.
+
 ## Building
 
 ### Windows — .exe

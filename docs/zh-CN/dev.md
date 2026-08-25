@@ -6,11 +6,11 @@
 
 所有平台共享 `web/` 目录下的同一套前端代码，桌面端与 Android 端仅作为 WebView 外壳，通过桥接对象提供原生能力（文件对话框、系统日程/闹钟、桌面小部件、文件同步等）。前端通过 `web/js/platform.js` 检测运行环境：
 
-| 环境 | 检测方式 | 桥接对象 |
-|---|---|---|
-| Android | `typeof window.AndroidBridge !== 'undefined'` | `AndroidBridge`（Kotlin 注入） |
-| 桌面端 | `typeof window.pywebview !== 'undefined'` | `pywebview.api`（`DesktopBridge`） |
-| 浏览器 | 以上均不存在 | 无桥接，使用降级实现（`<input type="file">`、Blob 下载） |
+| 环境      | 检测方式                                          | 桥接对象                                      |
+| ------- | --------------------------------------------- | ----------------------------------------- |
+| Android | `typeof window.AndroidBridge !== 'undefined'` | `AndroidBridge`（Kotlin 注入）                |
+| 桌面端     | `typeof window.pywebview !== 'undefined'`     | `pywebview.api`（`DesktopBridge`）          |
+| 浏览器     | 以上均不存在                                        | 无桥接，使用降级实现（`<input type="file">`、Blob 下载） |
 
 ## 目录结构
 
@@ -18,59 +18,59 @@
 
 ## 技术栈
 
-| 层面 | 技术 |
-|---|---|
-| 前端 | 原生 HTML/CSS/JS (ES Modules)，无构建步骤 |
-| 图表 | 原生 SVG 渲染（`chart.js`） |
-| 数据 | localStorage / WebView 存储 |
-| 同步 | 本地文件 + Syncthing（文件轮询） |
-| 桌面端 | Python 3 + pywebview + PyQt6 |
-| Android | Kotlin + WebView + WebViewAssetLoader + AppWidget |
-| 打包 (Windows) | PyInstaller |
-| 打包 (Linux) | AppImage / appimagetool |
+| 层面           | 技术                                                |
+| ------------ | ------------------------------------------------- |
+| 前端           | 原生 HTML/CSS/JS (ES Modules)，无构建步骤                 |
+| 图表           | 原生 SVG 渲染（`chart.js`）                             |
+| 数据           | localStorage / WebView 存储                         |
+| 同步           | 本地文件 + Syncthing（文件轮询）                            |
+| 桌面端          | Python 3 + pywebview + PyQt6                      |
+| Android      | Kotlin + WebView + WebViewAssetLoader + AppWidget |
+| 打包 (Windows) | PyInstaller                                       |
+| 打包 (Linux)   | AppImage / appimagetool                           |
 
 ## 前端模块
 
-| 文件 | 职责 |
-|---|---|
-| `js/app.js` | 入口与路由（视图切换、四张独立图表渲染与同步接线） |
-| `js/chart.js` | 图表渲染（情绪/药效/睡眠/事件四个独立渲染器 + 滚动/十字线同步总线） |
-| `js/store.js` | 数据层（localStorage 读写、备份构建/导入） |
-| `js/meds.js` | 药品库模块（库存、变更日志、内置数据库搜索） |
-| `js/records.js` | 记录模块（情绪/服药/睡眠/事件表单、历史记录、备忘录） |
-| `js/settings.js` | 设置模块 |
-| `js/theme.js` | 主题系统（情绪颜色、背景、缩放等） |
-| `js/sync.js` | Syncthing 同步 |
-| `js/autobackup.js` | 自动备份（事件钩子、数量上限、恢复/删除确认） |
-| `js/mdexport.js` | 导出为 Markdown（供大语言模型分析，可调整导出记录数量） |
-| `js/update.js` | 软件更新（频道选择、元数据拉取、平台匹配、SHA-256 校验、下载安装） |
-| `js/platform.js` | 平台检测与原生桥接 |
-| `js/i18n.js` | 国际化引擎 |
-| `locales/*.json` | 语言文件（`zh-CN` / `en-US`） |
-| `MedDB.json` | 内置药品数据库（含药代动力学参数） |
+| 文件                 | 职责                                    |
+| ------------------ | ------------------------------------- |
+| `js/app.js`        | 入口与路由（视图切换、四张独立图表渲染与同步接线）             |
+| `js/chart.js`      | 图表渲染（情绪/药效/睡眠/事件四个独立渲染器 + 滚动/十字线同步总线） |
+| `js/store.js`      | 数据层（localStorage 读写、备份构建/导入）          |
+| `js/meds.js`       | 药品库模块（库存、变更日志、内置数据库搜索）                |
+| `js/records.js`    | 记录模块（情绪/服药/睡眠/事件表单、历史记录、备忘录）          |
+| `js/settings.js`   | 设置模块                                  |
+| `js/theme.js`      | 主题系统（情绪颜色、背景、缩放等）                     |
+| `js/sync.js`       | Syncthing 同步                          |
+| `js/autobackup.js` | 自动备份（事件钩子、数量上限、恢复/删除确认）               |
+| `js/mdexport.js`   | 导出为 Markdown（供大语言模型分析，可调整导出记录数量）      |
+| `js/update.js`     | 软件更新（频道选择、元数据拉取、平台匹配、SHA-256 校验、下载安装） |
+| `js/platform.js`   | 平台检测与原生桥接                             |
+| `js/i18n.js`       | 国际化引擎                                 |
+| `locales/*.json`   | 语言文件（`zh-CN` / `en-US`）               |
+| `MedDB.json`       | 内置药品数据库（含药代动力学参数）                     |
 
 ## 数据存储
 
 所有数据键位于 `web/js/store.js`，均存储在浏览器 `localStorage`：
 
-| 键名 | 内容 |
-|---|---|
-| `jimbdhub_mood_records` | 情绪记录 |
-| `jimbdhub_medications` | 药品信息 |
-| `jimbdhub_med_logs` | 药品变更日志 |
-| `jimbdhub_sleep_records` | 睡眠记录 |
-| `jimbdhub_events` | 事件记录 |
-| `jimbdhub_med_history` | 用药历史（补充药效） |
+| 键名                       | 内容         |
+| ------------------------ | ---------- |
+| `jimbdhub_mood_records`  | 情绪记录       |
+| `jimbdhub_medications`   | 药品信息       |
+| `jimbdhub_med_logs`      | 药品变更日志     |
+| `jimbdhub_sleep_records` | 睡眠记录       |
+| `jimbdhub_events`        | 事件记录       |
+| `jimbdhub_med_history`   | 用药历史（补充药效） |
 
 其它持久化键：
 
-| 键名 | 内容 | 位置 |
-|---|---|---|
-| `jimbdhub_memo` | 备忘录 | `records.js` |
-| `jimbdhub_theme` | 主题设置（含睡眠显示模式 `sleepDisplayMode`、自动备份设置 `autoBackupEnabled` / `autoBackupFolder` / `autoBackupMaxCount`） | `theme.js` |
-| `jimbdhub_language` | 语言设置 | `i18n.js` |
-| `jimbdhub_syncthing_enabled` | Syncthing 同步开关 | `sync.js` |
-| `jimbdhub_sidebar_collapsed` / `jimbdhub_show_forward` / `jimbdhub_chart_page` / `jimbdhub_chart_view` | 视图状态 | `app.js` |
+| 键名                                                                                                     | 内容                                                                                                      | 位置           |
+| ------------------------------------------------------------------------------------------------------ | ------------------------------------------------------------------------------------------------------- | ------------ |
+| `jimbdhub_memo`                                                                                        | 备忘录                                                                                                     | `records.js` |
+| `jimbdhub_theme`                                                                                       | 主题设置（含睡眠显示模式 `sleepDisplayMode`、自动备份设置 `autoBackupEnabled` / `autoBackupFolder` / `autoBackupMaxCount`） | `theme.js`   |
+| `jimbdhub_language`                                                                                    | 语言设置                                                                                                    | `i18n.js`    |
+| `jimbdhub_syncthing_enabled`                                                                           | Syncthing 同步开关                                                                                          | `sync.js`    |
+| `jimbdhub_sidebar_collapsed` / `jimbdhub_show_forward` / `jimbdhub_chart_page` / `jimbdhub_chart_view` | 视图状态                                                                                                    | `app.js`     |
 
 桌面端 WebView 存储持久化于 `~/.JimBDHub`（见下文桌面端章节）。主题与语言设置均包含在备份中（`store.buildBackup()`）。
 
@@ -78,36 +78,36 @@
 
 ### Android（`AndroidBridge`，位于 `MainActivity.kt`）
 
-| 方法 | 功能 |
-|---|---|
-| `saveBackup(json, suggestedName)` | 通过 SAF `CreateDocument` 导出备份 |
-| `saveTextFile(text, suggestedName)` | 通过 SAF 导出任意文本文件（如 Markdown） |
-| `pickBackup()` | 通过 SAF 选择备份文件 |
-| `pickBackgroundImage()` | 系统图片选择器，返回 Base64 data URL |
-| `enableSync()` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（SAF 目录，3 秒轮询） |
-| `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount, reason)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | 自动备份（SAF 目录，见下文「自动备份机制」） |
-| `downloadAndInstallApk(url, sha512, fileName)` | 下载 APK、SHA-512 校验、通过 FileProvider 启动安装 |
-| `addWidget()` | 请求添加启动器小部件 |
-| `openUrl(url)` | 用系统浏览器打开链接（如项目仓库） |
-| `addCalendarEvent(...)` | 添加系统日历事件（`CalendarContract`） |
-| `setAlarm(hour, minute, message)` | 添加系统闹钟（`AlarmClock`） |
-| `onWidgetReady()` | 前端 store 就绪回调，注入小部件产生的睡眠记录 |
+| 方法                                                                                                                                                                     | 功能                                     |
+| ---------------------------------------------------------------------------------------------------------------------------------------------------------------------- | -------------------------------------- |
+| `saveBackup(json, suggestedName)`                                                                                                                                      | 通过 SAF `CreateDocument` 导出备份           |
+| `saveTextFile(text, suggestedName)`                                                                                                                                    | 通过 SAF 导出任意文本文件（如 Markdown）            |
+| `pickBackup()`                                                                                                                                                         | 通过 SAF 选择备份文件                          |
+| `pickBackgroundImage()`                                                                                                                                                | 系统图片选择器，返回 Base64 data URL             |
+| `enableSync()` / `disableSync()` / `writeSyncFile(json)`                                                                                                               | Syncthing 文件同步（SAF 目录，3 秒轮询）           |
+| `chooseBackupFolder()` / `listAutoBackups(uri)` / `writeAutoBackup(uri, json, maxCount, reason)` / `readAutoBackup(uri, fileName)` / `deleteAutoBackup(uri, fileName)` | 自动备份（SAF 目录，见下文「自动备份机制」）               |
+| `downloadAndInstallApk(url, sha512, fileName)`                                                                                                                         | 下载 APK、SHA-512 校验、通过 FileProvider 启动安装 |
+| `addWidget()`                                                                                                                                                          | 请求添加启动器小部件                             |
+| `openUrl(url)`                                                                                                                                                         | 用系统浏览器打开链接（如项目仓库）                      |
+| `addCalendarEvent(...)`                                                                                                                                                | 添加系统日历事件（`CalendarContract`）           |
+| `setAlarm(hour, minute, message)`                                                                                                                                      | 添加系统闹钟（`AlarmClock`）                   |
+| `onWidgetReady()`                                                                                                                                                      | 前端 store 就绪回调，注入小部件产生的睡眠记录             |
 
 前端通过 `window.__xxxCallback` / `window.__xxxError` 全局回调接收异步结果（见 `platform.js` 的 `waitFor*` 系列）。
 
 ### 桌面端（`DesktopBridge`，位于 `desktop/main.py`）
 
-| 方法 | 功能 |
-|---|---|
-| `isDesktop()` | 平台标识 |
-| `saveBackup(json, file_name)` / `pickBackup()` | 原生文件对话框 |
-| `saveTextFile(text, file_name)` | 保存任意文本文件（如 Markdown 导出） |
-| `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)` | Syncthing 文件同步（`SyncManager` 2 秒轮询 mtime） |
-| `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10, reason="DataChange")` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | 自动备份（`FOLDER_DIALOG` 选择目录，见下文「自动备份机制」） |
-| `downloadUpdate(url, sha512, fileName)` | 下载更新、SHA-512 校验、启动安装（后台线程） |
-| `addWidgetShortcut()` | 桌面创建 `.lnk`（Windows）/ `.desktop`（GNU/Linux） |
-| `openUrl(url)` | 用系统默认浏览器打开链接（`webbrowser`） |
-| `onWidgetReady()` | 前端 store 就绪回调，注入快捷方式产生的睡眠记录 |
+| 方法                                                                                                                                                                                                                               | 功能                                          |
+| -------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------------- | ------------------------------------------- |
+| `isDesktop()`                                                                                                                                                                                                                    | 平台标识                                        |
+| `saveBackup(json, file_name)` / `pickBackup()`                                                                                                                                                                                   | 原生文件对话框                                     |
+| `saveTextFile(text, file_name)`                                                                                                                                                                                                  | 保存任意文本文件（如 Markdown 导出）                     |
+| `enableSync(path?)` / `disableSync()` / `writeSyncFile(json)`                                                                                                                                                                    | Syncthing 文件同步（`SyncManager` 2 秒轮询 mtime）   |
+| `chooseBackupFolder()` / `listAutoBackups(folder_path)` / `writeAutoBackup(folder_path, json_string, max_count=10, reason="DataChange")` / `readAutoBackup(folder_path, file_name)` / `deleteAutoBackup(folder_path, file_name)` | 自动备份（`FOLDER_DIALOG` 选择目录，见下文「自动备份机制」）      |
+| `downloadUpdate(url, sha512, fileName)`                                                                                                                                                                                          | 下载更新、SHA-512 校验、启动安装（后台线程）                  |
+| `addWidgetShortcut()`                                                                                                                                                                                                            | 桌面创建 `.lnk`（Windows）/ `.desktop`（GNU/Linux） |
+| `openUrl(url)`                                                                                                                                                                                                                   | 用系统默认浏览器打开链接（`webbrowser`）                  |
+| `onWidgetReady()`                                                                                                                                                                                                                | 前端 store 就绪回调，注入快捷方式产生的睡眠记录                 |
 
 ### 浏览器降级
 
@@ -135,7 +135,7 @@
 - 频道选择持久化在 `localStorage` 的 `jimbdhub_update_channel` 键中，默认 `R`。设置页 `update-channel-select` 下拉框驱动。
 - `checkForUpdates(appVersion)` 拉取 GitHub Releases API（`RELEASES_API`），遍历每个 Release 寻找 `Metadata.json` 元数据资产（由 CI 自动构建时生成）；无元数据时视为稳定版（R 频道），从资产文件名推断平台信息。
 - 元数据格式：`{ version, channel, files: [{ name, os, arch, url, sha512, sha256, sha1, md5 }] }`。
-  - 客户端使用 `sha512` 校验；`sha256`、`sha1`、`md5` 供第三方使用。
+   - 客户端使用 `sha512` 校验；`sha256`、`sha1`、`md5` 供第三方使用。
 - 版本比较：将版本号按数字段拆分后进行数值比较，支持 `V0.0.1A-N20260814` 等带后缀的格式。
 - `runUpdate(meta)` 根据当前运行环境（Android / Windows / Linux）从元数据中挑选对应安装包，下载后 SHA-512 校验，校验通过后启动安装。
 - 桌面端（`DesktopBridge.downloadUpdate`）：后台线程下载到 `~/Downloads`，SHA-512 校验后 `os.startfile`（Windows）或 `subprocess.Popen`（GNU/Linux，`APPIMAGE_EXTRACT_AND_RUN=1` 自解压模式）启动安装。完成后通过 `window.__desktopUpdateCallback` 回调前端。
@@ -202,6 +202,26 @@ GNU/Linux 额外需要 PyQt6 / Qt WebEngine（Arch: `sudo pacman -S python-pyqt6
 ### Android 端
 
 Android Studio 打开 `android/` 目录，同步 Gradle 后直接运行。注意 `android/app/src/main/assets/web` 是指向 `./web` 的符号链接，改动前端后无需手动复制。
+
+### Windows 符号链接
+
+仓库使用 git 符号链接（索引 mode 120000），如 `web/contribution`、`web/JimBDHubIcon256.png`、`android/app/src/main/assets/web`。Windows 默认 `core.symlinks=false`，直接克隆会把符号链接检出为仅含目标路径文本的占位文件，导致 web / Android 构建引用失效。
+
+**正确克隆方式**（需先开启 Windows 开发者模式，否则无权创建符号链接）：
+
+```bash
+git config --global core.symlinks true
+git clone <仓库地址>
+```
+
+**已克隆且出现占位文件时**，运行仓库内脚本自动修复（优先创建真正的符号链接，无权限时回退为复制目标文件/目录内容）：
+
+```bash
+python Tools/Script/fix_link4win.py            # 自动修复
+python Tools/Script/fix_link4win.py --dry-run  # 仅列出待修复项，不实际修改
+```
+
+> 注：脚本在无符号链接权限（非管理员、未开启开发者模式）时会回退为复制，功能正常，但 `git status` 会显示这些文件被修改。
 
 ## 构建与打包
 
