@@ -769,14 +769,16 @@ function showChartEmpty(container, colors, msg) {
   container.appendChild(empty);
 }
 
-// 将 tooltip 固定定位到图表可视区附近（visibleX/Y 为 wrap 内可见偏移）
+// 将 tooltip 固定定位到图表可视区附近（visibleX/Y 为 wrap 内可见逻辑偏移）
 function positionTooltip(wrap, tooltip, visibleX, visibleY) {
+  const ratio = getUIScaleRatio();
   const wrapRect = wrap.getBoundingClientRect();
   const tRect = tooltip.getBoundingClientRect();
   const vw = window.innerWidth;
   const vh = window.innerHeight;
-  const vx = wrapRect.left + visibleX;
-  const vy = wrapRect.top + visibleY;
+  // 屏幕物理坐标下的锚点（wrapRect 为物理像素，visibleX/Y 为逻辑像素需乘回缩放比）
+  const vx = wrapRect.left + visibleX * ratio;
+  const vy = wrapRect.top + visibleY * ratio;
   let left = vx + 16;
   if (left + tRect.width + 12 > vw) left = vx - tRect.width - 16;
   if (left < 8) left = 8;
@@ -784,9 +786,12 @@ function positionTooltip(wrap, tooltip, visibleX, visibleY) {
   if (top < 8) top = vy + 12;
   if (top + tRect.height + 8 > vh) top = vh - tRect.height - 8;
   if (top < 8) top = 8;
+  // tooltip 是 position:fixed，其祖先 #ui-scale-root 带 transform:scale，会作为 fixed
+  // 的包含块（本地未缩放坐标系，渲染时整体乘缩放比）。因此最终写入的 left/top 需除以
+  // 缩放比，才能落到上面的物理坐标位置。
   tooltip.style.position = 'fixed';
-  tooltip.style.left = `${left}px`;
-  tooltip.style.top = `${top}px`;
+  tooltip.style.left = `${left / ratio}px`;
+  tooltip.style.top = `${top / ratio}px`;
 }
 
 // 绑定鼠标/触摸交互：本地显示十字线并广播给其他图表；
@@ -1288,7 +1293,7 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
     const barRect = bar.getBoundingClientRect();
     const wrapRect = wrap.getBoundingClientRect();
     positionTooltip(wrap, tooltip,
-      barRect.left - wrapRect.left + barRect.width + 8,
+      (barRect.left - wrapRect.left + barRect.width + 8) / getUIScaleRatio(),
       base.padTop + (y - axisYTop));
   };
   const hideScaleTooltip = () => {
@@ -1735,7 +1740,8 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
     });
     tooltip.innerHTML = content;
     tooltip.classList.add('visible');
-    positionTooltip(wrap, tooltip, base.padLeft + x - wrap.scrollLeft, base.padTop + PADDING.top);
+    // 睡眠条/色带垂直居中，tooltip 锚点取图表区中心，避免停靠偏高
+    positionTooltip(wrap, tooltip, base.padLeft + x - wrap.scrollLeft, base.padTop + PADDING.top + base.chartH / 2);
     return ts;
   }
 
@@ -1842,7 +1848,8 @@ export function renderEventsChart(events, container, tooltip, legendContainer, o
     if (nearest.note) content += `<div class="note">${nearest.note}</div>`;
     tooltip.innerHTML = content;
     tooltip.classList.add('visible');
-    positionTooltip(wrap, tooltip, base.padLeft + x - wrap.scrollLeft, base.padTop + PADDING.top);
+    // 事件线贯穿整高，锚点取图表区中心，避免停靠偏高并遮挡顶部事件标题
+    positionTooltip(wrap, tooltip, base.padLeft + x - wrap.scrollLeft, base.padTop + PADDING.top + base.chartH / 2);
     return snapped;
   }
 
