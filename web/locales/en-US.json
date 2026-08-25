@@ -24,6 +24,7 @@
   "about.contribType.suggestion": "Issue - Suggestion",
   "about.contribType.feature": "Issue - Feature request",
   "about.contribType.bug": "Issue - Bug",
+  "about.contribType.other": "Other",
   "about.contribType.fix": "PR - Bug fix",
   "about.contribType.enhance": "PR - New feature/Enhancement",
   "about.contribType.refactor": "PR - Refactor/Cleanup",

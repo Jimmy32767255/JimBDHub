@@ -16,10 +16,12 @@ const CONTRIB_TYPE_MAP = {
   '议题-功能请求': 'about.contribType.feature',
   '议题-改进建议': 'about.contribType.suggestion',
   '议题-程序缺陷': 'about.contribType.bug',
+  '议题-其它': 'about.contribType.other',
   '拉取请求-缺陷修复': 'about.contribType.fix',
   '拉取请求-新功能/增强': 'about.contribType.enhance',
   '拉取请求-重构/清理': 'about.contribType.refactor',
-  '拉取请求-文档/翻译': 'about.contribType.docs'
+  '拉取请求-文档/翻译': 'about.contribType.docs',
+  '拉取请求-其它': 'about.contribType.other'
 };
 
 function showContributorsModal() {

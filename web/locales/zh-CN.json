@@ -24,6 +24,7 @@
   "about.contribType.suggestion": "议题-改进建议",
   "about.contribType.feature": "议题-功能请求",
   "about.contribType.bug": "议题-程序缺陷",
+  "about.contribType.other": "其它",
   "about.contribType.fix": "拉取请求-缺陷修复",
   "about.contribType.enhance": "拉取请求-新功能/增强",
   "about.contribType.refactor": "拉取请求-重构/清理",
