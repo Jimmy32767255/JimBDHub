@@ -1476,15 +1476,19 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
     return;
   }
 
-  // 睡眠条水平居中基线
+  // 睡眠显示模式：bar 为水平条；overlay 为贯穿视图高度的半透明色块
+  const overlayMode = theme.sleepDisplayMode === 'overlay';
   const sleepBarHeight = 14;
   const sleepY = PADDING.top + (base.chartH - sleepBarHeight) / 2;
-  const baseline = createSVGElement('line', {
-    x1: PADDING.left, y1: sleepY + sleepBarHeight / 2,
-    x2: base.width - PADDING.right, y2: sleepY + sleepBarHeight / 2,
-    stroke: `rgba(${hexToRgb(theme.neutralColor)}, 0.5)`, 'stroke-width': 1
-  });
-  container.appendChild(baseline);
+  if (!overlayMode) {
+    // 睡眠条水平居中基线
+    const baseline = createSVGElement('line', {
+      x1: PADDING.left, y1: sleepY + sleepBarHeight / 2,
+      x2: base.width - PADDING.right, y2: sleepY + sleepBarHeight / 2,
+      stroke: `rgba(${hexToRgb(theme.neutralColor)}, 0.5)`, 'stroke-width': 1
+    });
+    container.appendChild(baseline);
+  }
 
   sleeps.forEach((sleep, sleepIdx) => {
     const xStart = base.xFor(sleep.startTime);
@@ -1515,6 +1519,94 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
       .filter(seg => seg.type === 'asleep')
       .reduce((sum, seg) => sum + (seg.end - seg.start), 0);
     const totalInBed = bedEnd - bedStart;
+
+    // 覆盖显示模式：贯穿整个视图高度的半透明色块，透明度随睡眠质量变化，质量显示在顶部
+    if (overlayMode) {
+      const overlayTop = PADDING.top;
+      const overlayHeight = base.chartH;
+      const quality = Math.max(0, Math.min(5, Number(sleep.quality) || 0));
+      const baseOpacity = 0.08 + (quality / 5) * 0.22;
+      const overlayGroup = createSVGElement('g', { class: 'sleep-overlay-group' });
+
+      // 在床上的整个时段（浅紫色）
+      overlayGroup.appendChild(createSVGElement('rect', {
+        x: xBedStart, y: overlayTop, width: clipWidth, height: overlayHeight,
+        fill: '#c4b5fd', opacity: String(baseOpacity), rx: 4, ry: 4
+      }));
+
+      // 根据入睡/清醒和中断绘制各段
+      segments.forEach(seg => {
+        const sx = base.xFor(seg.start);
+        const sw = base.xFor(seg.end) - sx;
+        if (sw <= 0) return;
+        overlayGroup.appendChild(createSVGElement('rect', {
+          x: sx, y: overlayTop, width: sw, height: overlayHeight,
+          fill: seg.type === 'asleep' ? '#8b5cf6' : theme.surface2Color,
+          opacity: String(seg.type === 'asleep' ? baseOpacity + 0.15 : baseOpacity + 0.1)
+        }));
+      });
+
+      // 入睡/清醒边界虚线（上床与起床点）
+      if (sleep.bedTime && sleep.bedTime < sleep.startTime) {
+        const x = base.xFor(sleep.bedTime);
+        overlayGroup.appendChild(createSVGElement('line', {
+          x1: x, y1: overlayTop, x2: x, y2: overlayTop + overlayHeight,
+          stroke: '#c4b5fd', 'stroke-width': 1.5, 'stroke-dasharray': '3 3'
+        }));
+      }
+      if (sleep.getOutOfBedTime && sleep.getOutOfBedTime > sleep.endTime) {
+        const x = base.xFor(sleep.getOutOfBedTime);
+        overlayGroup.appendChild(createSVGElement('line', {
+          x1: x, y1: overlayTop, x2: x, y2: overlayTop + overlayHeight,
+          stroke: '#c4b5fd', 'stroke-width': 1.5, 'stroke-dasharray': '3 3'
+        }));
+      }
+
+      // 中断（醒来）边界红线
+      interruptions.forEach(i => {
+        const ix1 = base.xFor(i.awakeAt);
+        const ix2 = base.xFor(i.asleepAt);
+        if (ix1 >= xBedStart && ix1 <= xBedEnd) {
+          overlayGroup.appendChild(createSVGElement('line', {
+            x1: ix1, y1: overlayTop, x2: ix1, y2: overlayTop + overlayHeight,
+            stroke: '#ef4444', 'stroke-width': 1.5
+          }));
+        }
+        if (ix2 >= xBedStart && ix2 <= xBedEnd) {
+          overlayGroup.appendChild(createSVGElement('line', {
+            x1: ix2, y1: overlayTop, x2: ix2, y2: overlayTop + overlayHeight,
+            stroke: '#ef4444', 'stroke-width': 1.5
+          }));
+        }
+      });
+
+      // 质量显示在最上方
+      const overlayCenterX = (xBedStart + xBedEnd) / 2;
+      const qualityLabel = createSVGElement('text', {
+        x: overlayCenterX, y: overlayTop + 16, 'text-anchor': 'middle',
+        fill: '#8b5cf6', 'font-size': '12', 'font-weight': '600'
+      });
+      qualityLabel.textContent = `Q${sleep.quality}`;
+      overlayGroup.appendChild(qualityLabel);
+
+      // 底部显示总睡眠时长与总在床时长
+      const sleepDurationLabel = createSVGElement('text', {
+        x: overlayCenterX, y: overlayTop + overlayHeight - 12, 'text-anchor': 'middle',
+        fill: '#8b5cf6', 'font-size': '11', 'font-weight': '600'
+      });
+      sleepDurationLabel.textContent = formatDurationCompact(totalAsleep);
+      overlayGroup.appendChild(sleepDurationLabel);
+
+      const bedDurationLabel = createSVGElement('text', {
+        x: overlayCenterX, y: overlayTop + overlayHeight - 24, 'text-anchor': 'middle',
+        fill: colors.textMuted, 'font-size': '11', 'font-weight': '600'
+      });
+      bedDurationLabel.textContent = formatDurationCompact(totalInBed);
+      overlayGroup.appendChild(bedDurationLabel);
+
+      container.appendChild(overlayGroup);
+      return;
+    }
 
     const clipId = `sleep-bar-clip-${sleepIdx}`;
     const clipPath = createSVGElement('clipPath', { id: clipId });
