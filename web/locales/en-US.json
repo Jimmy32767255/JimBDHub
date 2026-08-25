@@ -204,6 +204,7 @@
   "records.toast.addedSleep": "Sleep record added",
   "records.toast.addedEvent": "Event added",
   "duration.hoursMinutes": "{h}h {m}m",
+  "duration.compactHoursMinutes": "{h}h{m}m",
   "duration.minutes": "{m}m",
   "duration.hours": "{h}h",
   "duration.days": "{d}d",

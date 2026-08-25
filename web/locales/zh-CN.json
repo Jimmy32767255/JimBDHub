@@ -204,6 +204,7 @@
   "records.toast.addedSleep": "睡眠记录已添加",
   "records.toast.addedEvent": "事件已添加",
   "duration.hoursMinutes": "{h}小时 {m}分钟",
+  "duration.compactHoursMinutes": "{h}时{m}分",
   "duration.minutes": "{m}分钟",
   "duration.hours": "{h}小时",
   "duration.days": "{d}天",

@@ -17,6 +17,13 @@ function isScrollLocked() {
   return getTheme().scrollLock === true;
 }
 
+// 紧凑时长格式（如 8h0m / 8时0分），超过一天回退到本地化完整格式
+function formatDurationCompact(ms) {
+  const minutes = Math.max(0, Math.round(ms / (60 * 1000)));
+  if (minutes >= 1440) return formatDuration(ms);
+  return t('duration.compactHoursMinutes', { h: Math.floor(minutes / 60), m: minutes % 60 });
+}
+
 function formatAxisTime(ts, spanHours, timeStepHours = 24) {
   const d = new Date(ts);
   const pad = n => String(n).padStart(2, '0');
@@ -1503,6 +1510,12 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
       segments.push({ type: 'asleep', start: cursor, end: sleep.endTime });
     }
 
+    // 总睡眠时长 = 入睡至醒来的时长扣除中途醒来；总在床时长 = 上床到起床
+    const totalAsleep = segments
+      .filter(seg => seg.type === 'asleep')
+      .reduce((sum, seg) => sum + (seg.end - seg.start), 0);
+    const totalInBed = bedEnd - bedStart;
+
     const clipId = `sleep-bar-clip-${sleepIdx}`;
     const clipPath = createSVGElement('clipPath', { id: clipId });
     clipPath.appendChild(createSVGElement('rect', {
@@ -1557,6 +1570,22 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
     });
     qualityLabel.textContent = `Q${sleep.quality}`;
     overlayGroup.appendChild(qualityLabel);
+
+    // 睡眠条下方显示总睡眠时长与总在床时长
+    const sleepDurationLabel = createSVGElement('text', {
+      x: centerX, y: sleepY + sleepBarHeight + 12, 'text-anchor': 'middle',
+      fill: '#8b5cf6', 'font-size': '11', 'font-weight': '600'
+    });
+    sleepDurationLabel.textContent = formatDurationCompact(totalAsleep);
+    overlayGroup.appendChild(sleepDurationLabel);
+
+    const bedDurationLabel = createSVGElement('text', {
+      x: centerX, y: sleepY + sleepBarHeight + 24, 'text-anchor': 'middle',
+      fill: colors.textMuted, 'font-size': '11', 'font-weight': '600'
+    });
+    bedDurationLabel.textContent = formatDurationCompact(totalInBed);
+    overlayGroup.appendChild(bedDurationLabel);
+
     container.appendChild(overlayGroup);
   });
 
