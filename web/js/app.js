@@ -70,6 +70,7 @@ const FORWARD_DAYS = 7;
 const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const SHOW_FORWARD_KEY = 'jimbdhub_show_forward';
+const SYNC_SCROLL_KEY = 'jimbdhub_sync_scroll';
 const PAGE_KEY = 'jimbdhub_chart_page';
 const PAGE_SIZE_MS = MAX_MOOD_RANGE_MS;
 let currentPage = null;
@@ -176,6 +177,20 @@ function loadShowForward() {
 function saveShowForward(value) {
   try {
     localStorage.setItem(SHOW_FORWARD_KEY, value ? 'true' : 'false');
+  } catch {}
+}
+
+function loadSyncScroll() {
+  try {
+    return localStorage.getItem(SYNC_SCROLL_KEY) === 'true';
+  } catch {
+    return false;
+  }
+}
+
+function saveSyncScroll(value) {
+  try {
+    localStorage.setItem(SYNC_SCROLL_KEY, value ? 'true' : 'false');
   } catch {}
 }
 
@@ -584,6 +599,7 @@ function initNavigation() {
   }
   if (syncScrollCheckbox) {
     syncScrollCheckbox.addEventListener('change', () => {
+      saveSyncScroll(syncScrollCheckbox.checked);
       setChartSyncEnabled(syncScrollCheckbox.checked);
     });
   }
@@ -716,6 +732,9 @@ async function init() {
 
 function continueInit() {
   showForwardCheckbox.checked = loadShowForward();
+  if (syncScrollCheckbox) {
+    syncScrollCheckbox.checked = loadSyncScroll();
+  }
   currentPage = loadPage();
 
   function updateChartScrollLock(theme) {
