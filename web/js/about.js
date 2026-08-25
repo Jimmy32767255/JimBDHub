@@ -4,7 +4,7 @@ import { platform } from './platform.js';
 import { checkForUpdates, runUpdate } from './update.js';
 
 // 应用版本号：与 Android 构建的 versionName 保持一致
-const APP_VERSION = 'V1.2.0B';
+const APP_VERSION = 'V1.3.0R-NIBC';
 
 const REPO_URL = 'https://github.com/Jimmy32767255/JimBDHub';
 
