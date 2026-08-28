@@ -1181,7 +1181,8 @@ function bindPasswordDialogEvents() {
     // 单密码字段模式（verify/backup）：只校验并返回当前/备份密码
     const singleField = mode === 'verify' || mode === 'backup';
 
-    if (!singleField && !oldPassword) {
+    // 仅 change 模式需要当前密码；enable 模式下旧密码字段被隐藏，不应校验
+    if (mode === 'change' && !oldPassword) {
       if (err) err.textContent = t('settings.encryption.oldPasswordRequired');
       return;
     }
@@ -1199,7 +1200,7 @@ function bindPasswordDialogEvents() {
         return;
       }
     }
-    if (!singleField && newPassword === oldPassword) {
+    if (mode === 'change' && newPassword === oldPassword) {
       if (err) err.textContent = t('settings.encryption.samePassword');
       return;
     }
