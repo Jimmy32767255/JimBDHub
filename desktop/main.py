@@ -28,6 +28,8 @@ from datetime import datetime
 from http.server import HTTPServer, SimpleHTTPRequestHandler
 from pathlib import Path
 
+import windows_hello
+
 def resource_path(relative_path):
     """获取资源的绝对路径，支持 PyInstaller 打包后的环境。"""
     try:
@@ -501,6 +503,43 @@ class DesktopBridge:
         except Exception as e:
             print(f"选择备份失败: {e}", file=sys.stderr)
             return None
+
+    # ===== 生物认证（Windows Hello / Credential Manager）=====
+    # 仅 Windows 支持；其他平台（含 Linux）能力检测返回 False，前端不会显示生物认证入口。
+
+    def isBiometricAvailable(self):
+        """是否支持 Windows Hello 生物认证（设备支持且已录入生物凭据）。"""
+        if not sys.platform.startswith("win"):
+            return False
+        try:
+            return windows_hello.is_available()
+        except Exception as e:
+            print(f"检测 Windows Hello 失败: {e}", file=sys.stderr)
+            return False
+
+    def authenticateWithBiometric(self):
+        """启动 Windows Hello 认证，认证成功后从 Credential Manager 读取主密码返回给前端。"""
+        try:
+            password = windows_hello.verify_and_load_password("验证身份以解锁 JimBDHub")
+            return {"ok": True, "password": password}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def saveMasterPasswordToKeystore(self, password: str):
+        """将主密码保存到 Windows Credential Manager（DPAPI 加密，仅 Windows）。"""
+        try:
+            windows_hello.save_password(password)
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
+
+    def removeMasterPasswordFromKeystore(self):
+        """从 Windows Credential Manager 移除主密码。"""
+        try:
+            windows_hello.remove_password()
+            return {"ok": True}
+        except Exception as e:
+            return {"ok": False, "error": str(e)}
 
     def chooseBackupFolder(self):
         """弹出文件夹选择框，返回用户选定的自动备份目录。"""

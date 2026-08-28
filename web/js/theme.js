@@ -64,6 +64,20 @@ const SYSTEM_PRESETS = {
   }
 };
 
+// 系统主题仅覆盖颜色相关设置；其余偏好（如加密生物认证开关、自动锁定时间等）保持用户设置不变
+const SYSTEM_THEME_KEYS = [
+  'positiveColor', 'negativeColor', 'neutralColor',
+  'backgroundColor', 'surfaceColor', 'surface2Color', 'surface3Color', 'surfaceAltColor',
+  'textColor', 'textMutedColor', 'accentColor'
+];
+
+function systemThemeOverrides(scheme) {
+  const preset = SYSTEM_PRESETS[scheme];
+  const overrides = { useSystemTheme: true };
+  SYSTEM_THEME_KEYS.forEach(key => { overrides[key] = preset[key]; });
+  return overrides;
+}
+
 let currentTheme = { ...DEFAULT_THEME };
 let listeners = [];
 // 最后一次主题/设置变更的原因，供自动备份等读取
@@ -405,7 +419,7 @@ export function resetTheme() {
 
 export async function applySystemTheme() {
   const scheme = getSystemScheme();
-  const theme = { ...SYSTEM_PRESETS[scheme], useSystemTheme: true };
+  const theme = systemThemeOverrides(scheme);
   try {
     // 拉取系统强调色与背景色，获取不到则回退到亮/暗预设
     const sys = await platform.getSystemTheme();
@@ -423,7 +437,7 @@ export function initTheme() {
   currentTheme = load();
   if (currentTheme.useSystemTheme) {
     const scheme = getSystemScheme();
-    currentTheme = { ...currentTheme, ...SYSTEM_PRESETS[scheme], useSystemTheme: true };
+    currentTheme = { ...currentTheme, ...systemThemeOverrides(scheme) };
     // 异步拉取系统强调色/背景色增强，失败则保持预设
     applySystemTheme();
   }

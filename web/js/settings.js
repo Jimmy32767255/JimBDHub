@@ -1356,6 +1356,8 @@ function bindEncryptionControls() {
   updateEncryptionUI();
   subscribeTheme(() => updateEncryptionUI());
   subscribe(() => updateEncryptionUI());
+  // 桌面端生物认证能力为异步探测：探测完成后刷新生物认证设置项显隐
+  platform.onBiometricSupportChange(() => updateEncryptionUI());
 }
 
 function bindWidgetControls() {

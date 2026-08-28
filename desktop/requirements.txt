@@ -3,6 +3,10 @@ PyQt6
 PyQt6-WebEngine
 qtpy
 
+# Windows Hello 生物认证（可选，仅 Windows）：
+# 未安装时自动回退到 PowerShell 调用系统 WinRT API，无需额外依赖
+# winsdk
+
 # GNU/Linux 用户如果使用系统包管理器，Arch Linux 上可能还需要：
 #   sudo pacman -S python-pyqt6 python-pyqt6-webengine
 #

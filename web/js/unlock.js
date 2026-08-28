@@ -47,6 +47,9 @@ export function setupUnlockUI(onUnlocked) {
   const errEl = document.getElementById('unlock-error');
   const bioBtn = document.getElementById('unlock-biometric-btn');
 
+  // 桌面端生物认证能力为异步探测：探测完成后刷新解锁按钮显隐
+  platform.onBiometricSupportChange(updateBiometricButton);
+
   async function doUnlock(password) {
     if (!password) return;
     if (errEl) errEl.textContent = '';

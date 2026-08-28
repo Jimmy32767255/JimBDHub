@@ -301,6 +301,15 @@ function waitForDesktopUpdateCallback() {
   });
 }
 
+// 桌面端生物认证能力缓存（null=未知，等待异步探测）；结果变化时通知监听者
+let desktopBiometricSupport = null;
+let desktopBiometricDetecting = false;
+const desktopBiometricListeners = new Set();
+
+function notifyDesktopBiometricSupportChange() {
+  desktopBiometricListeners.forEach((fn) => fn());
+}
+
 export const platform = {
   isAndroid() {
     return typeof window.AndroidBridge !== 'undefined';
@@ -423,7 +432,7 @@ export const platform = {
     return this.isAndroid();
   },
 
-  // 生物认证（指纹 / 面容）：仅 Android 端支持；桌面端暂未实现，纯浏览器不支持
+  // 生物认证（指纹 / 面容）：Android 同步原生检测；Windows 桌面端异步探测后缓存结果
   isBiometricSupported() {
     if (this.isAndroid() && typeof window.AndroidBridge.isBiometricAvailable === 'function') {
       try {
@@ -432,24 +441,72 @@ export const platform = {
         return false;
       }
     }
+    if (this.isDesktop()) {
+      if (desktopBiometricSupport === null) {
+        // 首次调用触发异步探测；完成前按不支持处理，完成后通过监听器刷新 UI
+        this.refreshBiometricSupport();
+      }
+      return desktopBiometricSupport === true;
+    }
     return false;
   },
 
-  // 启动生物认证，认证成功后 resolve 主密码（由原生端从 Keystore 读取）
+  // 异步探测桌面端生物认证能力并缓存；结果变化时通知 onBiometricSupportChange 监听者
+  async refreshBiometricSupport() {
+    if (!this.isDesktop() || desktopBiometricDetecting) {
+      return;
+    }
+    desktopBiometricDetecting = true;
+    try {
+      let supported = false;
+      if (typeof window.pywebview.api.isBiometricAvailable === 'function') {
+        try {
+          const value = await window.pywebview.api.isBiometricAvailable();
+          supported = value === true;
+        } catch {
+          supported = false;
+        }
+      }
+      desktopBiometricSupport = supported;
+      notifyDesktopBiometricSupportChange();
+    } finally {
+      desktopBiometricDetecting = false;
+    }
+  },
+
+  // 订阅桌面端生物认证能力变化（如解锁界面按钮、设置面板需要据此刷新）
+  onBiometricSupportChange(fn) {
+    desktopBiometricListeners.add(fn);
+    return () => desktopBiometricListeners.delete(fn);
+  },
+
+  // 启动生物认证，认证成功后 resolve 主密码（由原生端从安全存储读取）
   async authenticateWithBiometric() {
     if (this.isAndroid() && typeof window.AndroidBridge.authenticateWithBiometric === 'function') {
       const p = waitForAndroidBiometricCallback();
       window.AndroidBridge.authenticateWithBiometric();
       return p;
     }
+    if (this.isDesktop() && typeof window.pywebview.api.authenticateWithBiometric === 'function') {
+      const res = await window.pywebview.api.authenticateWithBiometric();
+      if (res && res.ok && typeof res.password === 'string' && res.password) {
+        return res.password;
+      }
+      throw new Error((res && res.error) || t('platform.biometricFailed'));
+    }
     throw new Error(t('platform.biometricUnsupported'));
   },
 
-  // 将主密码保存到设备安全存储（Android Keystore），供生物认证解锁使用
+  // 将主密码保存到设备安全存储（Android Keystore / Windows Credential Manager），供生物认证解锁使用
   async saveMasterPasswordToKeystore(password) {
     if (this.isAndroid() && typeof window.AndroidBridge.saveMasterPasswordToKeystore === 'function') {
       window.AndroidBridge.saveMasterPasswordToKeystore(password);
       return;
+    }
+    if (this.isDesktop() && typeof window.pywebview.api.saveMasterPasswordToKeystore === 'function') {
+      const res = await window.pywebview.api.saveMasterPasswordToKeystore(password);
+      if (res && res.ok) return;
+      throw new Error((res && res.error) || t('platform.biometricFailed'));
     }
     throw new Error(t('platform.biometricUnsupported'));
   },
@@ -459,6 +516,11 @@ export const platform = {
     if (this.isAndroid() && typeof window.AndroidBridge.removeMasterPasswordFromKeystore === 'function') {
       window.AndroidBridge.removeMasterPasswordFromKeystore();
       return;
+    }
+    if (this.isDesktop() && typeof window.pywebview.api.removeMasterPasswordFromKeystore === 'function') {
+      const res = await window.pywebview.api.removeMasterPasswordFromKeystore();
+      if (res && res.ok) return;
+      throw new Error((res && res.error) || t('platform.biometricFailed'));
     }
     throw new Error(t('platform.biometricUnsupported'));
   },
@@ -596,3 +658,8 @@ export const platform = {
     }
   }
 };
+
+// 桌面端启动时异步探测生物认证能力；探测完成后各 UI 通过 onBiometricSupportChange 刷新
+if (typeof window !== 'undefined' && typeof window.pywebview !== 'undefined') {
+  platform.refreshBiometricSupport();
+}
