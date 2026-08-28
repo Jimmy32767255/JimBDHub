@@ -146,7 +146,13 @@ async function performBackup(showResult, reason) {
   if (running) return;
   running = true;
   try {
-    const json = JSON.stringify(store.buildBackup());
+    const data = store.buildBackup();
+    let json = JSON.stringify(data);
+    if (store.hasPassword()) {
+      // 加密状态下锁定期间不写入明文备份
+      if (!store.isFileEncryptionEnabled()) return;
+      json = await store.encryptFilePayload(json);
+    }
     const result = await platform.writeAutoBackup(settings.folder, json, settings.maxCount, reason);
     if (!result || !result.ok) {
       if (showResult) {
@@ -227,7 +233,17 @@ export async function restoreAutoBackup(name) {
       await showAlert(t('settings.backup.autoRestoreError', { message: result?.error || '' }));
       return;
     }
-    const data = JSON.parse(result.content);
+    const content = result.content;
+    const parsed = JSON.parse(content);
+    let data = parsed;
+    if (store.isEncryptedPayload(parsed)) {
+      try {
+        data = JSON.parse(await store.decryptFilePayload(content));
+      } catch {
+        await showAlert(t('settings.backup.decryptFail'));
+        return;
+      }
+    }
     if (!store.validateBackup(data)) {
       await showAlert(t('settings.backup.invalidFormat'));
       return;

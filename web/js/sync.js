@@ -56,7 +56,13 @@ async function writeSyncFile() {
   try {
     const backup = store.buildBackup();
     backup.syncedAt = new Date().toISOString();
-    const result = await platform.writeSyncFile(JSON.stringify(backup));
+    let content = JSON.stringify(backup);
+    if (store.hasPassword()) {
+      // 加密状态下锁定期间不写入明文同步文件
+      if (!store.isFileEncryptionEnabled()) return;
+      content = await store.encryptFilePayload(content);
+    }
+    const result = await platform.writeSyncFile(content);
     if (!result.ok) {
       setStatus({ error: result.error || t('settings.sync.writeError') });
       return;
@@ -79,7 +85,13 @@ export async function onFileChanged(jsonText) {
   if (!currentStatus.enabled) return;
   if (isWithinWriteSuppressWindow()) return;
   try {
-    const data = JSON.parse(jsonText);
+    const parsed = JSON.parse(jsonText);
+    let data = parsed;
+    // 加密同步文件：先解密再导入（需当前设备已启用加密并解锁）
+    if (store.isEncryptedPayload(parsed)) {
+      if (!store.isFileEncryptionEnabled()) return;
+      data = JSON.parse(await store.decryptFilePayload(jsonText));
+    }
     if (!store.validateBackup(data)) {
       setStatus({ error: t('settings.sync.importError') });
       return;

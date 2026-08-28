@@ -29,8 +29,16 @@ const PBKDF2_HASH = 'SHA-256';
 // 备忘录同样是用户数据，加密启用后一并纳入加密
 const MEMO_KEY = 'jimbdhub_memo';
 
+// 备份/同步文件加密：使用固定应用级盐派生密钥（盐不写入文件），
+// 同一主密码在任何设备上派生结果一致，便于跨设备同步时自动解密；
+// 每份文件使用独立随机 IV，保证 AES-GCM 的安全性。
+const FILE_ENC_SALT = 'jimbdhub-file-salt-v1';
+const FILE_ENC_MAGIC = 'jimbdhub-encrypted-v1';
+
 // 内存中的 AES-GCM 密钥：解锁后保存，锁定后置 null
 let encryptionKey = null;
+// 内存中的备份/同步文件加密密钥：解锁时由主密码派生，锁定后置 null
+let fileKey = null;
 
 function bytesToBase64(bytes) {
   let binary = '';
@@ -374,12 +382,14 @@ export const store = {
     }
     if (!verified) return false;
     encryptionKey = key;
+    fileKey = await deriveKey(String(masterPassword), new TextEncoder().encode(FILE_ENC_SALT));
     return true;
   },
 
   // 锁定：清空内存密钥
   lock() {
     encryptionKey = null;
+    fileKey = null;
   },
 
   // 首次启用加密：生成盐与密钥，迁移现有明文数据为加密存储
@@ -407,6 +417,7 @@ export const store = {
     localStorage.setItem(ENCRYPTED_FLAG_KEY, 'true');
     localStorage.setItem(SALT_KEY, bytesToBase64(salt));
     encryptionKey = key;
+    fileKey = await deriveKey(masterPassword, new TextEncoder().encode(FILE_ENC_SALT));
     await this.persist();
     await saveMemoEncrypted(this.memo);
     // 最后写入密码校验字段
@@ -430,6 +441,7 @@ export const store = {
       // 切换为新盐与新密钥，数据在内存中保持不变，重新加密后写回
       localStorage.setItem(SALT_KEY, bytesToBase64(salt));
       encryptionKey = newKey;
+      fileKey = await deriveKey(String(newPassword), new TextEncoder().encode(FILE_ENC_SALT));
       await this.persist();
       await saveMemoEncrypted(this.memo);
       localStorage.setItem(ENC_PREFIX + ENC_TEST_KEY, JSON.stringify(await encryptData(TEST_MARKER, newKey)));
@@ -846,6 +858,33 @@ export const store = {
       language: getLanguage(),
       theme
     };
+  },
+
+  // 备份/同步文件是否可加解密：仅在本机启用加密且已解锁时可用
+  isFileEncryptionEnabled() {
+    return this.hasPassword() && fileKey !== null;
+  },
+
+  // 判断解析后的对象是否为加密信封（自描述：{ magic, iv, ciphertext }）
+  isEncryptedPayload(data) {
+    return !!data && typeof data === 'object' && data.magic === FILE_ENC_MAGIC;
+  },
+
+  // 加密备份/同步内容（明文 JSON 字符串），返回加密信封字符串；
+  // 未启用加密时返回 null，调用方按明文处理
+  async encryptFilePayload(plaintext) {
+    if (!this.isFileEncryptionEnabled()) return null;
+    const { iv, ciphertext } = await encryptData(plaintext, fileKey);
+    return JSON.stringify({ magic: FILE_ENC_MAGIC, iv, ciphertext });
+  },
+
+  // 解密备份/同步信封内容，返回明文 JSON 字符串；
+  // 格式不合法 / 未解锁 / 密钥不匹配（主密码不一致）时抛出异常
+  async decryptFilePayload(text) {
+    const parsed = JSON.parse(text);
+    if (!this.isEncryptedPayload(parsed)) throw new Error('not-encrypted');
+    if (!this.isFileEncryptionEnabled()) throw new Error('locked');
+    return decryptData(parsed.ciphertext, parsed.iv, fileKey);
   },
 
   clearAll() {

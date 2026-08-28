@@ -30,8 +30,16 @@ function defaultFileName() {
 async function exportBackup() {
   try {
     const data = store.buildBackup();
-    const json = JSON.stringify(data, null, 2);
-    await platform.saveBackup(json, defaultFileName());
+    let content = JSON.stringify(data, null, 2);
+    if (store.hasPassword()) {
+      // 加密状态下仅允许在解锁后导出加密备份，绝不落盘明文
+      if (!store.isFileEncryptionEnabled()) {
+        await showAlert(t('settings.backup.exportLocked'));
+        return;
+      }
+      content = await store.encryptFilePayload(content);
+    }
+    await platform.saveBackup(content, defaultFileName());
   } catch (err) {
     await showAlert(t('settings.backup.exportError', { message: err.message }));
   }
@@ -40,6 +48,15 @@ async function exportBackup() {
 async function importBackup(text) {
   try {
     let data = JSON.parse(text);
+    // 加密备份：先解密为明文备份对象（需当前设备已启用加密并解锁）
+    if (store.isEncryptedPayload(data)) {
+      try {
+        data = JSON.parse(await store.decryptFilePayload(text));
+      } catch {
+        await showAlert(t('settings.backup.decryptFail'));
+        return;
+      }
+    }
     if (!store.validateBackup(data)) {
       await showAlert(t('settings.backup.invalidFormat'));
       return;

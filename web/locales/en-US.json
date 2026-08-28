@@ -453,6 +453,8 @@
   "settings.backup.export": "Export backup",
   "settings.backup.import": "Import backup",
   "settings.backup.exportError": "Export failed: {message}",
+  "settings.backup.exportLocked": "Encryption is enabled but the app is locked. Unlock first to export.",
+  "settings.backup.decryptFail": "The backup file is encrypted and cannot be decrypted (encryption not enabled on this device or master password mismatch).",
   "settings.backup.invalidFormat": "Invalid backup format or version mismatch.",
   "settings.backup.importConfirm": "Importing a backup will overwrite all current data. Continue?",
   "settings.backup.importSuccess": "Import successful. Data restored.",
