@@ -88,7 +88,7 @@ AppDir:
     id: com.github.jimmy32767255.jimbdhub
     name: JimBDHub
     icon: JimBDHubIcon256
-    version: 0.0.1
+    version: 1.4.0
     exec: usr/bin/jimbdhub
     exec_args: "$@"
 
