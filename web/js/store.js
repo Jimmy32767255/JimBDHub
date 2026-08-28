@@ -879,12 +879,17 @@ export const store = {
   },
 
   // 解密备份/同步信封内容，返回明文 JSON 字符串；
-  // 格式不合法 / 未解锁 / 密钥不匹配（主密码不一致）时抛出异常
-  async decryptFilePayload(text) {
+  // password 为创建备份时使用的主密码；不传时使用当前内存密钥（需已解锁）。
+  // 格式不合法 / 未解锁 / 密钥不匹配（密码错误）时抛出异常
+  async decryptFilePayload(text, password) {
     const parsed = JSON.parse(text);
     if (!this.isEncryptedPayload(parsed)) throw new Error('not-encrypted');
-    if (!this.isFileEncryptionEnabled()) throw new Error('locked');
-    return decryptData(parsed.ciphertext, parsed.iv, fileKey);
+    let key = fileKey;
+    if (password != null && password !== '') {
+      key = await deriveKey(String(password), new TextEncoder().encode(FILE_ENC_SALT));
+    }
+    if (!key) throw new Error('locked');
+    return decryptData(parsed.ciphertext, parsed.iv, key);
   },
 
   clearAll() {

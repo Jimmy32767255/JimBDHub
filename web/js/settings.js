@@ -48,14 +48,20 @@ async function exportBackup() {
 async function importBackup(text) {
   try {
     let data = JSON.parse(text);
-    // 加密备份：先解密为明文备份对象（需当前设备已启用加密并解锁）
+    // 加密备份：请求创建备份时使用的主密码解密，无需本机启用加密或密码一致
     if (store.isEncryptedPayload(data)) {
-      try {
-        data = JSON.parse(await store.decryptFilePayload(text));
-      } catch {
-        await showAlert(t('settings.backup.decryptFail'));
-        return;
+      let plain = null;
+      while (!plain) {
+        const pw = await showPasswordDialog('backup');
+        if (!pw || !pw.oldPassword) return; // 用户取消导入
+        try {
+          plain = await store.decryptFilePayload(text, pw.oldPassword);
+        } catch {
+          const retry = await showConfirm(t('settings.backup.decryptWrongPassword'));
+          if (!retry) return;
+        }
       }
+      data = JSON.parse(plain);
     }
     if (!store.validateBackup(data)) {
       await showAlert(t('settings.backup.invalidFormat'));
@@ -1079,7 +1085,8 @@ const encryptDialog = document.getElementById('encrypt-dialog');
 let encryptDialogResolver = null;
 
 // 打开密码对话框
-// mode: 'enable'（新密码 + 确认）| 'change'（当前密码 + 新密码 + 确认）| 'verify'（仅当前密码）
+// mode: 'enable'（新密码 + 确认）| 'change'（当前密码 + 新密码 + 确认）
+//       | 'verify'（仅当前密码）| 'backup'（仅备份文件密码）
 // resolve：null = 取消；{ oldPassword, newPassword } = 提交结果
 function showPasswordDialog(mode) {
   return new Promise(resolve => {
@@ -1096,21 +1103,32 @@ function showPasswordDialog(mode) {
     const confirmInput = document.getElementById('encrypt-confirm-password');
     const strength = document.getElementById('encrypt-strength');
     const err = document.getElementById('encrypt-dialog-error');
+    const oldLabel = document.querySelector('label[for="encrypt-old-password"]');
+
+    // 单密码字段模式（仅输入一个密码）共用的显隐规则
+    const singleField = mode === 'verify' || mode === 'backup';
 
     if (title) title.textContent = t(
       mode === 'change' ? 'settings.encryption.changePasswordTitle'
         : mode === 'verify' ? 'settings.encryption.verifyPasswordTitle'
-          : 'settings.encryption.enableTitle'
+          : mode === 'backup' ? 'settings.backup.decryptTitle'
+            : 'settings.encryption.enableTitle'
     );
     if (desc) desc.textContent = t(
       mode === 'change' ? 'settings.encryption.changePasswordDesc'
         : mode === 'verify' ? 'settings.encryption.verifyPasswordDesc'
-          : 'settings.encryption.enableDesc'
+          : mode === 'backup' ? 'settings.backup.decryptDesc'
+            : 'settings.encryption.enableDesc'
     );
+    if (oldLabel) {
+      oldLabel.textContent = t(mode === 'backup'
+        ? 'settings.backup.decryptPasswordLabel'
+        : 'settings.encryption.oldPassword');
+    }
     if (oldField) oldField.hidden = mode === 'enable';
-    if (newField) newField.hidden = mode === 'verify';
-    if (confirmField) confirmField.hidden = mode === 'verify';
-    if (strength) strength.hidden = mode === 'verify';
+    if (newField) newField.hidden = singleField;
+    if (confirmField) confirmField.hidden = singleField;
+    if (strength) strength.hidden = singleField;
     if (oldInput) oldInput.value = '';
     if (newInput) newInput.value = '';
     if (confirmInput) confirmInput.value = '';
@@ -1160,11 +1178,18 @@ function bindPasswordDialogEvents() {
     const newPassword = newInput ? newInput.value : '';
     const confirmPassword = confirmInput ? confirmInput.value : '';
 
-    if (mode !== 'enable' && !oldPassword) {
+    // 单密码字段模式（verify/backup）：只校验并返回当前/备份密码
+    const singleField = mode === 'verify' || mode === 'backup';
+
+    if (!singleField && !oldPassword) {
       if (err) err.textContent = t('settings.encryption.oldPasswordRequired');
       return;
     }
-    if (mode !== 'verify') {
+    if (singleField && !oldPassword) {
+      if (err) err.textContent = t('settings.encryption.oldPasswordRequired');
+      return;
+    }
+    if (!singleField) {
       if (newPassword.length < 4) {
         if (err) err.textContent = t('settings.encryption.passwordTooShort');
         return;
@@ -1174,7 +1199,7 @@ function bindPasswordDialogEvents() {
         return;
       }
     }
-    if (mode !== 'enable' && newPassword === oldPassword) {
+    if (!singleField && newPassword === oldPassword) {
       if (err) err.textContent = t('settings.encryption.samePassword');
       return;
     }
