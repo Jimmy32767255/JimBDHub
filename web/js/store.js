@@ -14,6 +14,125 @@ const KEYS = {
 // 本地数据库版本标记：升级完成后持久化，避免每次启动都误判为旧格式
 const VERSION_KEY = 'jimbdhub_db_version';
 
+// ===== 数据加密 =====
+// 加密后的数据以 jimbdhub_enc_ 为前缀存入 localStorage；
+// 元数据键（salt、is_encrypted、语言、主题等）保持明文，以便启动时无需解锁即可读取。
+const ENC_PREFIX = 'jimbdhub_enc_';
+const SALT_KEY = 'jimbdhub_salt';
+const ENCRYPTED_FLAG_KEY = 'jimbdhub_is_encrypted';
+// 密码校验字段：启用加密时写入，解锁时尝试解密以验证主密码是否正确
+const ENC_TEST_KEY = 'jimbdhub_enc_test';
+const TEST_MARKER = 'jimbdhub-encryption-ok';
+// PBKDF2 迭代次数与摘要算法
+const PBKDF2_ITERATIONS = 600000;
+const PBKDF2_HASH = 'SHA-256';
+// 备忘录同样是用户数据，加密启用后一并纳入加密
+const MEMO_KEY = 'jimbdhub_memo';
+
+// 内存中的 AES-GCM 密钥：解锁后保存，锁定后置 null
+let encryptionKey = null;
+
+function bytesToBase64(bytes) {
+  let binary = '';
+  const chunk = 0x8000;
+  for (let i = 0; i < bytes.length; i += chunk) {
+    binary += String.fromCharCode.apply(null, bytes.subarray(i, i + chunk));
+  }
+  return btoa(binary);
+}
+
+function base64ToBytes(b64) {
+  const binary = atob(b64);
+  const bytes = new Uint8Array(binary.length);
+  for (let i = 0; i < binary.length; i++) bytes[i] = binary.charCodeAt(i);
+  return bytes;
+}
+
+// PBKDF2 派生 AES-GCM 密钥（600000 次迭代，SHA-256）
+async function deriveKey(masterPassword, salt) {
+  const enc = new TextEncoder();
+  const baseKey = await crypto.subtle.importKey(
+    'raw',
+    enc.encode(masterPassword),
+    'PBKDF2',
+    false,
+    ['deriveKey']
+  );
+  return crypto.subtle.deriveKey(
+    {
+      name: 'PBKDF2',
+      salt,
+      iterations: PBKDF2_ITERATIONS,
+      hash: PBKDF2_HASH
+    },
+    baseKey,
+    { name: 'AES-GCM', length: 256 },
+    false,
+    ['encrypt', 'decrypt']
+  );
+}
+
+// AES-GCM 加密，返回 { iv, ciphertext }（均为 Base64 编码）
+async function encryptData(plaintext, key) {
+  const iv = crypto.getRandomValues(new Uint8Array(12));
+  const data = new TextEncoder().encode(plaintext);
+  const ciphertext = await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, key, data);
+  return {
+    iv: bytesToBase64(iv),
+    ciphertext: bytesToBase64(new Uint8Array(ciphertext))
+  };
+}
+
+// AES-GCM 解密，返回明文；密码错误/数据损坏时抛出异常
+async function decryptData(ciphertext, iv, key) {
+  const plain = await crypto.subtle.decrypt(
+    { name: 'AES-GCM', iv: base64ToBytes(iv) },
+    key,
+    base64ToBytes(ciphertext)
+  );
+  return new TextDecoder().decode(plain);
+}
+
+// 加密写入：key 为原始 localStorage 键名，实际存储键为 ENC_PREFIX + key
+async function saveEncrypted(key, data) {
+  const { iv, ciphertext } = await encryptData(JSON.stringify(data), encryptionKey);
+  localStorage.setItem(ENC_PREFIX + key, JSON.stringify({ iv, ciphertext }));
+}
+
+// 加密读取：解密失败（密钥不匹配/数据损坏）时返回 fallback
+async function loadEncrypted(key, fallback) {
+  try {
+    const raw = localStorage.getItem(ENC_PREFIX + key);
+    if (!raw) return fallback;
+    const { iv, ciphertext } = JSON.parse(raw);
+    const plain = await decryptData(ciphertext, iv, encryptionKey);
+    return JSON.parse(plain);
+  } catch {
+    return fallback;
+  }
+}
+
+// 加密读取备忘录（纯字符串，不做 JSON 解析）
+async function readMemoEncrypted() {
+  try {
+    const raw = localStorage.getItem(ENC_PREFIX + MEMO_KEY);
+    if (!raw) return '';
+    const { iv, ciphertext } = JSON.parse(raw);
+    return await decryptData(ciphertext, iv, encryptionKey);
+  } catch {
+    return '';
+  }
+}
+
+async function saveMemoEncrypted(text) {
+  const { iv, ciphertext } = await encryptData(String(text ?? ''), encryptionKey);
+  localStorage.setItem(ENC_PREFIX + MEMO_KEY, JSON.stringify({ iv, ciphertext }));
+}
+
+function isEncrypted() {
+  return localStorage.getItem(ENCRYPTED_FLAG_KEY) === 'true';
+}
+
 function generateId() {
   return Date.now().toString(36) + Math.random().toString(36).slice(2, 8);
 }
@@ -46,6 +165,28 @@ function readRawData() {
     events: load(KEYS.events, []),
     version: readVersion(),
     // 旧格式：药物标记颜色存在主题里，按药品列表索引上色
+    medColors: getTheme().medColors
+  };
+}
+
+// 加密状态下的数据读取：先解密再按结构返回（需已解锁）
+async function readRawDataDecrypted() {
+  const [meds, medHistory, records, logs, sleeps, events] = await Promise.all([
+    loadEncrypted(KEYS.meds, []),
+    loadEncrypted(KEYS.medHistory, []),
+    loadEncrypted(KEYS.records, []),
+    loadEncrypted(KEYS.logs, []),
+    loadEncrypted(KEYS.sleeps, []),
+    loadEncrypted(KEYS.events, [])
+  ]);
+  return {
+    meds,
+    medHistory,
+    records,
+    logs,
+    sleeps,
+    events,
+    version: readVersion(),
     medColors: getTheme().medColors
   };
 }
@@ -181,16 +322,192 @@ export const store = {
     events: [],
     medHistory: []
   },
+  // 备忘录（用户数据）：未加密时直接读写 localStorage，加密时仅驻留内存 + 异步加密写
+  memo: '',
   listeners: [],
   // 最后一次数据变更的原因，供自动备份等订阅者读取以生成更友好的文件名
   lastMutation: { reason: 'Init' },
 
+  // 是否已启用加密（localStorage 明文标记）
+  hasPassword() {
+    return isEncrypted();
+  },
+
+  // 当前是否已解锁（内存中存在可用密钥）
+  isUnlocked() {
+    return encryptionKey !== null;
+  },
+
+  // 验证主密码并解锁：成功设置内存密钥并返回 true
+  async unlock(masterPassword) {
+    if (!this.hasPassword()) return false;
+    const saltB64 = localStorage.getItem(SALT_KEY);
+    if (!saltB64) return false;
+    let key;
+    try {
+      key = await deriveKey(String(masterPassword ?? ''), base64ToBytes(saltB64));
+    } catch {
+      return false;
+    }
+    // 一致性校验：优先解密测试字段；测试字段缺失/损坏时回退到解密数据键，
+    // 避免修改密码中途异常留下的不一致状态导致用户被永久锁在门外。
+    let verified = false;
+    const testRaw = localStorage.getItem(ENC_PREFIX + ENC_TEST_KEY);
+    if (testRaw) {
+      try {
+        const { iv, ciphertext } = JSON.parse(testRaw);
+        await decryptData(ciphertext, iv, key);
+        verified = true;
+      } catch { /* 测试字段解密失败，尝试回退 */ }
+    }
+    if (!verified) {
+      const dataKeys = Object.values(KEYS).filter(k => localStorage.getItem(ENC_PREFIX + k) != null);
+      for (const k of dataKeys) {
+        try {
+          const raw = localStorage.getItem(ENC_PREFIX + k);
+          const { iv, ciphertext } = JSON.parse(raw);
+          await decryptData(ciphertext, iv, key);
+          verified = true;
+          break;
+        } catch { /* 继续尝试下一个 */ }
+      }
+    }
+    if (!verified) return false;
+    encryptionKey = key;
+    return true;
+  },
+
+  // 锁定：清空内存密钥
+  lock() {
+    encryptionKey = null;
+  },
+
+  // 首次启用加密：生成盐与密钥，迁移现有明文数据为加密存储
+  async enableEncryption(masterPassword) {
+    if (this.hasPassword()) return { ok: false, reason: 'already-enabled' };
+    if (!masterPassword || typeof masterPassword !== 'string' || masterPassword.length < 4) {
+      return { ok: false, reason: 'weak-password' };
+    }
+    const salt = crypto.getRandomValues(new Uint8Array(16));
+    const key = await deriveKey(masterPassword, salt);
+    // 在内存中迁移：先把明文数据载入内存，再切换为加密写入
+    const raw = readRawData();
+    this.data.records = raw.records;
+    this.data.meds = raw.meds;
+    this.data.logs = raw.logs;
+    this.data.sleeps = raw.sleeps;
+    this.data.events = raw.events;
+    this.data.medHistory = raw.medHistory;
+    try {
+      this.memo = localStorage.getItem(MEMO_KEY) || '';
+    } catch {
+      this.memo = '';
+    }
+    // 置为加密状态
+    localStorage.setItem(ENCRYPTED_FLAG_KEY, 'true');
+    localStorage.setItem(SALT_KEY, bytesToBase64(salt));
+    encryptionKey = key;
+    await this.persist();
+    await saveMemoEncrypted(this.memo);
+    // 最后写入密码校验字段
+    localStorage.setItem(ENC_PREFIX + ENC_TEST_KEY, JSON.stringify(await encryptData(TEST_MARKER, key)));
+    // 清除明文键（保留元数据键）
+    Object.values(KEYS).forEach(k => localStorage.removeItem(k));
+    localStorage.removeItem(MEMO_KEY);
+    return { ok: true };
+  },
+
+  // 修改主密码：验证旧密码后，用新密钥重新加密全部数据
+  async changePassword(oldPassword, newPassword) {
+    if (!this.hasPassword()) return { ok: false, reason: 'not-enabled' };
+    if (!newPassword || typeof newPassword !== 'string' || newPassword.length < 4) {
+      return { ok: false, reason: 'weak-password' };
+    }
+    if (!(await this.unlock(oldPassword))) return { ok: false, reason: 'wrong-password' };
+    try {
+      const salt = crypto.getRandomValues(new Uint8Array(16));
+      const newKey = await deriveKey(newPassword, salt);
+      // 切换为新盐与新密钥，数据在内存中保持不变，重新加密后写回
+      localStorage.setItem(SALT_KEY, bytesToBase64(salt));
+      encryptionKey = newKey;
+      await this.persist();
+      await saveMemoEncrypted(this.memo);
+      localStorage.setItem(ENC_PREFIX + ENC_TEST_KEY, JSON.stringify(await encryptData(TEST_MARKER, newKey)));
+      return { ok: true };
+    } catch (err) {
+      return { ok: false, reason: 'error', error: err };
+    }
+  },
+
+  // 关闭加密：验证当前密码后，将内存数据解密为明文存储
+  async disableEncryption(masterPassword) {
+    if (!this.hasPassword()) return { ok: false, reason: 'not-enabled' };
+    if (!(await this.unlock(masterPassword))) return { ok: false, reason: 'wrong-password' };
+    try {
+      save(KEYS.records, this.data.records);
+      save(KEYS.meds, this.data.meds);
+      save(KEYS.logs, this.data.logs);
+      save(KEYS.sleeps, this.data.sleeps);
+      save(KEYS.events, this.data.events);
+      save(KEYS.medHistory, this.data.medHistory);
+      save(VERSION_KEY, CURRENT_DB_VERSION);
+      try {
+        localStorage.setItem(MEMO_KEY, this.memo || '');
+      } catch { /* 忽略 */ }
+      // 清理加密标记与加密键
+      localStorage.removeItem(ENCRYPTED_FLAG_KEY);
+      localStorage.removeItem(SALT_KEY);
+      Object.values(KEYS).forEach(k => localStorage.removeItem(ENC_PREFIX + k));
+      localStorage.removeItem(ENC_PREFIX + MEMO_KEY);
+      localStorage.removeItem(ENC_PREFIX + ENC_TEST_KEY);
+      this.lock();
+      return { ok: true };
+    } catch (err) {
+      this.lock();
+      return { ok: false, reason: 'error', error: err };
+    }
+  },
+
+  // 备忘录读写：加密时写入内存并异步加密落盘
+  getMemo() {
+    return this.memo || '';
+  },
+
+  setMemo(text) {
+    this.memo = String(text ?? '');
+    if (this.hasPassword()) {
+      if (this.isUnlocked()) {
+        saveMemoEncrypted(this.memo).catch(() => {});
+      }
+      return;
+    }
+    try {
+      localStorage.setItem(MEMO_KEY, this.memo);
+    } catch { /* 忽略 */ }
+  },
+
   checkNeedsUpgrade() {
+    // 加密状态下原始数据不可读（需要先解锁），启动流程会跳过此检测，改在解锁后由 init 处理
+    if (this.hasPassword()) return false;
     return needsUpgrade(readRawData());
   },
 
-  init() {
-    const raw = readRawData();
+  async init() {
+    let raw;
+    if (this.hasPassword()) {
+      if (!this.isUnlocked()) {
+        throw new Error('Database is locked');
+      }
+      raw = await readRawDataDecrypted();
+      this.memo = await readMemoEncrypted();
+    } else {
+      raw = readRawData();
+      try {
+        this.memo = localStorage.getItem(MEMO_KEY) || '';
+      } catch {
+        this.memo = '';
+      }
+    }
 
     if (needsUpgrade(raw)) {
       const result = runUpgrade(raw);
@@ -208,7 +525,7 @@ export const store = {
       if (Array.isArray(raw.medColors) && raw.medColors.length) {
         setTheme({ medColors: undefined }, 'Internal');
       }
-      this.persist();
+      await this.persist();
       return;
     }
 
@@ -220,17 +537,42 @@ export const store = {
     this.data.sleeps = raw.sleeps;
     this.data.events = raw.events;
     // 补写版本标记，避免下次启动误判为旧格式
-    this.persist();
+    await this.persist();
   },
 
-  persist() {
-    save(KEYS.records, this.data.records);
-    save(KEYS.meds, this.data.meds);
-    save(KEYS.logs, this.data.logs);
-    save(KEYS.sleeps, this.data.sleeps);
-    save(KEYS.events, this.data.events);
-    save(KEYS.medHistory, this.data.medHistory);
-    save(VERSION_KEY, CURRENT_DB_VERSION);
+  async persist() {
+    // 加密写入是异步的，而 CRUD 调用点多为同步调用（不 await）。
+    // 用队列保证写入按调用顺序串行完成，避免旧快照后写入覆盖新数据。
+    if (!this._persistChain) this._persistChain = Promise.resolve();
+    const run = this._persistChain.then(() => this._persistNow());
+    this._persistChain = run.catch(() => {});
+    return run;
+  },
+
+  async _persistNow() {
+    if (this.hasPassword() && !this.isUnlocked()) {
+      // 已加密但未解锁：数据被锁定界面隔离，不允许写入，直接跳过
+      return;
+    }
+    if (this.hasPassword()) {
+      await Promise.all([
+        saveEncrypted(KEYS.records, this.data.records),
+        saveEncrypted(KEYS.meds, this.data.meds),
+        saveEncrypted(KEYS.logs, this.data.logs),
+        saveEncrypted(KEYS.sleeps, this.data.sleeps),
+        saveEncrypted(KEYS.events, this.data.events),
+        saveEncrypted(KEYS.medHistory, this.data.medHistory)
+      ]);
+      save(VERSION_KEY, CURRENT_DB_VERSION);
+    } else {
+      save(KEYS.records, this.data.records);
+      save(KEYS.meds, this.data.meds);
+      save(KEYS.logs, this.data.logs);
+      save(KEYS.sleeps, this.data.sleeps);
+      save(KEYS.events, this.data.events);
+      save(KEYS.medHistory, this.data.medHistory);
+      save(VERSION_KEY, CURRENT_DB_VERSION);
+    }
   },
 
   subscribe(fn) {

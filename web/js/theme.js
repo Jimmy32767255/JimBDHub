@@ -41,7 +41,10 @@ const DEFAULT_THEME = {
   dynamicAnimationSpeed: true,
   disableAnimations: false,
   recordAddToast: true,
-  customCSS: ''
+  customCSS: '',
+  // 数据加密：自动锁定时间（分钟，-1 永不、0 立即切后台锁定）；生物认证开关（仅支持的平台）
+  autoLockTimeout: -1,
+  biometricUnlock: false
 };
 
 const SYSTEM_PRESETS = {

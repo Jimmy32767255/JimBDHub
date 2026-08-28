@@ -13,6 +13,21 @@
       <p data-i18n="app.upgrade.blocking">检测到旧版数据格式，请先备份后再继续使用。</p>
       <button type="button" id="upgrade-backup-btn" class="btn btn-primary" data-i18n="app.upgrade.backupNow">立即备份</button>
     </div>
+    <div id="unlock-screen" class="unlock-screen" hidden>
+      <div class="unlock-card">
+        <img class="unlock-icon" src="JimBDHubIcon256.png" alt="JimBDHub">
+        <h1 class="unlock-title">JimBDHub</h1>
+        <p class="unlock-subtitle" data-i18n="unlock.subtitle">数据已加密，请输入主密码解锁</p>
+        <form id="unlock-form" class="unlock-form">
+          <input type="password" id="unlock-password" class="unlock-input" autocomplete="current-password" data-i18n-aria="unlock.passwordPlaceholder" placeholder="主密码">
+          <button type="submit" class="btn btn-primary btn-block" data-i18n="unlock.unlockButton">解锁</button>
+          <button type="button" id="unlock-biometric-btn" class="btn btn-ghost btn-block" hidden>
+            <span data-i18n="unlock.biometricButton">使用指纹 / 面容解锁</span>
+          </button>
+        </form>
+        <p id="unlock-error" class="unlock-error" role="alert"></p>
+      </div>
+    </div>
     <div class="app-shell">
     <aside class="sidebar" id="sidebar">
       <div class="brand">
@@ -781,6 +796,48 @@
             </div>
           </div>
         </div>
+        <div class="card" data-settings-card="encryption">
+          <div class="card-header settings-card-header">
+            <h3 data-i18n="settings.encryption.title">数据加密</h3>
+          </div>
+          <div class="settings-section">
+            <div class="setting-group">
+              <p id="encryption-status" class="form-hint"></p>
+              <p class="form-hint encryption-warning" data-i18n="settings.encryption.riskHint">加密后数据只能通过主密码解密，忘记密码将无法恢复任何数据。</p>
+              <div id="encryption-controls" class="settings-actions" style="padding: 0">
+                <button type="button" class="btn btn-primary" id="encryption-enable-btn" hidden>
+                  <span data-i18n="settings.encryption.enable">启用数据加密</span>
+                </button>
+                <button type="button" class="btn btn-ghost" id="encryption-change-pwd-btn" hidden>
+                  <span data-i18n="settings.encryption.changePassword">修改密码</span>
+                </button>
+                <button type="button" class="btn btn-danger" id="encryption-disable-btn" hidden>
+                  <span data-i18n="settings.encryption.disable">关闭加密</span>
+                </button>
+              </div>
+            </div>
+            <div class="setting-group" id="encryption-biometric-group" hidden>
+              <label class="checkbox-field">
+                <input type="checkbox" id="encryption-biometric-enable">
+                <span data-i18n="settings.encryption.biometricEnable">启用生物认证解锁</span>
+              </label>
+              <small class="form-hint" data-i18n="settings.encryption.biometricHint">使用指纹 / 面容代替输入主密码。生物认证凭据保存在设备安全存储中，切换设备或清除应用数据后需重新录入。</small>
+            </div>
+            <div class="setting-group" id="encryption-autolock-group">
+              <div class="form-field" style="max-width: 220px">
+                <label class="form-label" for="encryption-autolock-select" data-i18n="settings.encryption.autoLock">自动锁定时间</label>
+                <select id="encryption-autolock-select">
+                  <option value="0" data-i18n="settings.encryption.autoLockImmediate">立即</option>
+                  <option value="1" data-i18n="settings.encryption.autoLock1m">1 分钟</option>
+                  <option value="5" data-i18n="settings.encryption.autoLock5m">5 分钟</option>
+                  <option value="15" data-i18n="settings.encryption.autoLock15m">15 分钟</option>
+                  <option value="-1" data-i18n="settings.encryption.autoLockNever">永不</option>
+                </select>
+              </div>
+              <small class="form-hint" data-i18n="settings.encryption.autoLockHint">「立即」表示切到后台时立即锁定；其余选项表示无操作超过该时长后自动锁定。</small>
+            </div>
+          </div>
+        </div>
         <div class="card" data-settings-card="backup">
           <div class="card-header settings-card-header">
             <h3 data-i18n="settings.backup.title">数据备份</h3>
@@ -1104,6 +1161,37 @@
         <button type="button" class="btn btn-ghost" id="mdexport-cancel" data-i18n="common.cancel">取消</button>
         <button type="button" class="btn btn-primary" id="mdexport-confirm" data-i18n="settings.mdexport.export">导出</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal" id="encrypt-dialog" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3 id="encrypt-dialog-title">设置主密码</h3>
+      <p class="dialog-message" id="encrypt-dialog-desc"></p>
+      <form id="encrypt-dialog-form">
+        <div class="form-field" id="encrypt-old-field">
+          <label class="form-label" for="encrypt-old-password" data-i18n="settings.encryption.oldPassword">当前密码</label>
+          <input type="password" id="encrypt-old-password" autocomplete="current-password">
+        </div>
+        <div class="form-field" id="encrypt-new-field">
+          <label class="form-label" for="encrypt-new-password" data-i18n="settings.encryption.newPassword">新密码</label>
+          <input type="password" id="encrypt-new-password" autocomplete="new-password">
+          <div class="password-strength" id="encrypt-strength" hidden>
+            <div class="password-strength-bar" id="encrypt-strength-bar"></div>
+            <span class="password-strength-label" id="encrypt-strength-label"></span>
+          </div>
+        </div>
+        <div class="form-field" id="encrypt-confirm-field">
+          <label class="form-label" for="encrypt-confirm-password" data-i18n="settings.encryption.confirmPassword">确认密码</label>
+          <input type="password" id="encrypt-confirm-password" autocomplete="new-password">
+        </div>
+        <p id="encrypt-dialog-error" class="form-hint encrypt-error" role="alert"></p>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="encrypt-dialog-cancel" data-i18n="common.cancel">取消</button>
+          <button type="submit" class="btn btn-primary" id="encrypt-dialog-ok" data-i18n="common.confirm">确定</button>
+        </div>
+      </form>
     </div>
   </div>
 

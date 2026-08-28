@@ -9,6 +9,8 @@ import android.os.Build
 import android.os.Bundle
 import android.provider.AlarmClock
 import android.provider.CalendarContract
+import android.security.keystore.KeyGenParameterSpec
+import android.security.keystore.KeyProperties
 import android.util.Base64
 import android.util.TypedValue
 import android.webkit.JavascriptInterface
@@ -20,6 +22,9 @@ import android.webkit.WebViewClient
 import android.widget.Toast
 import androidx.activity.result.contract.ActivityResultContracts
 import androidx.appcompat.app.AppCompatActivity
+import androidx.biometric.BiometricManager
+import androidx.biometric.BiometricPrompt
+import androidx.core.content.ContextCompat
 import androidx.core.content.edit
 import androidx.core.net.toUri
 import androidx.documentfile.provider.DocumentFile
@@ -30,6 +35,7 @@ import java.io.File
 import java.io.InputStreamReader
 import java.net.HttpURLConnection
 import java.net.URL
+import java.security.KeyStore
 import java.security.MessageDigest
 import java.text.SimpleDateFormat
 import java.util.Date
@@ -37,6 +43,10 @@ import java.util.Locale
 import java.util.concurrent.Executors
 import java.util.concurrent.ScheduledFuture
 import java.util.concurrent.TimeUnit
+import javax.crypto.Cipher
+import javax.crypto.KeyGenerator
+import javax.crypto.SecretKey
+import javax.crypto.spec.GCMParameterSpec
 import org.json.JSONArray
 import org.json.JSONObject
 
@@ -51,6 +61,15 @@ class MainActivity : AppCompatActivity() {
     private val SYNC_POLL_INTERVAL_SECONDS = 3L
     // 自动备份文件名格式：JimBDHub_AutoBackup_{操作}_{yyyyMMddHHmm毫秒}.json（操作固定英文，触发原因）
     private val AUTO_BACKUP_PREFIX = "JimBDHub_AutoBackup_"
+
+    // 生物认证：主密码保存在 AndroidKeyStore（要求用户认证后可用），密文与 IV 存于 SharedPreferences
+    private val PREFS_BIOMETRIC = "JimBDHubBiometric"
+    private val PREF_MASTER_PASSWORD = "master_password"
+    private val PREF_MASTER_PASSWORD_IV = "master_password_iv"
+    private val KEYSTORE_PROVIDER = "AndroidKeyStore"
+    private val KEY_ALIAS = "jimbdhub_master_key"
+    private val TRANSFORMATION = KeyProperties.KEY_ALGORITHM_AES + "/" +
+        KeyProperties.BLOCK_MODE_GCM + "/" + KeyProperties.ENCRYPTION_PADDING_NONE
 
     private var syncFolderUri: Uri? = null
     private var syncFile: DocumentFile? = null
@@ -713,6 +732,166 @@ class MainActivity : AppCompatActivity() {
         }
     }
 
+    // ===== 生物认证（指纹 / 面容）=====
+
+    // 检查设备是否有可用的生物认证硬件并已录入凭据
+    fun isBiometricAvailable(): Boolean {
+        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false
+        return try {
+            val bm = BiometricManager.from(this)
+            bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
+                BiometricManager.BIOMETRIC_SUCCESS
+        } catch (e: Exception) {
+            false
+        }
+    }
+
+    // 将主密码加密存入设备安全存储（密钥要求用户认证后可用）
+    fun saveMasterPasswordToKeystore(password: String) {
+        try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
+            val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
+            if (!keyStore.containsAlias(KEY_ALIAS)) {
+                val keyGen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE_PROVIDER)
+                keyGen.init(
+                    KeyGenParameterSpec.Builder(
+                        KEY_ALIAS,
+                        KeyProperties.PURPOSE_ENCRYPT or KeyProperties.PURPOSE_DECRYPT
+                    )
+                        .setBlockModes(KeyProperties.BLOCK_MODE_GCM)
+                        .setEncryptionPaddings(KeyProperties.ENCRYPTION_PADDING_NONE)
+                        .setUserAuthenticationRequired(true)
+                        .setInvalidatedByBiometricEnrollment(true)
+                        .build()
+                )
+                keyGen.generateKey()
+            }
+            val key = keyStore.getKey(KEY_ALIAS, null) as SecretKey
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(Cipher.ENCRYPT_MODE, key)
+            val encrypted = cipher.doFinal(password.toByteArray(Charsets.UTF_8))
+            getSharedPreferences(PREFS_BIOMETRIC, MODE_PRIVATE).edit {
+                putString(PREF_MASTER_PASSWORD, Base64.encodeToString(encrypted, Base64.NO_WRAP))
+                putString(PREF_MASTER_PASSWORD_IV, Base64.encodeToString(cipher.iv, Base64.NO_WRAP))
+            }
+        } catch (e: Exception) {
+            // 保存失败由前端提示，不在此崩溃
+        }
+    }
+
+    // 移除已保存的主密码（关闭生物认证时调用）
+    fun removeMasterPasswordFromKeystore() {
+        try {
+            getSharedPreferences(PREFS_BIOMETRIC, MODE_PRIVATE).edit {
+                remove(PREF_MASTER_PASSWORD)
+                remove(PREF_MASTER_PASSWORD_IV)
+            }
+            val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
+            if (keyStore.containsAlias(KEY_ALIAS)) {
+                keyStore.deleteEntry(KEY_ALIAS)
+            }
+        } catch (e: Exception) {
+            // 忽略
+        }
+    }
+
+    // 为解密初始化 Cipher（需在展示 BiometricPrompt 之前完成）
+    private fun createDecryptionCipher(): Cipher? {
+        return try {
+            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null
+            val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
+            if (!keyStore.containsAlias(KEY_ALIAS)) return null
+            val key = keyStore.getKey(KEY_ALIAS, null) as SecretKey
+            val ivB64 = getSharedPreferences(PREFS_BIOMETRIC, MODE_PRIVATE)
+                .getString(PREF_MASTER_PASSWORD_IV, null) ?: return null
+            val cipher = Cipher.getInstance(TRANSFORMATION)
+            cipher.init(
+                Cipher.DECRYPT_MODE,
+                key,
+                GCMParameterSpec(128, Base64.decode(ivB64, Base64.NO_WRAP))
+            )
+            cipher
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    private fun decryptMasterPassword(cipher: Cipher): String? {
+        return try {
+            val encB64 = getSharedPreferences(PREFS_BIOMETRIC, MODE_PRIVATE)
+                .getString(PREF_MASTER_PASSWORD, null) ?: return null
+            String(cipher.doFinal(Base64.decode(encB64, Base64.NO_WRAP)), Charsets.UTF_8)
+        } catch (e: Exception) {
+            null
+        }
+    }
+
+    // 启动 BiometricPrompt：认证成功后从 Keystore 解密主密码并回调给前端
+    fun authenticateWithBiometric() {
+        runOnUiThread {
+            if (!isBiometricAvailable()) {
+                evaluateBiometricError("设备不支持生物认证或未录入指纹/面容")
+                return@runOnUiThread
+            }
+            val cipher = createDecryptionCipher()
+            if (cipher == null) {
+                evaluateBiometricError("未找到已保存的主密码，请先用密码解锁并在设置中重新启用生物认证")
+                return@runOnUiThread
+            }
+            val prompt = BiometricPrompt(
+                this,
+                ContextCompat.getMainExecutor(this),
+                object : BiometricPrompt.AuthenticationCallback() {
+                    override fun onAuthenticationSucceeded(result: BiometricPrompt.AuthenticationResult) {
+                        super.onAuthenticationSucceeded(result)
+                        val password = result.cryptoObject?.cipher?.let { decryptMasterPassword(it) }
+                        if (password != null) {
+                            webView.evaluateJavascript(
+                                "if (window.__androidBiometricCallback) window.__androidBiometricCallback(${
+                                    escapeJson(
+                                        password
+                                    )
+                                })",
+                                null
+                            )
+                        } else {
+                            evaluateBiometricError("主密码解密失败")
+                        }
+                    }
+
+                    override fun onAuthenticationError(errorCode: Int, errString: CharSequence) {
+                        super.onAuthenticationError(errorCode, errString)
+                        // 用户取消（errorCode 13）不视为错误提示
+                        if (errorCode != BiometricPrompt.ERROR_USER_CANCELED &&
+                            errorCode != BiometricPrompt.ERROR_NEGATIVE_BUTTON
+                        ) {
+                            evaluateBiometricError(errString.toString())
+                        }
+                    }
+
+                    override fun onAuthenticationFailed() {
+                        super.onAuthenticationFailed()
+                        // 指纹不匹配时系统已有提示，此处静默
+                    }
+                }
+            )
+            val promptInfo = BiometricPrompt.PromptInfo.Builder()
+                .setTitle("JimBDHub")
+                .setSubtitle("验证身份以解锁应用")
+                .setNegativeButtonText("取消")
+                .setAllowedAuthenticators(BiometricManager.Authenticators.BIOMETRIC_WEAK)
+                .build()
+            prompt.authenticate(promptInfo, BiometricPrompt.CryptoObject(cipher))
+        }
+    }
+
+    private fun evaluateBiometricError(message: String) {
+        webView.evaluateJavascript(
+            "if (window.__androidBiometricError) window.__androidBiometricError(${escapeJson(message)})",
+            null
+        )
+    }
+
     inner class AndroidBridge {
         @JavascriptInterface
         fun saveBackup(json: String, suggestedName: String) {
@@ -897,6 +1076,28 @@ class MainActivity : AppCompatActivity() {
             syncExecutor.execute {
                 this@MainActivity.downloadAndInstallApk(url, sha512, fileName)
             }
+        }
+
+        @JavascriptInterface
+        fun isBiometricAvailable(): Boolean {
+            return this@MainActivity.isBiometricAvailable()
+        }
+
+        @JavascriptInterface
+        fun authenticateWithBiometric() {
+            runOnUiThread {
+                this@MainActivity.authenticateWithBiometric()
+            }
+        }
+
+        @JavascriptInterface
+        fun saveMasterPasswordToKeystore(password: String) {
+            this@MainActivity.saveMasterPasswordToKeystore(password)
+        }
+
+        @JavascriptInterface
+        fun removeMasterPasswordFromKeystore() {
+            this@MainActivity.removeMasterPasswordFromKeystore()
         }
     }
 

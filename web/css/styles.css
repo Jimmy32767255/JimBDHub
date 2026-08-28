@@ -819,6 +819,10 @@ body {
   gap: 6px;
   min-width: 0;
 }
+/* display:flex 会覆盖 UA 的 [hidden]，需显式处理以支持动态隐藏 */
+.form-field[hidden], .password-strength[hidden] {
+  display: none;
+}
 .form-label {
   font-size: 12px;
   color: var(--theme-text-muted);
@@ -1026,6 +1030,8 @@ body {
   color: var(--theme-text);
 }
 .btn:hover { background: var(--theme-surface-2); color: var(--theme-text); }
+/* display:flex/inline-flex 会覆盖 UA 的 [hidden]，需显式处理以支持动态隐藏 */
+.btn[hidden] { display: none; }
 .btn-primary {
   background: linear-gradient(135deg, var(--theme-accent), var(--theme-accent-dark));
   color: white;
@@ -1722,6 +1728,117 @@ html.no-animations *::after {
 
 .upgrade-blocking[hidden] {
   display: none;
+}
+
+/* 解锁界面 */
+.unlock-screen {
+  position: fixed;
+  inset: 0;
+  z-index: 9999;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--theme-bg);
+  color: var(--theme-text);
+  padding: 2rem;
+}
+.unlock-screen[hidden] { display: none; }
+.unlock-card {
+  width: 100%;
+  max-width: 360px;
+  background: var(--theme-surface);
+  border-radius: var(--radius);
+  box-shadow: var(--shadow);
+  padding: 32px 28px;
+  display: flex;
+  flex-direction: column;
+  align-items: center;
+  gap: 14px;
+  text-align: center;
+}
+.unlock-icon {
+  width: 72px;
+  height: 72px;
+  border-radius: 18px;
+  object-fit: cover;
+  box-shadow: 0 6px 18px rgba(var(--theme-positive-rgb), 0.3);
+}
+.unlock-title {
+  margin: 0;
+  font-family: var(--font-display);
+  font-size: 22px;
+}
+.unlock-subtitle {
+  margin: 0;
+  font-size: 13px;
+  color: var(--theme-text-muted);
+}
+.unlock-form {
+  width: 100%;
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+}
+.unlock-input {
+  width: 100%;
+  background: var(--theme-bg);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  padding: 12px 14px;
+  color: var(--theme-text);
+  font-family: inherit;
+  font-size: 15px;
+  outline: none;
+}
+.unlock-input:focus { border-color: var(--theme-accent); }
+.unlock-error {
+  margin: 0;
+  font-size: 13px;
+  color: var(--accent-red);
+  min-height: 1em;
+}
+
+.btn-block {
+  width: 100%;
+  display: flex;
+  justify-content: center;
+}
+
+/* 密码强度指示器 */
+.password-strength {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  margin-top: 4px;
+}
+.password-strength-bar {
+  flex: 1;
+  height: 4px;
+  border-radius: 2px;
+  background: var(--theme-surface-2);
+  overflow: hidden;
+}
+.password-strength-bar::before {
+  content: '';
+  display: block;
+  height: 100%;
+  width: 0;
+  border-radius: 2px;
+  background: var(--accent-red);
+  transition: width 0.2s, background 0.2s;
+}
+.password-strength-label {
+  font-size: 12px;
+  color: var(--theme-text-muted);
+  white-space: nowrap;
+}
+.encrypt-error {
+  color: var(--accent-red);
+  min-height: 1em;
+  margin: 4px 0 0;
+}
+.encryption-warning {
+  color: var(--accent-red);
 }
 
 /* 关于页 */
