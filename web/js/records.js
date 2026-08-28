@@ -791,16 +791,13 @@ function switchForm(name) {
   eventForm.hidden = name !== 'event';
 }
 
-const MEMO_KEY = 'jimbdhub_memo';
-
 function loadMemo() {
-  try {
-    return localStorage.getItem(MEMO_KEY) || '';
-  } catch { return ''; }
+  // 备忘录归入数据层统一管理：未加密时读取明文，加密时读取内存中的解密缓存
+  return store.getMemo();
 }
 
 function saveMemo(text) {
-  try { localStorage.setItem(MEMO_KEY, text); } catch {}
+  store.setMemo(text);
 }
 
 function initMemo() {

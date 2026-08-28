@@ -30,8 +30,16 @@ function defaultFileName() {
 async function exportBackup() {
   try {
     const data = store.buildBackup();
-    const json = JSON.stringify(data, null, 2);
-    await platform.saveBackup(json, defaultFileName());
+    let content = JSON.stringify(data, null, 2);
+    if (store.hasPassword()) {
+      // 加密状态下仅允许在解锁后导出加密备份，绝不落盘明文
+      if (!store.isFileEncryptionEnabled()) {
+        await showAlert(t('settings.backup.exportLocked'));
+        return;
+      }
+      content = await store.encryptFilePayload(content);
+    }
+    await platform.saveBackup(content, defaultFileName());
   } catch (err) {
     await showAlert(t('settings.backup.exportError', { message: err.message }));
   }
@@ -40,6 +48,21 @@ async function exportBackup() {
 async function importBackup(text) {
   try {
     let data = JSON.parse(text);
+    // 加密备份：请求创建备份时使用的主密码解密，无需本机启用加密或密码一致
+    if (store.isEncryptedPayload(data)) {
+      let plain = null;
+      while (!plain) {
+        const pw = await showPasswordDialog('backup');
+        if (!pw || !pw.oldPassword) return; // 用户取消导入
+        try {
+          plain = await store.decryptFilePayload(text, pw.oldPassword);
+        } catch {
+          const retry = await showConfirm(t('settings.backup.decryptWrongPassword'));
+          if (!retry) return;
+        }
+      }
+      data = JSON.parse(plain);
+    }
     if (!store.validateBackup(data)) {
       await showAlert(t('settings.backup.invalidFormat'));
       return;
@@ -1043,6 +1066,297 @@ function bindAutoBackupControls() {
   }, 100);
 }
 
+// ===== 数据加密 =====
+// 密码强度：0~4 分，至少 8 位且包含大小写、数字、符号
+function passwordStrength(pwd) {
+  if (!pwd) return 0;
+  let score = 0;
+  if (pwd.length >= 8) score++;
+  if (pwd.length >= 12) score++;
+  if (/[a-z]/.test(pwd) && /[A-Z]/.test(pwd)) score++;
+  if (/\d/.test(pwd)) score++;
+  if (/[^A-Za-z0-9]/.test(pwd)) score++;
+  return Math.min(4, score);
+}
+
+const STRENGTH_COLORS = ['', '#ef4444', '#f59e0b', '#eab308', '#22c55e'];
+
+const encryptDialog = document.getElementById('encrypt-dialog');
+let encryptDialogResolver = null;
+
+// 打开密码对话框
+// mode: 'enable'（新密码 + 确认）| 'change'（当前密码 + 新密码 + 确认）
+//       | 'verify'（仅当前密码）| 'backup'（仅备份文件密码）
+// resolve：null = 取消；{ oldPassword, newPassword } = 提交结果
+function showPasswordDialog(mode) {
+  return new Promise(resolve => {
+    encryptDialogResolver = resolve;
+    const form = document.getElementById('encrypt-dialog-form');
+    if (form) form.dataset.mode = mode;
+    const title = document.getElementById('encrypt-dialog-title');
+    const desc = document.getElementById('encrypt-dialog-desc');
+    const oldField = document.getElementById('encrypt-old-field');
+    const newField = document.getElementById('encrypt-new-field');
+    const confirmField = document.getElementById('encrypt-confirm-field');
+    const oldInput = document.getElementById('encrypt-old-password');
+    const newInput = document.getElementById('encrypt-new-password');
+    const confirmInput = document.getElementById('encrypt-confirm-password');
+    const strength = document.getElementById('encrypt-strength');
+    const err = document.getElementById('encrypt-dialog-error');
+    const oldLabel = document.querySelector('label[for="encrypt-old-password"]');
+
+    // 单密码字段模式（仅输入一个密码）共用的显隐规则
+    const singleField = mode === 'verify' || mode === 'backup';
+
+    if (title) title.textContent = t(
+      mode === 'change' ? 'settings.encryption.changePasswordTitle'
+        : mode === 'verify' ? 'settings.encryption.verifyPasswordTitle'
+          : mode === 'backup' ? 'settings.backup.decryptTitle'
+            : 'settings.encryption.enableTitle'
+    );
+    if (desc) desc.textContent = t(
+      mode === 'change' ? 'settings.encryption.changePasswordDesc'
+        : mode === 'verify' ? 'settings.encryption.verifyPasswordDesc'
+          : mode === 'backup' ? 'settings.backup.decryptDesc'
+            : 'settings.encryption.enableDesc'
+    );
+    if (oldLabel) {
+      oldLabel.textContent = t(mode === 'backup'
+        ? 'settings.backup.decryptPasswordLabel'
+        : 'settings.encryption.oldPassword');
+    }
+    if (oldField) oldField.hidden = mode === 'enable';
+    if (newField) newField.hidden = singleField;
+    if (confirmField) confirmField.hidden = singleField;
+    if (strength) strength.hidden = singleField;
+    if (oldInput) oldInput.value = '';
+    if (newInput) newInput.value = '';
+    if (confirmInput) confirmInput.value = '';
+    if (err) err.textContent = '';
+    if (encryptDialog) encryptDialog.setAttribute('aria-hidden', 'false');
+    (mode === 'enable' ? newInput : oldInput)?.focus();
+  });
+}
+
+function closePasswordDialog(result) {
+  if (encryptDialog) encryptDialog.setAttribute('aria-hidden', 'true');
+  if (encryptDialogResolver) {
+    encryptDialogResolver(result);
+    encryptDialogResolver = null;
+  }
+}
+
+function updateStrengthUI() {
+  const input = document.getElementById('encrypt-new-password');
+  const strength = document.getElementById('encrypt-strength');
+  const bar = document.getElementById('encrypt-strength-bar');
+  const label = document.getElementById('encrypt-strength-label');
+  if (!input || !strength || !bar || !label) return;
+  const score = passwordStrength(input.value);
+  strength.hidden = false;
+  bar.style.width = `${score * 25}%`;
+  bar.style.background = STRENGTH_COLORS[score] || '';
+  const keys = ['settings.encryption.strengthNone', 'settings.encryption.strengthWeak',
+    'settings.encryption.strengthMedium', 'settings.encryption.strengthStrong',
+    'settings.encryption.strengthExcellent'];
+  label.textContent = t(keys[score]);
+}
+
+function bindPasswordDialogEvents() {
+  const form = document.getElementById('encrypt-dialog-form');
+  if (!form) return;
+  form.addEventListener('submit', async e => {
+    e.preventDefault();
+    const mode = form.dataset.mode || 'enable';
+    const oldInput = document.getElementById('encrypt-old-password');
+    const newInput = document.getElementById('encrypt-new-password');
+    const confirmInput = document.getElementById('encrypt-confirm-password');
+    const err = document.getElementById('encrypt-dialog-error');
+    if (err) err.textContent = '';
+
+    const oldPassword = oldInput ? oldInput.value : '';
+    const newPassword = newInput ? newInput.value : '';
+    const confirmPassword = confirmInput ? confirmInput.value : '';
+
+    // 单密码字段模式（verify/backup）：只校验并返回当前/备份密码
+    const singleField = mode === 'verify' || mode === 'backup';
+
+    if (!singleField && !oldPassword) {
+      if (err) err.textContent = t('settings.encryption.oldPasswordRequired');
+      return;
+    }
+    if (singleField && !oldPassword) {
+      if (err) err.textContent = t('settings.encryption.oldPasswordRequired');
+      return;
+    }
+    if (!singleField) {
+      if (newPassword.length < 4) {
+        if (err) err.textContent = t('settings.encryption.passwordTooShort');
+        return;
+      }
+      if (newPassword !== confirmPassword) {
+        if (err) err.textContent = t('settings.encryption.passwordMismatch');
+        return;
+      }
+    }
+    if (!singleField && newPassword === oldPassword) {
+      if (err) err.textContent = t('settings.encryption.samePassword');
+      return;
+    }
+    closePasswordDialog({ oldPassword, newPassword });
+  });
+  document.getElementById('encrypt-dialog-cancel')?.addEventListener('click', () => closePasswordDialog(null));
+  encryptDialog?.querySelector('.modal-backdrop')?.addEventListener('click', () => closePasswordDialog(null));
+  document.getElementById('encrypt-new-password')?.addEventListener('input', updateStrengthUI);
+}
+
+function reasonText(result) {
+  if (!result) return '';
+  if (result.reason === 'wrong-password') return t('settings.encryption.wrongPassword');
+  if (result.reason === 'weak-password') return t('settings.encryption.passwordTooShort');
+  if (result.reason === 'already-enabled') return t('settings.encryption.alreadyEnabled');
+  if (result.reason === 'not-enabled') return t('settings.encryption.notEnabled');
+  if (result.reason === 'error') return result.error || t('settings.encryption.operationError');
+  return '';
+}
+
+async function enableEncryptionFlow() {
+  const result = await showPasswordDialog('enable');
+  if (!result) return;
+  const res = await store.enableEncryption(result.newPassword);
+  if (res.ok) {
+    await showAlert(t('settings.encryption.enableSuccess'));
+  } else {
+    await showAlert(t('settings.encryption.enableError', { message: reasonText(res) }));
+    return;
+  }
+  await showAlert(t('settings.encryption.forgotWarning'));
+  updateEncryptionUI();
+}
+
+async function changePasswordFlow() {
+  const result = await showPasswordDialog('change');
+  if (!result) return;
+  const res = await store.changePassword(result.oldPassword, result.newPassword);
+  if (res.ok) {
+    // 生物认证已启用时同步更新设备安全存储中的主密码
+    if (getTheme().biometricUnlock === true && platform.isBiometricSupported()) {
+      try {
+        await platform.saveMasterPasswordToKeystore(result.newPassword);
+      } catch { /* 保存失败不阻断修改密码 */ }
+    }
+    await showAlert(t('settings.encryption.changePasswordSuccess'));
+  } else {
+    await showAlert(t('settings.encryption.changePasswordError', { message: reasonText(res) }));
+  }
+  updateEncryptionUI();
+}
+
+async function disableEncryptionFlow() {
+  if (!(await showConfirm(t('settings.encryption.disableConfirm')))) return;
+  const result = await showPasswordDialog('verify');
+  if (!result) return;
+  const res = await store.disableEncryption(result.oldPassword);
+  if (res.ok) {
+    if (getTheme().biometricUnlock === true) {
+      setTheme({ biometricUnlock: false }, 'Internal');
+      try {
+        await platform.removeMasterPasswordFromKeystore();
+      } catch { /* 忽略 */ }
+    }
+    setTheme({ autoLockTimeout: -1 }, 'Internal');
+    await showAlert(t('settings.encryption.disableSuccess'));
+  } else {
+    await showAlert(t('settings.encryption.disableError', { message: reasonText(res) }));
+  }
+  updateEncryptionUI();
+}
+
+function updateEncryptionUI() {
+  const enabled = store.hasPassword();
+  const status = document.getElementById('encryption-status');
+  const enableBtn = document.getElementById('encryption-enable-btn');
+  const changeBtn = document.getElementById('encryption-change-pwd-btn');
+  const disableBtn = document.getElementById('encryption-disable-btn');
+  const biometricGroup = document.getElementById('encryption-biometric-group');
+  const biometricCheckbox = document.getElementById('encryption-biometric-enable');
+  const autoLockGroup = document.getElementById('encryption-autolock-group');
+  const autoLockSelect = document.getElementById('encryption-autolock-select');
+
+  if (status) {
+    status.dataset.i18n = enabled ? 'settings.encryption.statusEnabled' : 'settings.encryption.statusDisabled';
+    status.textContent = t(enabled ? 'settings.encryption.statusEnabled' : 'settings.encryption.statusDisabled');
+  }
+  if (enableBtn) enableBtn.hidden = enabled;
+  if (changeBtn) changeBtn.hidden = !enabled;
+  if (disableBtn) disableBtn.hidden = !enabled;
+  if (biometricGroup) {
+    biometricGroup.hidden = !enabled || !platform.isBiometricSupported();
+  }
+  if (biometricCheckbox) {
+    biometricCheckbox.checked = getTheme().biometricUnlock === true && enabled;
+    biometricCheckbox.disabled = !enabled;
+  }
+  if (autoLockGroup) autoLockGroup.hidden = !enabled;
+  if (autoLockSelect) {
+    autoLockSelect.disabled = !enabled;
+    autoLockSelect.value = String(getTheme().autoLockTimeout ?? -1);
+  }
+}
+
+function bindEncryptionControls() {
+  const enableBtn = document.getElementById('encryption-enable-btn');
+  const changeBtn = document.getElementById('encryption-change-pwd-btn');
+  const disableBtn = document.getElementById('encryption-disable-btn');
+  const biometricCheckbox = document.getElementById('encryption-biometric-enable');
+  const autoLockSelect = document.getElementById('encryption-autolock-select');
+
+  bindPasswordDialogEvents();
+
+  enableBtn?.addEventListener('click', enableEncryptionFlow);
+  changeBtn?.addEventListener('click', changePasswordFlow);
+  disableBtn?.addEventListener('click', disableEncryptionFlow);
+
+  biometricCheckbox?.addEventListener('change', async () => {
+    if (!store.hasPassword()) return;
+    if (biometricCheckbox.checked) {
+      // 启用生物认证前验证主密码，并保存到设备安全存储
+      const result = await showPasswordDialog('verify');
+      if (!result || !result.oldPassword) {
+        biometricCheckbox.checked = false;
+        return;
+      }
+      if (!(await store.unlock(result.oldPassword))) {
+        await showAlert(t('settings.encryption.wrongPassword'));
+        biometricCheckbox.checked = false;
+        return;
+      }
+      try {
+        await platform.saveMasterPasswordToKeystore(result.oldPassword);
+        setTheme({ biometricUnlock: true }, 'Internal');
+        await showAlert(t('settings.encryption.biometricEnabled'));
+      } catch (err) {
+        await showAlert(t('settings.encryption.biometricError', { message: err.message }));
+        biometricCheckbox.checked = false;
+      }
+    } else {
+      setTheme({ biometricUnlock: false }, 'Internal');
+      try {
+        await platform.removeMasterPasswordFromKeystore();
+      } catch { /* 忽略 */ }
+    }
+  });
+
+  autoLockSelect?.addEventListener('change', () => {
+    const value = Number(autoLockSelect.value);
+    setTheme({ autoLockTimeout: value }, 'Internal');
+  });
+
+  updateEncryptionUI();
+  subscribeTheme(() => updateEncryptionUI());
+  subscribe(() => updateEncryptionUI());
+}
+
 function bindWidgetControls() {
   const addBtn = document.getElementById('widget-add-btn');
   if (!addBtn) return;
@@ -1265,6 +1579,7 @@ export function initSettings() {
   bindBodyWeightControl();
   bindSimpleModeControls();
   bindMedHistoryControls();
+  bindEncryptionControls();
   bindSyncControls();
   bindAutoBackupControls();
   bindWidgetControls();

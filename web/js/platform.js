@@ -252,6 +252,34 @@ function waitForAndroidUpdateCallback() {
   });
 }
 
+function waitForAndroidBiometricCallback() {
+  return new Promise((resolve, reject) => {
+    const previousCallback = window.__androidBiometricCallback;
+    const previousError = window.__androidBiometricError;
+    const timeout = setTimeout(() => {
+      cleanup();
+      reject(new Error(t('platform.biometricTimeout')));
+    }, 120000);
+
+    const cleanup = () => {
+      clearTimeout(timeout);
+      window.__androidBiometricCallback = previousCallback;
+      window.__androidBiometricError = previousError;
+    };
+
+    // 认证成功：回调返回保存在 Keystore 中的主密码
+    window.__androidBiometricCallback = (password) => {
+      cleanup();
+      resolve(typeof password === 'string' && password ? password : null);
+    };
+
+    window.__androidBiometricError = (message) => {
+      cleanup();
+      reject(new Error(message || t('platform.biometricFailed')));
+    };
+  });
+}
+
 function waitForDesktopUpdateCallback() {
   return new Promise((resolve, reject) => {
     const previousCallback = window.__desktopUpdateCallback;
@@ -393,6 +421,46 @@ export const platform = {
 
   isMedicationReminderSupported() {
     return this.isAndroid();
+  },
+
+  // 生物认证（指纹 / 面容）：仅 Android 端支持；桌面端暂未实现，纯浏览器不支持
+  isBiometricSupported() {
+    if (this.isAndroid() && typeof window.AndroidBridge.isBiometricAvailable === 'function') {
+      try {
+        return window.AndroidBridge.isBiometricAvailable() === true;
+      } catch {
+        return false;
+      }
+    }
+    return false;
+  },
+
+  // 启动生物认证，认证成功后 resolve 主密码（由原生端从 Keystore 读取）
+  async authenticateWithBiometric() {
+    if (this.isAndroid() && typeof window.AndroidBridge.authenticateWithBiometric === 'function') {
+      const p = waitForAndroidBiometricCallback();
+      window.AndroidBridge.authenticateWithBiometric();
+      return p;
+    }
+    throw new Error(t('platform.biometricUnsupported'));
+  },
+
+  // 将主密码保存到设备安全存储（Android Keystore），供生物认证解锁使用
+  async saveMasterPasswordToKeystore(password) {
+    if (this.isAndroid() && typeof window.AndroidBridge.saveMasterPasswordToKeystore === 'function') {
+      window.AndroidBridge.saveMasterPasswordToKeystore(password);
+      return;
+    }
+    throw new Error(t('platform.biometricUnsupported'));
+  },
+
+  // 从设备安全存储移除主密码
+  async removeMasterPasswordFromKeystore() {
+    if (this.isAndroid() && typeof window.AndroidBridge.removeMasterPasswordFromKeystore === 'function') {
+      window.AndroidBridge.removeMasterPasswordFromKeystore();
+      return;
+    }
+    throw new Error(t('platform.biometricUnsupported'));
   },
 
   async addWidget() {

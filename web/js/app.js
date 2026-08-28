@@ -11,6 +11,7 @@ import { initAbout } from './about.js';
 import { initMdExport } from './mdexport.js';
 import { platform } from './platform.js';
 import { showAlert } from './dialog.js';
+import { setupUnlockUI, showUnlock, hideUnlock, restartAutoLock } from './unlock.js';
 
 const views = {
   overview: document.getElementById('overview-view'),
@@ -688,6 +689,13 @@ async function init() {
   await initI18n();
   initTheme();
 
+  // 已启用数据加密：先显示全屏解锁界面，解锁成功后由 onUnlocked 继续初始化
+  if (store.hasPassword()) {
+    setupUnlockUI(onUnlocked);
+    showUnlock();
+    return;
+  }
+
   const needs = store.checkNeedsUpgrade();
   if (needs) {
     const blockingEl = document.getElementById('upgrade-blocking');
@@ -696,7 +704,7 @@ async function init() {
 
     const performUpgrade = async () => {
       try {
-        store.init();
+        await store.init();
         if (blockingEl) blockingEl.hidden = true;
         await showAlert(t('app.upgrade.success'));
         continueInit();
@@ -726,8 +734,43 @@ async function init() {
     return;
   }
 
-  store.init();
+  await store.init();
   continueInit();
+}
+
+// ===== 数据加密解锁与会话自动锁定 =====
+let appStarted = false;
+let lastAutoLockTimeout = null;
+
+// 解锁成功回调：加载数据后继续初始化；自动锁定后再次解锁则仅重载数据并重绘
+async function onUnlocked() {
+  await store.init();
+  hideUnlock();
+  if (!appStarted) {
+    appStarted = true;
+    continueInit();
+  } else {
+    drawChart();
+  }
+  startAutoLock();
+}
+
+function getAutoLockMinutes() {
+  // 未启用加密或未解锁时不做自动锁定
+  if (!store.hasPassword()) return -1;
+  const v = getTheme().autoLockTimeout;
+  return typeof v === 'number' ? v : -1;
+}
+
+function onAutoLocked() {
+  if (!store.isUnlocked()) return;
+  store.lock();
+  showUnlock();
+}
+
+function startAutoLock() {
+  if (!store.hasPassword() || !store.isUnlocked()) return;
+  restartAutoLock(getAutoLockMinutes, onAutoLocked);
 }
 
 function continueInit() {
@@ -795,6 +838,12 @@ function continueInit() {
     }
   });
   subscribeTheme(() => {
+    // 自动锁定时间发生变化时重新计时
+    const timeout = getTheme().autoLockTimeout;
+    if (timeout !== lastAutoLockTimeout) {
+      lastAutoLockTimeout = timeout;
+      if (store.hasPassword() && store.isUnlocked()) startAutoLock();
+    }
     updateChartDisclaimer();
     if (views.overview.classList.contains('view-active')) {
       drawChart();
