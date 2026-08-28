@@ -129,12 +129,27 @@ export function restartAutoLock(getTimeoutMinutes, onLocked) {
     }
   };
 
+  // 桌面端：应用窗口失焦视为"切到后台"（立即锁定），重新聚焦恢复计时
+  const onFocusChange = (hasFocus) => {
+    const minutes = getTimeoutMinutes();
+    if (!hasFocus) {
+      if (minutes === 0) {
+        onLocked();
+      }
+    } else if (minutes > 0) {
+      arm();
+    }
+  };
+
+  const disposeFocus = platform.onDesktopFocusChange(onFocusChange);
+
   events.forEach(ev => document.addEventListener(ev, onActivity, { passive: true, capture: true }));
   document.addEventListener('visibilitychange', onVisibility);
 
   autoLockDispose = () => {
     clearTimeout(autoLockTimer);
     autoLockTimer = null;
+    disposeFocus();
     events.forEach(ev => document.removeEventListener(ev, onActivity, { capture: true }));
     document.removeEventListener('visibilitychange', onVisibility);
   };

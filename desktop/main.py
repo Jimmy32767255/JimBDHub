@@ -541,6 +541,58 @@ class DesktopBridge:
         except Exception as e:
             return {"ok": False, "error": str(e)}
 
+    def watchFocusLoss(self):
+        """启用窗口焦点丢失监测：应用失焦/聚焦时通过 window.__desktopFocusChanged(bool) 通知前端。
+
+        仅监听 ApplicationDeactivate/ApplicationActivate（切换到其他应用时触发）；
+        文件对话框等应用内原生对话框不会触发，避免"立即锁定"误伤保存/导入流程。
+        """
+        if getattr(self, "_focus_watcher", None):
+            return {"ok": True}
+        try:
+            from PyQt6.QtCore import QEvent, QObject, QTimer
+            from PyQt6.QtWidgets import QApplication
+
+            class _FocusWatcher(QObject):
+                def __init__(self, window):
+                    super().__init__()
+                    self._window = window
+
+                def eventFilter(self, obj, event):
+                    t = event.type()
+                    if t == QEvent.Type.ApplicationDeactivate:
+                        self._notify(False)
+                    elif t == QEvent.Type.ApplicationActivate:
+                        self._notify(True)
+                    return False
+
+                def _notify(self, focused):
+                    # evaluate_js 会阻塞等待 JS 回调，必须在非 GUI 线程调用，避免死锁
+                    payload = (
+                        f"if (window.__desktopFocusChanged) "
+                        f"window.__desktopFocusChanged({str(focused).lower()});"
+                    )
+
+                    def run():
+                        try:
+                            self._window.evaluate_js(payload)
+                        except Exception as e:
+                            print(f"通知前端焦点变化失败: {e}", file=sys.stderr)
+
+                    threading.Thread(target=run, daemon=True).start()
+
+            app = QApplication.instance()
+            if app is None:
+                return {"ok": False, "error": "QApplication not ready"}
+            watcher = _FocusWatcher(self._window)
+            # 事件过滤器需在 GUI 线程安装（本方法可能由 pywebview 的工作线程调用）
+            QTimer.singleShot(0, lambda: app.installEventFilter(watcher))
+            self._focus_watcher = watcher
+            return {"ok": True}
+        except Exception as e:
+            print(f"启用窗口焦点监测失败: {e}", file=sys.stderr)
+            return {"ok": False, "error": str(e)}
+
     def chooseBackupFolder(self):
         """弹出文件夹选择框，返回用户选定的自动备份目录。"""
         if not self._window:

@@ -456,6 +456,10 @@ export const platform = {
     if (!this.isDesktop() || desktopBiometricDetecting) {
       return;
     }
+    if (typeof window.pywebview.api === 'undefined') {
+      // 桥接尚未就绪（页面加载完成前 pywebview 才注入 api），由 whenDesktopReady 稍后重试
+      return;
+    }
     desktopBiometricDetecting = true;
     try {
       let supported = false;
@@ -478,6 +482,29 @@ export const platform = {
   onBiometricSupportChange(fn) {
     desktopBiometricListeners.add(fn);
     return () => desktopBiometricListeners.delete(fn);
+  },
+
+  // 启用桌面端窗口焦点监测（仅桌面端生效；结果由 onDesktopFocusChange 推送）
+  async enableFocusMonitoring() {
+    if (this.isDesktop() && typeof window.pywebview.api.watchFocusLoss === 'function') {
+      try {
+        await window.pywebview.api.watchFocusLoss();
+      } catch {
+        // 监测不可用则忽略，前端回退到 visibilitychange
+      }
+    }
+  },
+
+  // 订阅桌面端窗口焦点变化（true=获得焦点，false=失去焦点），用于"立即锁定"
+  onDesktopFocusChange(fn) {
+    if (!this.isDesktop()) return () => {};
+    const handler = (hasFocus) => fn(hasFocus === true);
+    window.__desktopFocusChanged = handler;
+    return () => {
+      if (window.__desktopFocusChanged === handler) {
+        window.__desktopFocusChanged = null;
+      }
+    };
   },
 
   // 启动生物认证，认证成功后 resolve 主密码（由原生端从安全存储读取）
@@ -659,7 +686,36 @@ export const platform = {
   }
 };
 
-// 桌面端启动时异步探测生物认证能力；探测完成后各 UI 通过 onBiometricSupportChange 刷新
-if (typeof window !== 'undefined' && typeof window.pywebview !== 'undefined') {
-  platform.refreshBiometricSupport();
+// pywebview 在页面加载完成（loadFinished）后才注入 window.pywebview.api，
+// 因此 ES 模块顶层不能直接调用桥接方法：等待桥接就绪后再启用生物认证探测与窗口焦点监测。
+function whenDesktopReady(fn) {
+  if (typeof window === 'undefined') return;
+  let done = false;
+  const timer = setInterval(() => {
+    if (done) return;
+    if (
+      typeof window.pywebview !== 'undefined' &&
+      typeof window.pywebview.api !== 'undefined' &&
+      (typeof window.pywebview.api.watchFocusLoss === 'function' ||
+        typeof window.pywebview.api.isBiometricAvailable === 'function')
+    ) {
+      done = true;
+      clearInterval(timer);
+      fn();
+    }
+  }, 150);
+  // 兜底：最多等待 15 秒，避免无谓占用
+  setTimeout(() => {
+    if (!done) {
+      clearInterval(timer);
+      done = true;
+    }
+  }, 15000);
+}
+
+if (typeof window !== 'undefined') {
+  whenDesktopReady(() => {
+    platform.refreshBiometricSupport();
+    platform.enableFocusMonitoring();
+  });
 }
