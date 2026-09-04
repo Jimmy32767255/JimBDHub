@@ -1016,8 +1016,26 @@
               </select>
             </label>
           </div>
-          <div class="form-row two-col">
-            <label class="form-field"><span class="form-label" data-i18n="meds.form.remaining">当前剩余（总数）</span><input type="number" id="med-remaining" min="0" required></label>
+          <div class="form-row">
+            <div class="form-field">
+              <div class="form-label-row">
+                <span class="form-label" data-i18n="meds.form.remaining">当前剩余（总数，由板/瓶明细自动汇总）</span>
+                <input type="number" id="med-remaining" min="0" step="any" readonly tabindex="-1">
+              </div>
+              <small class="form-hint" data-i18n="meds.form.remainingHint">可直接在下方按板/瓶设置每处剩余，会自动求和。板/瓶数量由「盒数 × 每盒板/瓶数」决定。</small>
+            </div>
+          </div>
+          <div class="form-row">
+            <div class="form-field">
+              <div class="form-label-row board-edit-header">
+                <span class="form-label" data-i18n="meds.form.boardDetail">板/瓶剩余明细</span>
+                <div class="board-edit-tools">
+                  <button type="button" class="btn btn-sm" id="med-boards-fill-all" data-i18n="meds.form.boardFillAll">全部补满</button>
+                  <button type="button" class="btn btn-sm" id="med-boards-zero-all" data-i18n="meds.form.boardZeroAll">全部清零</button>
+                </div>
+              </div>
+              <div class="board-edit-wrap" id="med-boards-editor"></div>
+            </div>
           </div>
           <div class="form-row three-col pk-range-row">
             <label class="form-field"><span class="form-label" data-i18n="meds.form.onsetHours">起效时间范围（小时）</span>
@@ -1083,6 +1101,12 @@
             <input type="number" id="stock-delta" step="1" required>
           </label>
         </div>
+   <div class="form-row" id="stock-board-row" hidden>
+          <label class="form-field">
+            <span class="form-label" data-i18n="meds.stock.boardLabel">板/瓶来源（可选）</span>
+            <select id="stock-board"></select>
+          </label>
+        </div>
         <div class="form-row">
           <label class="form-field">
             <span class="form-label" data-i18n="meds.stock.reason">理由</span>
@@ -1132,6 +1156,18 @@
           <button type="submit" class="btn btn-primary" data-i18n="common.save">保存</button>
         </div>
       </form>
+    </div>
+  </div>
+
+  <div class="modal" id="board-detail-modal" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3 id="board-detail-title" data-i18n="meds.boardDetail.title">板/瓶剩余详情</h3>
+      <p class="form-hint" id="board-detail-sub"></p>
+      <div class="board-tree" id="board-detail-tree"></div>
+      <div class="form-actions">
+        <button type="button" class="btn btn-primary" id="board-detail-close" data-i18n="common.close">关闭</button>
+      </div>
     </div>
   </div>
 

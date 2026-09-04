@@ -3,6 +3,11 @@ import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { platform } from './platform.js';
 import { getTheme, DEFAULT_MED_COLORS, subscribe as subscribeTheme } from './theme.js';
+import {
+  ensureMedBoards,
+  boardCapacityOf,
+  groupBoardsByBox
+} from './medInventory.js';
 
 const medModal = document.getElementById('med-modal');
 const medForm = document.getElementById('med-form');
@@ -20,6 +25,9 @@ const medDoseAmountInput = document.getElementById('med-dose-amount');
 const medDosePerTabletInput = document.getElementById('med-dose-per-tablet');
 const medDoseMassUnitInput = document.getElementById('med-dose-mass-unit');
 const medRemainingInput = document.getElementById('med-remaining');
+const medBoardsEditor = document.getElementById('med-boards-editor');
+const medBoardsFillAllBtn = document.getElementById('med-boards-fill-all');
+const medBoardsZeroAllBtn = document.getElementById('med-boards-zero-all');
 const medOnsetMinInput = document.getElementById('med-onset-min');
 const medOnsetMaxInput = document.getElementById('med-onset-max');
 const medPeakMinInput = document.getElementById('med-peak-min');
@@ -38,6 +46,8 @@ const stockForm = document.getElementById('stock-form');
 const stockMedIdInput = document.getElementById('stock-med-id');
 const stockDeltaInput = document.getElementById('stock-delta');
 const stockNoteInput = document.getElementById('stock-note');
+const stockBoardSelect = document.getElementById('stock-board');
+const stockBoardRow = document.getElementById('stock-board-row');
 
 const logModal = document.getElementById('log-modal');
 const logForm = document.getElementById('log-form');
@@ -73,6 +83,12 @@ let manualFieldsVisible = false;
 let currentSchedule = [];
 let medsSelectedTags = [];
 let logsSelectedTags = [];
+// 编辑弹窗中的「板/瓶剩余」草稿：{id, remaining}[]
+let boardDraft = [];
+let boardDraftFresh = false; // 新建流程：规格初次确定后自动全满一次
+let boardDetailModal = document.getElementById('board-detail-modal');
+let boardDetailTree = document.getElementById('board-detail-tree');
+let boardDetailCloseBtn = document.getElementById('board-detail-close');
 
 async function loadMedDB() {
   try {
@@ -230,6 +246,10 @@ function fillMedForm(med) {
   medNoteInput.value = med.note || '';
   medColorInput.value = defaultMedColor();
   resetSchedule();
+  // 从内置库选取后按默认规格（1 盒 × 1 板/瓶）重建板草稿，默认整板/瓶全满
+  boardDraft = [];
+  initBoardDraftForMed(null);
+  renderBoardEditor();
   selectedDbMed = med;
   medDbSearch.value = '';
   medDbSelectedTag = '';
@@ -352,7 +372,10 @@ function renderMeds() {
       <td>
         <div class="progress-bar"><div class="progress-fill" style="${fillStyle}"></div></div>
         <small style="color: var(--text-muted)">${pct}% · ${med.remainingPills}${med.unit}</small>
-        ${depletionLine ? `<small style="color: var(--text-muted); display: block">${depletionLine}</small>` : ''}
+        <div class="med-remaining-extra">
+          ${med.boards && med.boards.length ? `<button class="btn btn-sm" data-action="board-detail" data-id="${med.id}" title="${t('meds.boardDetail.button')}">${t('meds.boardDetail.button')}</button>` : ''}
+          ${depletionLine ? `<small style="color: var(--text-muted)">${depletionLine}</small>` : ''}
+        </div>
       </td>
       <td>${formatQuantity(med)}</td>
       <td>${med.note || t('meds.table.emptyNote')}${tagsHtml ? `<div class="med-tags-cell">${tagsHtml}</div>` : ''}</td>
@@ -538,6 +561,225 @@ function resetSchedule() {
   renderScheduleList();
 }
 
+// ===== 板/瓶明细（编辑与详情） =====
+
+// 当前表单规格下的板/瓶单位文案（「板」/「瓶」/自定义），依赖药品单位
+function boardUnitName() {
+  const unit = medUnitInput.value || '粒';
+  return unit === '片' ? t('unit.board') : t('unit.bottle');
+}
+
+// 当前表单规格：应有多少行板/瓶（0 表示规格未确定，散装容器）
+function boardRowsByForm() {
+  const box = Math.max(0, Math.floor(Number(medBoxInput.value) || 0));
+  const board = Math.max(0, Math.floor(Number(medBoardInput.value) || 0));
+  return box * board;
+}
+
+function boardCapacityByForm() {
+  const pills = Math.max(0, Math.floor(Number(medPillsInput.value) || 0));
+  return pills > 0 ? pills : null;
+}
+
+function sumBoardDraft() {
+  return boardDraft.reduce((s, b) => s + (Math.max(0, Number(b.remaining) || 0)), 0);
+}
+
+// 依据当前规格把 boardDraft 校准到正确行数。保留旧剩余（按序映射）。
+// seedTotal：boardDraft 为空时使用的总剩余种子。
+function normalizeBoardDraft(seedTotal) {
+  const expected = boardRowsByForm();
+  const cap = boardCapacityByForm();
+  const rows = expected > 0 ? expected : 1;
+  // 新建流程：规格一旦完整且尚未手工编辑过，自动全满一次（每板都满，方便直接录入）。
+  if (!boardDraftFresh && expected > 0 && cap != null) {
+    boardDraft = [];
+    for (let i = 0; i < rows; i++) {
+      boardDraft.push({ id: Date.now().toString(36) + i + Math.random().toString(36).slice(2, 6), remaining: cap });
+    }
+    boardDraftFresh = true;
+    return;
+  }
+  if (boardDraft.length === rows) return;
+  if (boardDraft.length === 0) {
+    // 初次：全满（散装无容量时单行用种子/0）
+    const seed = Math.max(0, Number(seedTotal) || 0);
+    boardDraft = [];
+    for (let i = 0; i < rows; i++) {
+      boardDraft.push({ id: Date.now().toString(36) + i + Math.random().toString(36).slice(2, 6), remaining: cap == null ? (i === 0 ? seed : 0) : cap });
+    }
+    return;
+  }
+  // 行数变化：保留前 min(旧, 新) 行原值；新增行按容量补满；减少行把多余剩余并入末行。
+  const keep = Math.min(boardDraft.length, rows);
+  const next = boardDraft.slice(0, keep).map(b => ({ ...b }));
+  if (rows > boardDraft.length) {
+    for (let i = boardDraft.length; i < rows; i++) {
+      next.push({ id: Date.now().toString(36) + i + Math.random().toString(36).slice(2, 6), remaining: cap == null ? 0 : cap });
+    }
+  } else {
+    let extra = 0;
+    for (let i = rows; i < boardDraft.length; i++) {
+      extra += Math.max(0, Number(boardDraft[i].remaining) || 0);
+    }
+    if (next.length && extra > 0) {
+      next[next.length - 1].remaining = Math.max(0, Number(next[next.length - 1].remaining) || 0) + extra;
+    }
+  }
+  boardDraft = next;
+}
+
+// 重新渲染板编辑器并更新总剩余显示
+function renderBoardEditor() {
+  if (!medBoardsEditor) return;
+  normalizeBoardDraft();
+  const box = Math.max(0, Math.floor(Number(medBoxInput.value) || 0));
+  const board = Math.max(0, Math.floor(Number(medBoardInput.value) || 0));
+  const cap = boardCapacityByForm();
+  const count = boardDraft.length;
+  const unitName = boardUnitName();
+  medBoardsEditor.innerHTML = '';
+
+  // 计算分组（盒层级），只有 box>1 且 board>1 时才显示盒分组
+  const showBoxGroup = box > 1 && board > 1;
+  const groups = showBoxGroup
+    ? Array.from({ length: box }, (_, bi) => ({ boxIndex: bi, from: bi * board, to: (bi + 1) * board }))
+    : [{ boxIndex: null, from: 0, to: count }];
+
+  groups.forEach(g => {
+    const slice = boardDraft.slice(g.from, Math.min(g.to, count));
+    if (slice.length === 0) return;
+    const frag = document.createElement('div');
+    frag.className = 'board-group';
+    if (showBoxGroup) {
+      const header = document.createElement('div');
+      header.className = 'board-group-title';
+      header.textContent = t('meds.boardDetail.boxLabel', { n: g.boxIndex + 1 });
+      frag.appendChild(header);
+    }
+    slice.forEach((bd, localIdx) => {
+      const globalIdx = g.from + localIdx;
+      const row = document.createElement('div');
+      row.className = 'board-edit-row';
+      const label = showBoxGroup
+        ? `${unitName} ${localIdx + 1}`
+        : `${unitName} ${globalIdx + 1}`;
+      row.innerHTML = `
+        <span class="board-edit-label">${label}</span>
+        <input type="number" class="board-remaining-input" min="0" step="any" value="${bd.remaining}" data-id="${bd.id}">
+        <span class="board-edit-capacity">/ ${cap == null ? t('meds.boardDetail.loose') : `${cap}${medUnitInput.value || ''}`}</span>
+      `;
+      row.querySelector('input').addEventListener('input', () => {
+        const val = Number(row.querySelector('input').value);
+        const id = bd.id;
+        const item = boardDraft.find(b => b.id === id);
+        if (item) item.remaining = Math.max(0, val || 0);
+        boardDraftFresh = true;
+        updateRemainingTotalInput();
+      });
+      frag.appendChild(row);
+    });
+    medBoardsEditor.appendChild(frag);
+  });
+  updateRemainingTotalInput();
+}
+
+function updateRemainingTotalInput() {
+  if (!medRemainingInput) return;
+  medRemainingInput.value = sumBoardDraft();
+}
+
+// 从当前板编辑器草稿生成 payload 的 boards 与总剩余
+function collectBoardsPayload() {
+  normalizeBoardDraft();
+  const cap = boardCapacityByForm();
+  const capFinite = boardRowsByForm() > 0 ? cap : null;
+  return {
+    boards: boardDraft.map(b => ({
+      id: b.id,
+      remaining: Math.max(0, Number(b.remaining) || 0),
+      capacity: capFinite != null ? capFinite : null
+    })),
+    remainingPills: sumBoardDraft()
+  };
+}
+
+// 打开药品编辑弹窗时，用已有 med 初始化 boardDraft
+function initBoardDraftForMed(med) {
+  if (med && Array.isArray(med.boards) && med.boards.length) {
+    boardDraft = med.boards.map(b => ({ id: b.id, remaining: b.remaining }));
+    boardDraftFresh = true;
+  } else if (med) {
+    const ensure = ensureMedBoards({ ...med });
+    boardDraft = (ensure.boards || []).map(b => ({ id: b.id, remaining: b.remaining }));
+    boardDraftFresh = true;
+  } else {
+    boardDraft = [];
+    boardDraftFresh = false;
+  }
+  normalizeBoardDraft();
+}
+
+// 全部补满 / 全部清零
+function fillAllBoards() {
+  const cap = boardCapacityByForm();
+  boardDraft.forEach(b => { b.remaining = cap == null ? 0 : cap; });
+  renderBoardEditor();
+}
+
+function zeroAllBoards() {
+  boardDraft.forEach(b => { b.remaining = 0; });
+  renderBoardEditor();
+}
+
+// 只读树形详情（药品库表格「详情」按钮）
+function openBoardDetail(med) {
+  if (!boardDetailModal) return;
+  ensureMedBoards(med);
+  const boardUnit = med.unit === '片' ? t('unit.board') : t('unit.bottle');
+  const tree = boardDetailTree;
+  tree.innerHTML = '';
+  const cap = boardCapacityOf(med);
+  const subtitle = document.getElementById('board-detail-sub');
+  if (subtitle) {
+    subtitle.textContent = `${med.name} · ${t('meds.boardDetail.total', { n: med.remainingPills, u: med.unit })} · ${med.boards.length} ${boardUnit}`;
+  }
+  const groups = groupBoardsByBox(med);
+  groups.forEach((g, gi) => {
+    const grp = document.createElement('div');
+    grp.className = 'board-tree-group';
+    if (g.boxIndex != null) {
+      const h = document.createElement('div');
+      h.className = 'board-tree-group-title';
+      h.textContent = t('meds.boardDetail.boxLabel', { n: g.boxIndex + 1 });
+      grp.appendChild(h);
+    }
+    g.boards.forEach(b => {
+      const row = document.createElement('div');
+      row.className = 'board-tree-row';
+      const label = g.boxIndex != null
+        ? `${boardUnit} ${(g.boards.indexOf(b) + 1)}`
+        : `${boardUnit} ${b.index + 1}`;
+      const pct = b.capacity ? Math.round((b.remaining / b.capacity) * 100) : null;
+      const emptyCls = b.remaining <= 0 ? 'board-tree-empty' : '';
+      row.innerHTML = `
+        <span class="board-tree-name ${emptyCls}">${label}</span>
+        <div class="board-tree-bar-wrap">
+          <div class="board-tree-bar ${emptyCls}" style="width: ${pct == null ? 100 : Math.max(0, Math.min(100, pct))}%"></div>
+        </div>
+        <span class="board-tree-value ${emptyCls}">${b.remaining}${med.unit}${b.capacity ? ' / ' + b.capacity + med.unit : ''}</span>
+      `;
+      grp.appendChild(row);
+    });
+    tree.appendChild(grp);
+  });
+  boardDetailModal.setAttribute('aria-hidden', 'false');
+}
+
+function closeBoardDetail() {
+  if (boardDetailModal) boardDetailModal.setAttribute('aria-hidden', 'true');
+}
+
 function defaultMedColor() {
   return DEFAULT_MED_COLORS[store.data.meds.length % DEFAULT_MED_COLORS.length];
 }
@@ -554,7 +796,6 @@ function setManualFieldsVisible(visible) {
   medDoseAmountInput.required = visible;
   medDosePerTabletInput.required = visible;
   medDoseMassUnitInput.required = visible;
-  medRemainingInput.required = visible;
   medOnsetMinInput.required = visible;
   medOnsetMaxInput.required = visible;
   medPeakMinInput.required = visible;
@@ -610,10 +851,16 @@ function openModal(med = null) {
     }
     currentSchedule = Array.isArray(med.schedule) ? [...med.schedule] : [];
     renderScheduleList();
+    initBoardDraftForMed(med);
+    renderBoardEditor();
     setManualFieldsVisible(true);
   } else {
     medModalTitle.textContent = t('meds.modal.addTitle');
     medIdInput.value = '';
+    medBoxInput.value = 1;
+    medBoardInput.value = 1;
+    medPillsInput.value = '';
+    medUnitInput.value = '粒';
     medDoseAmountInput.value = 1;
     medDosePerTabletInput.value = 1;
     medDoseMassUnitInput.value = 'mg';
@@ -630,6 +877,9 @@ function openModal(med = null) {
     medBioavailabilityInput.value = '';
     medColorInput.value = defaultMedColor();
     resetSchedule();
+    boardDraft = [];
+    initBoardDraftForMed(null);
+    renderBoardEditor();
     setManualFieldsVisible(false);
   }
   medModal.setAttribute('aria-hidden', 'false');
@@ -642,6 +892,28 @@ function closeModal() {
 function openStockModal(med) {
   stockForm.reset();
   stockMedIdInput.value = med.id;
+  // 填充「板/瓶来源」选择（多板时可用）
+  if (stockBoardSelect && stockBoardRow) {
+    ensureMedBoards(med);
+    const boards = med.boards || [];
+    const boardUnit = med.unit === '片' ? t('unit.board') : t('unit.bottle');
+    stockBoardSelect.innerHTML = '';
+    const auto = document.createElement('option');
+    auto.value = '';
+    auto.textContent = t('meds.stock.autoBoard');
+    stockBoardSelect.appendChild(auto);
+    if (boards.length > 1) {
+      boards.forEach((b, i) => {
+        const opt = document.createElement('option');
+        opt.value = b.id;
+        opt.textContent = `${boardUnit} ${i + 1}（${t('meds.boardDetail.total', { n: Math.max(0, Number(b.remaining) || 0), u: med.unit })}）`;
+        stockBoardSelect.appendChild(opt);
+      });
+      stockBoardRow.hidden = false;
+    } else {
+      stockBoardRow.hidden = true;
+    }
+  }
   stockModal.setAttribute('aria-hidden', 'false');
   stockDeltaInput.focus();
 }
@@ -713,8 +985,9 @@ function handleFormSubmit(e) {
   const box = Number(medBoxInput.value) || 0;
   const board = Number(medBoardInput.value) || 0;
   const pills = Number(medPillsInput.value) || 0;
-  const remaining = Number(medRemainingInput.value) || 0;
   const total = box * board * pills;
+  const boardPayload = collectBoardsPayload();
+  const remaining = boardPayload.remainingPills;
   const onsetMin = Math.max(0, Number(medOnsetMinInput.value) || 0);
   const peakMin = Math.max(0, Number(medPeakMinInput.value) || 0);
   const halfLifeMin = Math.max(0.1, Number(medHalfLifeMinInput.value) || 0.1);
@@ -745,6 +1018,7 @@ function handleFormSubmit(e) {
     doseMassUnit: medDoseMassUnitInput.value || 'mg',
     totalPills: total,
     remainingPills: remaining,
+    boards: boardPayload.boards,
     onsetMinHours: onsetMin,
     onsetMaxHours: Math.max(onsetMin, Number(medOnsetMaxInput.value) || onsetMin),
     peakMinHours: peakMin,
@@ -779,7 +1053,7 @@ async function handleStockSubmit(e) {
     await showAlert(t('meds.validation.stockZero'));
     return;
   }
-  store.changeMedStock(id, delta, note || t('meds.stock.defaultReason'));
+  store.changeMedStock(id, delta, note || t('meds.stock.defaultReason'), null, stockBoardSelect?.value || null);
   closeStockModal();
 }
 
@@ -849,6 +1123,24 @@ function initMeds() {
   logForm.addEventListener('submit', handleLogSubmit);
   document.getElementById('add-log-btn').addEventListener('click', () => openAddLogModal());
 
+  // 板/瓶剩余编辑器：规格变化时重绘（保留已有剩余草稿）
+  [medBoxInput, medBoardInput, medPillsInput, medUnitInput].forEach(el => {
+    el.addEventListener('change', () => {
+      renderBoardEditor();
+    });
+  });
+  medBoardsFillAllBtn?.addEventListener('click', fillAllBoards);
+  medBoardsZeroAllBtn?.addEventListener('click', zeroAllBoards);
+
+  // 剩余详情弹窗
+  boardDetailCloseBtn?.addEventListener('click', closeBoardDetail);
+  boardDetailModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeBoardDetail);
+  document.addEventListener('keydown', e => {
+    if (e.key === 'Escape' && boardDetailModal && boardDetailModal.getAttribute('aria-hidden') === 'false') {
+      closeBoardDetail();
+    }
+  });
+
   document.querySelector('#meds-table tbody').addEventListener('click', async e => {
     const btn = e.target.closest('button[data-action]');
     if (!btn) return;
@@ -859,6 +1151,8 @@ function initMeds() {
 
     if (action === 'adjust') {
       openStockModal(med);
+    } else if (action === 'board-detail') {
+      openBoardDetail(med);
     } else if (action === 'add-depletion-reminder') {
       const depletionTs = predictDepletion(med);
       if (!depletionTs || depletionTs <= 0) {

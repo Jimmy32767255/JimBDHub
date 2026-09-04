@@ -3,6 +3,7 @@ import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { platform } from './platform.js';
 import { getTheme, subscribe as subscribeTheme } from './theme.js';
+import { groupBoardsByBox } from './medInventory.js';
 
 const formTabs = document.querySelectorAll('.form-tab');
 
@@ -239,25 +240,125 @@ function renderDoses(selectedDoses = []) {
   }
   meds.forEach(med => {
     const existing = byId[med.id];
-    const row = document.createElement('label');
+    const row = document.createElement('div');
     row.className = 'dose-row';
     row.innerHTML = `
-      <input type="checkbox" class="dose-check" data-id="${med.id}" ${existing ? 'checked' : ''}>
-      <span class="dose-name">${med.name}</span>
-      <input type="number" class="dose-amount" data-id="${med.id}" min="0.1" step="0.01" value="${existing ? existing.amount : 1}" ${existing ? '' : 'disabled'}>
-      <span class="dose-unit">${med.unit}</span>
+      <label class="dose-head">
+        <input type="checkbox" class="dose-check" data-id="${med.id}" ${existing ? 'checked' : ''}>
+        <span class="dose-name">${med.name}</span>
+        <input type="number" class="dose-amount" data-id="${med.id}" min="0.1" step="0.01" value="${existing ? existing.amount : 1}" ${existing ? '' : 'disabled'}>
+        <span class="dose-unit">${med.unit}</span>
+      </label>
     `;
     medicationDosesList.appendChild(row);
+    const srcWrap = renderDoseSourcePicker(row, med, existing);
+    srcWrap.hidden = srcWrap.hidden || !existing; // 未勾选时不显示来源选择
+    row.appendChild(srcWrap);
   });
 
   medicationDosesList.querySelectorAll('.dose-check').forEach(check => {
     check.addEventListener('change', () => {
       const rowEl = check.closest('.dose-row');
       const amountInput = rowEl.querySelector(`.dose-amount[data-id="${check.dataset.id}"]`);
+      const sourceWrap = rowEl.querySelector('.dose-source-wrap');
       if (amountInput) amountInput.disabled = !check.checked;
+      if (sourceWrap && !sourceWrap.dataset.none) sourceWrap.hidden = !check.checked;
     });
   });
   renderDosesTagFilter();
+}
+
+// 药品来源板/瓶选择器（树形下拉）。仅当该药存在多块/瓶或非散装容器时展示。
+function renderDoseSourcePicker(rowEl, med, existing) {
+  const boards = (med.boards || []);
+  const wrap = document.createElement('div');
+  wrap.className = 'dose-source-wrap';
+  if (!Array.isArray(boards) || boards.length <= 1 || !(boards.some(b => (b.remaining || 0) > 0) || existing?.boardId)) {
+    // 单板/瓶、无明细（散装/旧数据）：不显示来源选择；扣减自动处理
+    wrap.hidden = true;
+    wrap.dataset.none = '1';
+    return wrap;
+  }
+  const pickName = `dose-board-${med.id}`;
+  const boardUnit = med.unit === '片' ? t('unit.board') : t('unit.bottle');
+  const selectedId = existing?.boardId;
+  const firstNonEmpty = boards.find(b => (b.remaining || 0) > 0) || null;
+  const defaultId = selectedId || (firstNonEmpty ? firstNonEmpty.id : (boards[0] ? boards[0].id : null));
+  if (defaultId && !rowEl.dataset.boardId) rowEl.dataset.boardId = defaultId;
+  const selectEl = document.createElement('div');
+  selectEl.className = 'dose-board-pick';
+  const groups = groupBoardsByBox(med);
+  const previewBtn = document.createElement('button');
+  previewBtn.type = 'button';
+  previewBtn.className = 'dose-board-preview';
+  previewBtn.innerHTML = `<span class="dot"></span><span class="txt">${t('records.medicationForm.sourceLabel')}</span>`;
+  const treeBox = document.createElement('div');
+  treeBox.className = 'dose-board-tree';
+  treeBox.hidden = true;
+  previewBtn.addEventListener('click', e => {
+    e.stopPropagation();
+    treeBox.hidden = !treeBox.hidden;
+    previewBtn.classList.toggle('open', !treeBox.hidden);
+  });
+  groups.forEach(g => {
+    if (!g.boards.length) return;
+    const grp = document.createElement('div');
+    grp.className = 'dose-board-group';
+    if (g.boxIndex != null) {
+      const h = document.createElement('div');
+      h.className = 'dose-board-group-title';
+      h.textContent = t('meds.boardDetail.boxLabel', { n: g.boxIndex + 1 });
+      grp.appendChild(h);
+    }
+    g.boards.forEach(b => {
+      const lab = document.createElement('label');
+      lab.className = 'dose-board-item';
+      const empty = (b.remaining || 0) <= 0;
+      const rd = document.createElement('input');
+      rd.type = 'radio';
+      rd.name = pickName;
+      rd.value = b.id;
+      if (b.id === defaultId) rd.checked = true;
+      const labelText = g.boxIndex != null
+        ? `${boardUnit} ${g.boards.indexOf(b) + 1}`
+        : `${boardUnit} ${b.index + 1}`;
+      lab.innerHTML = '';
+      lab.appendChild(rd);
+      const span = document.createElement('span');
+      span.className = 'dose-board-item-label';
+      span.innerHTML = `${empty ? '○' : '●'} ${labelText} <small>${t('records.medicationForm.sourceRemaining', { n: Math.max(0, Number(b.remaining) || 0), u: med.unit })}</small>`;
+      lab.appendChild(span);
+      rd.addEventListener('change', () => {
+        rowEl.dataset.boardId = b.id;
+        updateSourcePreview(previewBtn, med, b.id);
+      });
+      grp.appendChild(lab);
+    });
+    treeBox.appendChild(grp);
+  });
+  selectEl.appendChild(previewBtn);
+  selectEl.appendChild(treeBox);
+  wrap.appendChild(selectEl);
+
+  // 默认预览：当前选中板或第一个非空板
+  updateSourcePreview(previewBtn, med, defaultId);
+  return wrap;
+}
+
+function updateSourcePreview(btn, med, boardId) {
+  const boards = med.boards || [];
+  const txt = btn.querySelector('.txt');
+  const dot = btn.querySelector('.dot');
+  let picked = boardId ? boards.find(b => b.id === boardId) : null;
+  if (!picked) picked = boards.find(b => (b.remaining || 0) > 0) || boards[0];
+  if (!picked) {
+    if (txt) txt.textContent = t('records.medicationForm.sourceLabel');
+    return;
+  }
+  const boardUnit = med.unit === '片' ? t('unit.board') : t('unit.bottle');
+  const label = `${boardUnit} ${boards.indexOf(picked) + 1}`;
+  if (dot) dot.style.background = (picked.remaining || 0) > 0 ? 'var(--accent-green)' : 'var(--theme-text-muted)';
+  if (txt) txt.textContent = `${label} · ${t('records.medicationForm.sourceRemaining', { n: Math.max(0, Number(picked.remaining) || 0), u: med.unit })}`;
 }
 
 function getAllMedTags() {
@@ -320,6 +421,7 @@ function collectDoses() {
       name: med.name,
       amount: Math.max(0.1, Number(amountInput.value) || 1),
       unit: med.unit,
+      boardId: row.dataset.boardId || null,
       dosePerTablet: med.dosePerTablet ?? 1,
       doseMassUnit: med.doseMassUnit ?? 'mg',
       onsetMinHours: med.onsetMinHours ?? med.onsetHours ?? 1,
@@ -429,13 +531,31 @@ function getCustomRange() {
   return start !== null && end !== null ? { start, end } : null;
 }
 
+// 从 dose.boardId 解析板/瓶标签（如「板1」「瓶2」），未设置/找不到时返回空
+function boardLabelOf(d) {
+  if (!d || !d.boardId) return '';
+  const med = store.data.meds.find(m => m.id === d.medicationId);
+  const boards = med && Array.isArray(med.boards) ? med.boards : null;
+  if (!boards) return '';
+  const idx = boards.findIndex(b => b.id === d.boardId);
+  if (idx < 0) return '';
+  const boardUnit = med.unit === '片' ? t('unit.board') : t('unit.bottle');
+  return `${boardUnit} ${idx + 1}`;
+}
+
+// 剂量显示文案（可附带来源板）
+function formatDose(d) {
+  const src = boardLabelOf(d);
+  return `${d.name} ${d.amount}${d.unit}${src ? `（${src}）` : ''}`;
+}
+
 function itemText(item) {
   const d = item.data;
   const parts = [];
   if (item.kind === 'mood') {
     parts.push(String(d.value), d.note || '');
   } else if (item.kind === 'medication') {
-    parts.push(...(d.doses || []).map(x => `${x.name} ${x.amount}${x.unit}`), d.note || '');
+    parts.push(...(d.doses || []).map(x => formatDose(x)), d.note || '');
   } else if (item.kind === 'sleep') {
     parts.push(d.note || '', String(d.quality || ''));
   } else if (item.kind === 'event') {
@@ -533,7 +653,7 @@ function renderRecords() {
       `;
     } else if (item.kind === 'medication') {
       const r = item.data;
-      const medText = (r.doses || []).map(d => `${d.name} ${d.amount}${d.unit}`).join('、');
+      const medText = (r.doses || []).map(d => formatDose(d)).join('、');
       el.innerHTML = `
         <header>
           <span class="event-badge">${t('records.history.medication')}</span>
@@ -629,7 +749,8 @@ async function handleSubmit(e) {
 function adjustStockForDoses(doses, noteKey, multiplier = -1) {
   doses.forEach(d => {
     if (!d.medicationId) return;
-    store.changeMedStock(d.medicationId, multiplier * d.amount, t(noteKey));
+    // multiplier=-1：服药扣减；=1：删除退还。preferredBoardId 决定从哪个板/瓶扣/退
+    store.changeMedStock(d.medicationId, multiplier * d.amount, t(noteKey), null, d.boardId || null);
   });
 }
 
@@ -642,14 +763,29 @@ function sumDosesByMed(doses) {
   return map;
 }
 
+// 记录板/瓶来源（取该药首个有效 dose 的 boardId）
+function boardOfDoses(doses) {
+  const map = {};
+  doses.forEach(d => {
+    if (!d.medicationId) return;
+    if (!map[d.medicationId] && d.boardId) map[d.medicationId] = d.boardId;
+  });
+  return map;
+}
+
+// 编辑服药记录时校正库存：按药品净差调整。减少时优先扣到新剂量指定的来源板，
+// 增加（退回）时回补到旧剂量指定的来源板。
 function adjustStockForEdit(oldRecord, newRecord) {
   const oldByMed = sumDosesByMed(oldRecord.doses || []);
   const newByMed = sumDosesByMed(newRecord.doses || []);
+  const oldBoard = boardOfDoses(oldRecord.doses || []);
+  const newBoard = boardOfDoses(newRecord.doses || []);
   const allIds = new Set([...Object.keys(oldByMed), ...Object.keys(newByMed)]);
   allIds.forEach(medId => {
     const diff = (newByMed[medId] || 0) - (oldByMed[medId] || 0);
     if (diff !== 0) {
-      store.changeMedStock(medId, -diff, t('records.moodForm.doseAdjustLogNote'));
+      const boardId = diff < 0 ? (newBoard[medId] || null) : (oldBoard[medId] || null);
+      store.changeMedStock(medId, -diff, t('records.moodForm.doseAdjustLogNote'), null, boardId);
     }
   });
 }

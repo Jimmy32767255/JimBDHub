@@ -1,6 +1,11 @@
 import { getLanguage, t } from './i18n.js';
 import { getTheme, setTheme } from './theme.js';
 import { needsUpgrade, runUpgrade, CURRENT_DB_VERSION } from './dbUpgrade.js';
+import {
+  ensureMedBoards,
+  applyBoardDelta,
+  sumBoards
+} from './medInventory.js';
 
 const KEYS = {
   records: 'jimbdhub_mood_records',
@@ -239,12 +244,22 @@ function recalcLogRemainingAfter(medId) {
     });
 }
 
+// 对 med 应用库存变动：同步 boards 明细并保持 sum(boards)=remainingPills。
+// 就地修改 med，返回变动后总剩余。
+function applyMedStockChange(med, delta, preferredBoardId = null) {
+  ensureMedBoards(med);
+  const boards = med.boards;
+  const updatedTotal = applyBoardDelta(boards, delta, preferredBoardId);
+  med.remainingPills = updatedTotal;
+  return updatedTotal;
+}
+
 function migrateMed(m) {
   if (!m) return m;
   const onset = m.onsetHours ?? 1;
   const peak = m.peakHours ?? 2;
   const halfLife = m.halfLifeHours ?? 12;
-  return {
+  const out = {
     ...m,
     tags: Array.isArray(m.tags) ? m.tags : [],
     dosePerTablet: m.dosePerTablet ?? 1,
@@ -256,6 +271,9 @@ function migrateMed(m) {
     halfLifeMinHours: m.halfLifeMinHours ?? halfLife,
     halfLifeMaxHours: m.halfLifeMaxHours ?? halfLife
   };
+  // v3：补齐每板/瓶剩余明细（保持 sum(boards)=remainingPills）
+  ensureMedBoards(out);
+  return out;
 }
 
 function migrateDose(d, medMap) {
@@ -721,6 +739,8 @@ export const store = {
 
   addMed(med) {
     const m = { ...med, id: generateId() };
+    ensureMedBoards(m);
+    m.remainingPills = sumBoards(m.boards);
     this.data.meds.push(m);
     this.persist();
     this.notify('AddMed');
@@ -730,7 +750,16 @@ export const store = {
   updateMed(id, patch) {
     const idx = this.data.meds.findIndex(m => m.id === id);
     if (idx === -1) return;
-    this.data.meds[idx] = { ...this.data.meds[idx], ...patch };
+    const next = { ...this.data.meds[idx], ...patch };
+    // 确保 boards 与总剩余一致：patch.boards 缺失时由 ensureMedBoards 用旧 boards/总量补齐；
+    // 有 patch.boards 时直接采用并同步总剩余。
+    if (Array.isArray(patch.boards) && patch.boards.length) {
+      next.boards = patch.boards;
+      next.remainingPills = sumBoards(next.boards);
+    } else {
+      ensureMedBoards(next);
+    }
+    this.data.meds[idx] = next;
     recalcLogRemainingAfter(id);
     this.persist();
     this.notify('UpdateMed');
@@ -780,8 +809,10 @@ export const store = {
     if (idx === -1) return;
     const log = this.data.logs[idx];
     const med = this.data.meds.find(m => m.id === log.medicationId);
-    if (med && patch.delta !== undefined) {
-      med.remainingPills = Math.max(0, med.remainingPills + (Number(patch.delta) - log.delta));
+    if (med && patch.delta !== undefined && Number(patch.delta) !== log.delta) {
+      const diff = Number(patch.delta) - log.delta;
+      // 日志编辑会反映到当前库存：差值同步到板级明细
+      applyMedStockChange(med, diff, log.boardId || null);
     }
     this.data.logs[idx] = { ...log, ...patch };
     this.data.logs.sort((a, b) => b.timestamp - b.timestamp);
@@ -796,7 +827,8 @@ export const store = {
     const log = this.data.logs[idx];
     const med = this.data.meds.find(m => m.id === log.medicationId);
     if (med) {
-      med.remainingPills = Math.max(0, med.remainingPills - log.delta);
+      // 删除日志视为撤销对应库存变动（正 delta 撤销减少，负 delta 撤销增加）
+      applyMedStockChange(med, -log.delta, log.boardId || null);
     }
     this.data.logs.splice(idx, 1);
     if (med) recalcLogRemainingAfter(med.id);
@@ -804,18 +836,19 @@ export const store = {
     this.notify('DeleteLog');
   },
 
-  changeMedStock(medId, delta, note = '', timestamp = null) {
+  // 库存调整。preferredBoardId 用于指定优先操作的板（如服药时选择的来源板）。
+  changeMedStock(medId, delta, note = '', timestamp = null, preferredBoardId = null) {
     const med = this.data.meds.find(m => m.id === medId);
     if (!med) return;
-    const remainingAfter = Math.max(0, med.remainingPills + delta);
-    med.remainingPills = remainingAfter;
+    const remainingAfter = applyMedStockChange(med, delta, preferredBoardId);
     this.addLog({
       medicationId: medId,
       name: med.name,
       delta,
       remainingAfter,
       note,
-      timestamp: timestamp || Date.now()
+      timestamp: timestamp || Date.now(),
+      boardId: preferredBoardId || null
     }, 'TakeMed');
   },
 

@@ -948,6 +948,136 @@ body {
   min-width: 120px;
 }
 
+/* ===== 板/瓶剩余：编辑与详情 ===== */
+.form-label-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  flex-wrap: wrap;
+}
+.form-label-row .form-label {
+  margin-bottom: 0;
+}
+.form-label-row input {
+  max-width: 140px;
+}
+.board-edit-header {
+  justify-content: space-between;
+  margin-bottom: 8px;
+}
+.board-edit-tools {
+  display: flex;
+  gap: 6px;
+}
+.board-edit-wrap {
+  max-height: 240px;
+  overflow-y: auto;
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 10px;
+  padding: 8px;
+  background: var(--theme-bg);
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+}
+.board-group + .board-group {
+  margin-top: 6px;
+  padding-top: 6px;
+  border-top: 1px dashed var(--theme-surface-2);
+}
+.board-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-text-muted);
+  margin-bottom: 4px;
+}
+.board-edit-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 4px 6px;
+}
+.board-edit-label {
+  min-width: 64px;
+  font-size: 13px;
+  color: var(--theme-text);
+}
+.board-remaining-input {
+  width: 76px;
+  text-align: center;
+  background: var(--theme-surface);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 8px;
+  padding: 5px 6px;
+  color: var(--theme-text);
+  font-family: inherit;
+  font-size: 13px;
+}
+.board-edit-capacity {
+  font-size: 12px;
+  color: var(--theme-text-muted);
+  white-space: nowrap;
+}
+
+/* 只读剩余详情（树） */
+.board-tree {
+  display: flex;
+  flex-direction: column;
+  gap: 10px;
+  max-height: 320px;
+  overflow-y: auto;
+  margin: 10px 0;
+}
+.board-tree-group-title {
+  font-size: 12px;
+  font-weight: 600;
+  color: var(--theme-text-muted);
+  margin-bottom: 4px;
+}
+.board-tree-row {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  font-size: 13px;
+  padding: 3px 2px;
+}
+.board-tree-name {
+  min-width: 64px;
+}
+.board-tree-bar-wrap {
+  flex: 1;
+  height: 8px;
+  background: var(--theme-surface-alt);
+  border-radius: 4px;
+  overflow: hidden;
+}
+.board-tree-bar {
+  height: 100%;
+  border-radius: 4px;
+  background: linear-gradient(90deg, #ef4444, #eab308 50%, #22c55e);
+  transition: width 0.4s ease;
+}
+.board-tree-value {
+  min-width: 96px;
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+  color: var(--theme-text-muted);
+}
+.board-tree-empty .board-tree-bar {
+  background: var(--theme-surface-2);
+}
+.board-tree-empty.board-tree-name,
+.board-tree-empty.board-tree-value {
+  color: var(--theme-text-muted);
+  opacity: 0.7;
+}
+.med-remaining-extra {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  margin-top: 4px;
+}
+
 #language-select,
 #ui-scale-select,
 #edge-margin-select,
@@ -1296,13 +1426,19 @@ html.no-animations *::after {
 
 .dose-row {
   display: flex;
-  align-items: center;
-  gap: 10px;
+  flex-direction: column;
+  gap: 6px;
   padding: 8px 10px;
   background: var(--theme-bg);
   border: 1px solid var(--theme-surface-2);
   border-radius: 10px;
   margin-bottom: 8px;
+}
+.dose-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
 }
 .dose-row:last-child { margin-bottom: 0; }
 .dose-check { width: 18px; height: 18px; accent-color: var(--theme-accent); }
@@ -1324,6 +1460,86 @@ html.no-animations *::after {
 }
 .dose-unit { font-size: 12px; color: var(--theme-text-muted); min-width: 1.5em; }
 .doses-empty { font-size: 13px; color: var(--theme-text-muted); }
+
+/* 服药来源板/瓶选择（树形） */
+.dose-source-wrap {
+  padding-left: 2px;
+}
+.dose-board-pick {
+  position: relative;
+}
+.dose-board-preview {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  background: var(--theme-surface-alt);
+  border: 1px solid var(--theme-surface-2);
+  color: var(--theme-text);
+  border-radius: 8px;
+  padding: 5px 10px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+  transition: all 0.15s;
+}
+.dose-board-preview:hover {
+  border-color: var(--theme-surface-3);
+}
+.dose-board-preview .dot {
+  width: 8px;
+  height: 8px;
+  border-radius: 50%;
+  background: var(--accent-green);
+  display: inline-block;
+}
+.dose-board-preview.open {
+  border-color: var(--theme-accent);
+}
+.dose-board-tree {
+  margin-top: 6px;
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 8px;
+  background: var(--theme-surface);
+  padding: 6px;
+  display: flex;
+  flex-direction: column;
+  gap: 4px;
+  max-height: 200px;
+  overflow-y: auto;
+}
+.dose-board-tree[hidden] {
+  display: none;
+}
+.dose-board-group + .dose-board-group {
+  margin-top: 2px;
+}
+.dose-board-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-text-muted);
+  padding: 2px 0;
+}
+.dose-board-item {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  padding: 3px 6px;
+  border-radius: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.dose-board-item:hover {
+  background: rgba(var(--theme-accent-rgb), 0.08);
+}
+.dose-board-item input {
+  width: 14px;
+  height: 14px;
+  accent-color: var(--theme-accent);
+}
+.dose-board-item-label small {
+  color: var(--theme-text-muted);
+  margin-left: 4px;
+}
 
 .quality-badge {
   display: inline-flex;

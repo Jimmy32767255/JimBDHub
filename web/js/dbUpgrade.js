@@ -1,9 +1,10 @@
 import { generateId } from './store.js';
+import { ensureMedBoards } from './medInventory.js';
 
 // dbUpgrade.js 不直接调用 t()，避免 i18n 初始化前加载失败。
 const LEGACY_MED_NAME = '药物';
 
-const CURRENT_DB_VERSION = 2;
+const CURRENT_DB_VERSION = 3;
 
 function isLegacyMoodWithMedication(r) {
   return r && (r.medication || r.medicationName || r.medicationAmount !== undefined || r.medicationUnit) && !Array.isArray(r.doses);
@@ -87,7 +88,7 @@ function normalizeMed(m) {
   const onset = m.onsetHours ?? 1;
   const peak = m.peakHours ?? 2;
   const halfLife = m.halfLifeHours ?? 12;
-  return {
+  const out = {
     ...m,
     tags: Array.isArray(m.tags) ? m.tags : [],
     dosePerTablet: m.dosePerTablet ?? 1,
@@ -99,6 +100,9 @@ function normalizeMed(m) {
     halfLifeMinHours: m.halfLifeMinHours ?? halfLife,
     halfLifeMaxHours: m.halfLifeMaxHours ?? halfLife
   };
+  // v3：补齐每板/瓶剩余明细（保持 sum(boards)=remainingPills）
+  ensureMedBoards(out);
+  return out;
 }
 
 function normalizeDose(d, medMap) {
