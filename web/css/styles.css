@@ -514,6 +514,14 @@ body {
   color: var(--theme-text-muted);
   line-height: 1.4;
 }
+.chart-tooltip .tooltip-doses {
+  margin-top: 8px;
+ border-top: 1px solid var(--theme-surface-2);
+  padding-top: 6px;
+}
+.chart-tooltip .tooltip-doses > div {
+  line-height: 1.6;
+}
 
 .overview-chart-card { min-height: 0; }
 #mood-chart,

@@ -1444,6 +1444,32 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
     }).join('');
     let content = `<time>${formatDateTime(snapped)}</time>`;
     content += `<div class="value">${t('chart.effectTooltip')}</div>${rows}`;
+    // 吸附到服药记录点时，额外显示该时刻吃的药与剂量（同一时刻多种药垂直排开）
+    if (nearest && Math.abs(base.xFor(nearest.timestamp) - base.xFor(ts)) <= 24) {
+      const sameTimeDoses = markerDoseList.filter(d => d.timestamp === snapped);
+      if (sameTimeDoses.length) {
+        const medTotals = new Map();
+        sameTimeDoses.forEach(d => {
+          const key = d.medicationId || d.name;
+          const mt = medTotals.get(key) || {
+            name: d.name,
+            color: doseMarkerMap.get(d) || medColor(0),
+            amount: 0,
+            unit: d.unit || ''
+          };
+          mt.amount += Number(d.amount) || 0;
+          medTotals.set(key, mt);
+        });
+        content += `<div class="tooltip-doses">`;
+        content += `<div style="font-weight:600;">${t('chart.tooltip.dose')}</div>`;
+        medTotals.forEach(mt => {
+          content += `<div style="color:${mt.color}; padding-left:10px;">${mt.name} ${mt.amount}${mt.unit}</div>`;
+        });
+        const doseNote = sameTimeDoses.find(d => d.note);
+        if (doseNote && doseNote.note) content += `<div class="note">${doseNote.note}</div>`;
+        content += `</div>`;
+      }
+    }
     tooltip.innerHTML = content;
     tooltip.classList.add('visible');
     positionTooltip(wrap, tooltip, base.padLeft + x - wrap.scrollLeft, base.padTop + PADDING.top);
