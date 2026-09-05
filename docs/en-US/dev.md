@@ -195,7 +195,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-On GNU/Linux you also need PyQt6 / Qt WebEngine (Arch: `sudo pacman -S python-pyqt6 python-pyqt6-webengine`); the `Stear.sh` / `Stear.bat` launch scripts at the repository root work too.
+On GNU/Linux you also need PyQt6 / Qt WebEngine (Arch: `sudo pacman -S python-pyqt6 python-pyqt6-webengine`); the `Start.sh` / `Start.bat` launch scripts at the repository root work too.
 
 Widget CLI: `python desktop/main.py --sleep-log-toggle` (no GUI; toggles sleep timing).
 

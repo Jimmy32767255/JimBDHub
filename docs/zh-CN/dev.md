@@ -195,7 +195,7 @@ pip install -r requirements.txt
 python main.py
 ```
 
-GNU/Linux 额外需要 PyQt6 / Qt WebEngine（Arch: `sudo pacman -S python-pyqt6 python-pyqt6-webengine`），也可使用仓库根目录的 `Stear.sh` / `Stear.bat` 启动脚本。
+GNU/Linux 额外需要 PyQt6 / Qt WebEngine（Arch: `sudo pacman -S python-pyqt6 python-pyqt6-webengine`），也可使用仓库根目录的 `Start.sh` / `Start.bat` 启动脚本。
 
 桌面小部件命令行：`python desktop/main.py --sleep-log-toggle`（不启动 GUI，双态切换睡眠计时）。
 
