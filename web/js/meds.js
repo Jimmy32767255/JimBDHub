@@ -371,10 +371,10 @@ function renderMeds() {
       <td>${med.category || t('meds.table.emptyNote')}</td>
       <td>
         <div class="progress-bar"><div class="progress-fill" style="${fillStyle}"></div></div>
-        <small style="color: var(--text-muted)">${pct}% · ${med.remainingPills}${med.unit}</small>
+        <small style="color: var(--theme-text-muted)">${pct}% · ${med.remainingPills}${med.unit}</small>
         <div class="med-remaining-extra">
           ${med.boards && med.boards.length ? `<button class="btn btn-sm" data-action="board-detail" data-id="${med.id}" title="${t('meds.boardDetail.button')}">${t('meds.boardDetail.button')}</button>` : ''}
-          ${depletionLine ? `<small style="color: var(--text-muted)">${depletionLine}</small>` : ''}
+          ${depletionLine ? `<small style="color: var(--theme-text-muted)">${depletionLine}</small>` : ''}
         </div>
       </td>
       <td>${formatQuantity(med)}</td>
@@ -484,7 +484,7 @@ function renderLogs() {
         <div class="log-bar ${log.delta < 0 ? 'negative' : ''}" style="width: ${width}px"></div>
         <span class="log-delta ${log.delta < 0 ? 'negative' : 'positive'}">${sign}${log.delta}</span>
       </div>
-      ${log.note ? `<small style="color: var(--text-muted); display: block; margin-top: 6px">${log.note}</small>` : ''}
+      ${log.note ? `<small style="color: var(--theme-text-muted); display: block; margin-top: 6px">${log.note}</small>` : ''}
       <footer class="log-actions">
         <button class="btn btn-icon btn-sm" data-action="edit-log" data-id="${log.id}">${t('common.edit')}</button>
         <button class="btn btn-danger btn-sm" data-action="delete-log" data-id="${log.id}">${t('common.delete')}</button>
