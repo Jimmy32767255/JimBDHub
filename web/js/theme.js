@@ -225,24 +225,129 @@ export function isAutoColorActive(theme) {
     && !!theme.backgroundImage;
 }
 
-/** 按相对亮度判断颜色是否偏亮。 */
-function isLightColor(hex) {
-  const clean = (hex || '').replace('#', '');
-  if (clean.length !== 6) return false;
-  const r = parseInt(clean.slice(0, 2), 16) / 255;
-  const g = parseInt(clean.slice(2, 4), 16) / 255;
-  const b = parseInt(clean.slice(4, 6), 16) / 255;
-  const luminance = 0.2126 * r + 0.7152 * g + 0.0722 * b;
-  return luminance > 0.5;
+// ---- WCAG 对比度工具（Success Criterion 1.4.3，AA 级）----
+// 正常文本对比度 ≥ 4.5:1，大文本（≥18pt 常规 / ≥14pt 加粗）≥ 3:1。
+// 对比度 = (L1+0.05)/(L2+0.05)，L 为 sRGB 颜色的相对亮度。
+function srgbChannelToLinear(channel) {
+  const c = channel / 255;
+  return c <= 0.03928 ? c / 12.92 : Math.pow((c + 0.055) / 1.055, 2.4);
 }
 
-/** 计算与指定背景色形成对比的文字颜色组：auto 按背景亮度，black/white 强制指定。 */
+/** WCAG 相对亮度（0~1）。 */
+function relativeLuminance(hex) {
+  const { r, g, b } = hexToRgbObj(hex);
+  return 0.2126 * srgbChannelToLinear(r)
+    + 0.7152 * srgbChannelToLinear(g)
+    + 0.0722 * srgbChannelToLinear(b);
+}
+
+/** 两色 WCAG 对比度（1~21）。 */
+function contrastRatio(hexA, hexB) {
+  const la = relativeLuminance(hexA);
+  const lb = relativeLuminance(hexB);
+  const hi = Math.max(la, lb);
+  const lo = Math.min(la, lb);
+  return (hi + 0.05) / (lo + 0.05);
+}
+
+/** sRGB gamma 空间内的 alpha 合成（与浏览器 rgba() 叠色结果一致）。 */
+function compositeOver(fgHex, alpha, bgHex) {
+  const fg = hexToRgbObj(fgHex);
+  const bg = hexToRgbObj(bgHex);
+  return rgbToHex({
+    r: fg.r * alpha + bg.r * (1 - alpha),
+    g: fg.g * alpha + bg.g * (1 - alpha),
+    b: fg.b * alpha + bg.b * (1 - alpha)
+  });
+}
+
+/**
+ * 调整前景色，使其在所有给定背景上对比度 ≥ target（默认 4.5:1）。
+ * 深色背景提亮前景、浅色背景压暗前景；纯黑/纯白对任意背景都能满足 4.5:1，故必然收敛。
+ * direction: 'light' 提亮 | 'dark' 压暗 | null（按背景相对亮度自动判断）
+ */
+function ensureContrast(fgHex, bgOrList, { target = 4.5, direction = null } = {}) {
+  const bgs = Array.isArray(bgOrList) ? bgOrList : [bgOrList];
+  if (!fgHex || !bgs.length) return fgHex;
+  const worst = hex => Math.min(...bgs.map(b => contrastRatio(hex, b)));
+  if (worst(fgHex) >= target) return fgHex;
+  const { h, s, l } = rgbToHsl(fgHex);
+  const dir = direction || (relativeLuminance(bgs[0]) < WCAG_LUMINANCE_CROSSOVER ? 'light' : 'dark');
+  let cur = l;
+  for (let i = 0; i < 60; i++) {
+    cur = dir === 'light' ? Math.min(1, cur + 0.03) : Math.max(0, cur - 0.03);
+    const candidate = hslToRgbHex(h, s, cur);
+    if (worst(candidate) >= target) return candidate;
+  }
+  return dir === 'light' ? '#ffffff' : '#000000';
+}
+
+// 黑字/白字对比度相等时的背景相对亮度（约 0.179），低于此值用浅字、高于此值用深字
+const WCAG_LUMINANCE_CROSSOVER = 0.179;
+
+/**
+ * 计算与指定背景色形成足够对比（WCAG AA ≥4.5:1）的文字颜色组。
+ * auto：按背景相对亮度选择近白/近黑（边界情况退化为纯黑/纯白以保证达标），
+ *       muted 色从 slate 基色出发逐步提亮/压暗直到达标；
+ * black/white：用户强制的字体颜色模式，muted 仍按达标方向推导。
+ */
 function contrastColorsFor(bg, mode) {
-  if (mode === 'black') return { text: '#000000', muted: '#475569' };
-  if (mode === 'white') return { text: '#ffffff', muted: '#94a3b8' };
-  return isLightColor(bg)
-    ? { text: '#000000', muted: '#475569' }
-    : { text: '#ffffff', muted: '#94a3b8' };
+  if (mode === 'black') {
+    return {
+      text: '#000000',
+      muted: ensureContrast('#475569', bg, { target: 4.5, direction: 'dark' })
+    };
+  }
+  if (mode === 'white') {
+    return {
+      text: '#ffffff',
+      muted: ensureContrast('#94a3b8', bg, { target: 4.5, direction: 'light' })
+    };
+  }
+  const useLightText = relativeLuminance(bg) < WCAG_LUMINANCE_CROSSOVER;
+  const text = useLightText
+    ? (contrastRatio('#f8fafc', bg) >= 4.5 ? '#f8fafc' : '#ffffff')
+    : (contrastRatio('#0f172a', bg) >= 4.5 ? '#0f172a' : '#000000');
+  const muted = ensureContrast(useLightText ? '#94a3b8' : '#475569', bg, {
+    target: 4.5,
+    direction: useLightText ? 'light' : 'dark'
+  });
+  return { text, muted };
+}
+
+/**
+ * 强调色渐变的深色端：在保证按钮文字对比度 ≥4.5:1 的前提下尽量加深。
+ * 白字（深色强调色）时加深只会更清晰；黑字（浅色强调色）时加深到临界即止，
+ * 避免渐变暗端文字看不清。
+ */
+function accentDarkEnd(accentHex, onAccentText) {
+  if (onAccentText === '#ffffff') return shadeColor(accentHex, -0.4);
+  const { h, s, l } = rgbToHsl(accentHex);
+  let cur = l;
+  let best = accentHex;
+  for (let i = 0; i < 40; i++) {
+    cur -= 0.03;
+    if (cur <= 0.02) break;
+    const candidate = hslToRgbHex(h, s, cur);
+    if (contrastRatio(onAccentText, candidate) < 4.5) break;
+    best = candidate;
+  }
+  return best;
+}
+
+/** 供图表等动态颜色场景调用：调整任意前景色，使其在指定背景上达到 WCAG AA 对比度。 */
+export function ensureTextContrast(fgHex, bgHex, target = 4.5) {
+  try {
+    return ensureContrast(fgHex, bgHex, { target });
+  } catch {
+    return fgHex;
+  }
+}
+
+/** 下拉框箭头 data-URI：颜色跟随背景层 muted 文字色，保证深/浅主题下都清晰。 */
+function chevronDataUri(hex) {
+  const color = (hex || '#94a3b8').replace('#', '%23');
+  return `url("data:image/svg+xml,%3Csvg xmlns='http://www.w3.org/2000/svg' width='12' height='12' viewBox='0 0 24 24' fill='none' stroke='${color}' stroke-width='2' stroke-linecap='round' stroke-linejoin='round'%3E%3Cpolyline points='6 9 12 15 18 9'%3E%3C/polyline%3E%3C/svg%3E")`;
 }
 
 function shadeColor(hex, percent) {
@@ -331,7 +436,55 @@ function applyCSS(theme) {
   root.style.setProperty('--theme-neutral-rgb', hexToRgb(theme.neutralColor));
   root.style.setProperty('--theme-accent', theme.accentColor);
   root.style.setProperty('--theme-accent-rgb', hexToRgb(theme.accentColor));
-  root.style.setProperty('--theme-accent-dark', shadeColor(theme.accentColor, -0.4));
+  // 强调色填充控件上的文字（按钮/激活标签等）：取黑、白中对比度更高者，
+  // 保证任意自定义强调色上文字均 ≥4.5:1；渐变深色端同步按文字可读性推导
+  const onAccent = contrastRatio('#000000', theme.accentColor)
+    >= contrastRatio('#ffffff', theme.accentColor) ? '#000000' : '#ffffff';
+  root.style.setProperty('--theme-on-accent', onAccent);
+  root.style.setProperty('--theme-accent-dark', accentDarkEnd(theme.accentColor, onAccent));
+  // 语义文字色按层级分别推导：背景层 / 卡片层 / 次背景层各取一组。
+  // 中明度自定义主题下，三层背景的相对亮度可能跨过硬/白字分界（L≈0.18），
+  // 共用一个文字色会数学上无解，故每层仅针对本层底色推导。
+  // 色调徽标（value-badge/event-badge/quality-badge/schedule-chip 等 15% 色调底，
+  // 只出现在卡片层）单独推导一组 *-chip-text：中明度主题下纯底文字与色调底文字
+  // 所需明暗方向可能相反，无法共用同一颜色。
+  const tint = (col, bg, alpha) => compositeOver(col, alpha, bg);
+  const layerSemanticColors = layerBg => ({
+    accent: ensureContrast(theme.accentColor, [layerBg], { target: 4.5 }),
+    positive: ensureContrast(theme.positiveColor, [layerBg], { target: 4.5 }),
+    negative: ensureContrast(theme.negativeColor, [layerBg], { target: 4.5 }),
+    neutral: ensureContrast(theme.neutralColor, [layerBg], { target: 4.5 }),
+    danger: ensureContrast('#ef4444', [layerBg], { target: 4.5 }),
+    success: ensureContrast('#22c55e', [layerBg], { target: 4.5 }),
+    sleep: ensureContrast('#8b5cf6', [layerBg], { target: 4.5 })
+  });
+  const setSemanticVars = (prefix, sem) => {
+    root.style.setProperty(`--theme-${prefix}accent-text`, sem.accent);
+    root.style.setProperty(`--theme-${prefix}positive-text`, sem.positive);
+    root.style.setProperty(`--theme-${prefix}negative-text`, sem.negative);
+    root.style.setProperty(`--theme-${prefix}neutral-text`, sem.neutral);
+    root.style.setProperty(`--theme-${prefix}danger-text`, sem.danger);
+    root.style.setProperty(`--theme-${prefix}success-text`, sem.success);
+    root.style.setProperty(`--theme-${prefix}sleep-text`, sem.sleep);
+  };
+  // 背景层（无前缀，:root 默认）
+  setSemanticVars('', layerSemanticColors(theme.backgroundColor));
+  // 卡片层色调徽标文字（15% 色调底）
+  const chipSemanticColors = layerBg => ({
+    accent: ensureContrast(theme.accentColor, [tint(theme.accentColor, layerBg, 0.15)], { target: 4.5 }),
+    positive: ensureContrast(theme.positiveColor, [tint(theme.positiveColor, layerBg, 0.15)], { target: 4.5 }),
+    negative: ensureContrast(theme.negativeColor, [tint(theme.negativeColor, layerBg, 0.15)], { target: 4.5 }),
+    neutral: ensureContrast(theme.neutralColor, [tint(theme.neutralColor, layerBg, 0.15)], { target: 4.5 }),
+    sleep: ensureContrast('#8b5cf6', [tint('#8b5cf6', layerBg, 0.15)], { target: 4.5 })
+  });
+  const setChipVars = sem => {
+    root.style.setProperty('--theme-surface-accent-chip-text', sem.accent);
+    root.style.setProperty('--theme-surface-positive-chip-text', sem.positive);
+    root.style.setProperty('--theme-surface-negative-chip-text', sem.negative);
+    root.style.setProperty('--theme-surface-neutral-chip-text', sem.neutral);
+    root.style.setProperty('--theme-surface-sleep-chip-text', sem.sleep);
+  };
+  setChipVars(chipSemanticColors(theme.surfaceColor));
   root.style.setProperty('--theme-bg', theme.backgroundColor);
   root.style.setProperty('--theme-bg-rgb', hexToRgb(theme.backgroundColor));
   root.style.setProperty('--theme-surface', theme.surfaceColor);
@@ -359,6 +512,11 @@ function applyCSS(theme) {
   root.style.setProperty('--theme-surface-alt-text-rgb', hexToRgb(altPair.text));
   root.style.setProperty('--theme-surface-alt-text-muted', altPair.muted);
   root.style.setProperty('--theme-surface-alt-text-muted-rgb', hexToRgb(altPair.muted));
+  // 卡片层 / 次背景层语义文字色（.card、.sidebar 等作用域内重映射到对应组）
+  setSemanticVars('surface-', layerSemanticColors(theme.surfaceColor));
+  setSemanticVars('surface-alt-', layerSemanticColors(theme.surfaceAltColor));
+  // 下拉框箭头颜色跟随背景层 muted 文字色（深/浅主题自动适配）
+  root.style.setProperty('--theme-chevron', chevronDataUri(bgPair.muted));
   root.style.setProperty('--ui-scale-ratio', theme.uiScale / 100);
   root.style.setProperty('--edge-margin', `${theme.edgeMargin}px`);
   // 无障碍：关闭所有动画/过渡
