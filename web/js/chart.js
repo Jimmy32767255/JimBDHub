@@ -1,6 +1,6 @@
 import { store, formatDateTime, formatDuration } from './store.js';
 import { t } from './i18n.js';
-import { getTheme, DEFAULT_MED_COLORS } from './theme.js';
+import { getTheme, DEFAULT_MED_COLORS, ensureTextContrast } from './theme.js';
 
 const PADDING = { top: 30, right: 40, bottom: 40, left: 44 };
 const PX_PER_HOUR = 12;
@@ -545,6 +545,8 @@ function drawTherapeuticWindow(container, group, yFor, xMin, xMax, color, labelO
   if (tw.unit && cp.unit !== tw.unit) return;
   const unit = tw.unit || cp.unit;
   const fmt = n => (Number.isInteger(n) ? String(n) : String(Math.round(n * 100) / 100));
+  // 标注文字带卡片底色描边光晕，有效背景为卡片色：按 WCAG AA 调整药品色
+  const labelColor = ensureTextContrast(color, getTheme().surfaceColor);
   const drawLine = (value, text) => {
     const y = yFor(value);
     container.appendChild(createSVGElement('line', {
@@ -552,11 +554,11 @@ function drawTherapeuticWindow(container, group, yFor, xMin, xMax, color, labelO
       stroke: color, 'stroke-width': 2, 'stroke-opacity': 0.85
     }));
     if (labelOut) {
-      labelOut.push({ y, text, color });
+      labelOut.push({ y, text, color: labelColor });
       return;
     }
     const label = createSVGElement('text', {
-      x: xMax - 4, y: y - 4, 'text-anchor': 'end', fill: color, 'font-size': '10'
+      x: xMax - 4, y: y - 4, 'text-anchor': 'end', fill: labelColor, 'font-size': '10'
     });
     label.textContent = text;
     container.appendChild(label);
@@ -685,7 +687,13 @@ function chartColors(theme) {
     neutral: theme.neutralColor,
     accent: theme.accentColor,
     bg: theme.backgroundColor,
-    textMuted: cssVar('--theme-surface-text-muted') || theme.textMutedColor
+    surface: theme.surfaceColor,
+    // 文字用色：均由 theme.js 按 WCAG AA（≥4.5:1）推导。
+    // SVG 图表背景为卡片色（surface 层），tooltip 背景为页面底色（bg 层），分层取色。
+    textMuted: cssVar('--theme-surface-text-muted') || theme.textMutedColor,
+    accentText: cssVar('--theme-surface-accent-text') || theme.accentColor,
+    sleepText: cssVar('--theme-surface-sleep-text') || '#8b5cf6',
+    sleepTextOnBg: cssVar('--theme-sleep-text') || '#8b5cf6'
   };
 }
 
@@ -714,7 +722,7 @@ function renderTimeAxis(container, base, colors, theme, displayMinTime, displayM
     timeAxisGroup.appendChild(gridLine);
     const label = createSVGElement('text', {
       x, y: yBottom + 16, 'text-anchor': 'middle',
-      fill: isMidnight ? colors.accent : colors.textMuted, 'font-size': '10'
+      fill: isMidnight ? colors.accentText : colors.textMuted, 'font-size': '10'
     });
     label.textContent = formatAxisTime(ts, base.displaySpanHours, timeStepHours);
     timeAxisGroup.appendChild(label);
@@ -1284,7 +1292,7 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
     const rows = series.map(s => {
       const val = s.yMax * (axisYBottom - y) / base.chartH;
       const unit = s.valueUnit || s.doseMassUnit || '';
-      return `<div style="color:${s.color}">${s.name}: ${val.toFixed(2)} ${unit}</div>`;
+      return `<div style="color:${ensureTextContrast(s.color, colors.bg)}">${s.name}: ${val.toFixed(2)} ${unit}</div>`;
     }).join('');
     tooltip.innerHTML = rows;
     tooltip.classList.add('visible');
@@ -1440,7 +1448,7 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
     const rows = series.map(s => {
       const closest = s.data.reduce((best, p) =>
         Math.abs(p.t - snapped) < Math.abs(best.t - snapped) ? p : best, s.data[0]);
-      return `<div style="color:${s.color}">${s.name}: ${closest.lower.toFixed(2)} ~ ${closest.upper.toFixed(2)} ${s.valueUnit || s.doseMassUnit || 'mg'}</div>`;
+      return `<div style="color:${ensureTextContrast(s.color, colors.bg)}">${s.name}: ${closest.lower.toFixed(2)} ~ ${closest.upper.toFixed(2)} ${s.valueUnit || s.doseMassUnit || 'mg'}</div>`;
     }).join('');
     let content = `<time>${formatDateTime(snapped)}</time>`;
     content += `<div class="value">${t('chart.effectTooltip')}</div>${rows}`;
@@ -1463,7 +1471,7 @@ export function renderEffectChart(doses, container, tooltip, legendContainer, op
         content += `<div class="tooltip-doses">`;
         content += `<div style="font-weight:600;">${t('chart.tooltip.dose')}</div>`;
         medTotals.forEach(mt => {
-          content += `<div style="color:${mt.color}; padding-left:10px;">${mt.name} ${mt.amount}${mt.unit}</div>`;
+          content += `<div style="color:${ensureTextContrast(mt.color, colors.bg)}; padding-left:10px;">${mt.name} ${mt.amount}${mt.unit}</div>`;
         });
         const doseNote = sameTimeDoses.find(d => d.note);
         if (doseNote && doseNote.note) content += `<div class="note">${doseNote.note}</div>`;
@@ -1615,7 +1623,7 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
       const overlayCenterX = (xBedStart + xBedEnd) / 2;
       const qualityLabel = createSVGElement('text', {
         x: overlayCenterX, y: overlayTop + 16, 'text-anchor': 'middle',
-        fill: '#8b5cf6', 'font-size': '12', 'font-weight': '600'
+        fill: colors.sleepText, 'font-size': '12', 'font-weight': '600'
       });
       qualityLabel.textContent = `Q${sleep.quality}`;
       overlayGroup.appendChild(qualityLabel);
@@ -1623,7 +1631,7 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
       // 底部显示总睡眠时长与总在床时长
       const sleepDurationLabel = createSVGElement('text', {
         x: overlayCenterX, y: overlayTop + overlayHeight - 12, 'text-anchor': 'middle',
-        fill: '#8b5cf6', 'font-size': '11', 'font-weight': '600'
+        fill: colors.sleepText, 'font-size': '11', 'font-weight': '600'
       });
       sleepDurationLabel.textContent = formatDurationCompact(totalAsleep);
       overlayGroup.appendChild(sleepDurationLabel);
@@ -1689,7 +1697,7 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
     const centerX = (xStart + xEnd) / 2;
     const qualityLabel = createSVGElement('text', {
       x: centerX, y: sleepY - 6, 'text-anchor': 'middle',
-      fill: '#8b5cf6', 'font-size': '11', 'font-weight': '600'
+      fill: colors.sleepText, 'font-size': '11', 'font-weight': '600'
     });
     qualityLabel.textContent = `Q${sleep.quality}`;
     overlayGroup.appendChild(qualityLabel);
@@ -1697,7 +1705,7 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
     // 睡眠条下方显示总睡眠时长与总在床时长
     const sleepDurationLabel = createSVGElement('text', {
       x: centerX, y: sleepY + sleepBarHeight + 12, 'text-anchor': 'middle',
-      fill: '#8b5cf6', 'font-size': '11', 'font-weight': '600'
+      fill: colors.sleepText, 'font-size': '11', 'font-weight': '600'
     });
     sleepDurationLabel.textContent = formatDurationCompact(totalAsleep);
     overlayGroup.appendChild(sleepDurationLabel);
@@ -1761,7 +1769,7 @@ export function renderSleepChart(sleeps, container, tooltip, legendContainer, op
       const rangeText = s.bedTime || s.getOutOfBedTime
         ? `${formatDateTime(s.bedTime || s.startTime)} ~ ${formatDateTime(s.getOutOfBedTime || s.endTime)}`
         : `${formatDateTime(s.startTime)} ~ ${formatDateTime(s.endTime)}`;
-      content += `<div style="color:#8b5cf6">${t('records.history.sleep')}: ${stateText} (${rangeText})</div>`;
+      content += `<div style="color:${colors.sleepTextOnBg}">${t('records.history.sleep')}: ${stateText} (${rangeText})</div>`;
       if (s.quality != null) content += `<div class="note">Q${s.quality}</div>`;
     });
     tooltip.innerHTML = content;
@@ -1821,7 +1829,7 @@ export function renderEventsChart(events, container, tooltip, legendContainer, o
     const shortTitle = title.length > 12 ? title.slice(0, 12) + '…' : title;
     const label = createSVGElement('text', {
       x: ex, y: PADDING.top - 8, 'text-anchor': 'middle',
-      fill: ev.color || colors.accent, 'font-size': '10',
+      fill: ensureTextContrast(ev.color || colors.accent, colors.surface), 'font-size': '10',
       class: 'event-title-label'
     });
     label.textContent = shortTitle;
@@ -1864,7 +1872,7 @@ export function renderEventsChart(events, container, tooltip, legendContainer, o
       return snapped;
     }
     let content = `<time>${formatDateTime(snapped)}</time>`;
-    content += `<div style="color:${nearest.color || colors.accent}; font-weight:600;">${t('chart.tooltip.event')}: ${nearest.title}</div>`;
+    content += `<div style="color:${ensureTextContrast(nearest.color || colors.accent, colors.bg)}; font-weight:600;">${t('chart.tooltip.event')}: ${nearest.title}</div>`;
     if (nearest.showElapsedTime) {
       const diff = Date.now() - nearest.timestamp;
       const suffix = diff >= 0 ? 'past' : 'future';
