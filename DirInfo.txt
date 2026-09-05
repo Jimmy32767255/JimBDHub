@@ -52,7 +52,7 @@
 ├── Build.bat               # Windows exe 构建脚本
 ├── Build.spec              # PyInstaller 配置文件
 ├── AppImageBuilder.yml     # AppImage Builder 配置，在这里修改桌面端版本号
-├── Stear.sh                # Linux 启动脚本
-├── Stear.bat               # Windows 启动脚本
+├── Start.sh                # Linux 启动脚本
+├── Start.bat               # Windows 启动脚本
 ├── TODO.md                 # 开发待办
 └── LICENSE                 # GPLv3 许可证
