@@ -35,6 +35,7 @@ const AUTO_BACKUP_REASON_KEYS = {
   AddLog: 'settings.backup.autoReason.addLog',
   UpdateLog: 'settings.backup.autoReason.updateLog',
   DeleteLog: 'settings.backup.autoReason.deleteLog',
+  DeleteLogs: 'settings.backup.autoReason.deleteLog',
   TakeMed: 'settings.backup.autoReason.takeMed',
   AddHistoricalLog: 'settings.backup.autoReason.addHistoricalLog',
   RestoreBackup: 'settings.backup.autoReason.restoreBackup',

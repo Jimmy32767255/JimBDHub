@@ -74,6 +74,11 @@ const logsPeriodFilter = document.getElementById('logs-period-filter');
 const logsCustomRange = document.getElementById('logs-custom-range');
 const logsRangeStart = document.getElementById('logs-range-start');
 const logsRangeEnd = document.getElementById('logs-range-end');
+const logsBatchBtn = document.getElementById('logs-batch-btn');
+const logsBatchBar = document.getElementById('logs-batch-bar');
+const logsBatchSelectAll = document.getElementById('logs-batch-select-all');
+const logsBatchDelete = document.getElementById('logs-batch-delete');
+const logsBatchSelectedCount = document.getElementById('logs-batch-count');
 
 let medDbData = [];
 let medDbTagsList = [];
@@ -83,6 +88,11 @@ let manualFieldsVisible = false;
 let currentSchedule = [];
 let medsSelectedTags = [];
 let logsSelectedTags = [];
+// 变更日志「批量管理」状态：logsBatchMode 是否处于批量模式；logsBatchSelected 为已勾选日志 id 集合；
+// logsRenderedIds 为当前可见（筛选+截断后）日志 id 列表，用于“全选”与清除幽灵选中
+let logsBatchMode = false;
+let logsBatchSelected = new Set();
+let logsRenderedIds = [];
 // 编辑弹窗中的「板/瓶剩余」草稿：{id, remaining}[]
 let boardDraft = [];
 let boardDraftFresh = false; // 新建流程：规格初次确定后自动全满一次
@@ -475,6 +485,21 @@ function renderLogs() {
     limitHint.hidden = !limited;
     if (limited) limitHint.textContent = t('records.history.limitHint', { count: maxLoaded });
   }
+
+  // 可见（即渲染出的）日志 id 集合：筛选+截断后的当前结果
+  logsRenderedIds = logs.map(l => l.id);
+  // 清除不在当前结果里的勾选（例如筛选/时间段变化后残留的“幽灵”选中）
+  if (logsBatchMode) {
+    [...logsBatchSelected].forEach(id => {
+      if (!logsRenderedIds.includes(id)) logsBatchSelected.delete(id);
+    });
+  }
+  // 批量模式：当前结果里没有任何日志时自动退出批量模式，避免留下空操作条
+  if (logs.length === 0 && logsBatchMode) {
+    logsBatchMode = false;
+    logsBatchSelected.clear();
+  }
+
   const maxDelta = Math.max(1, ...logs.map(l => Math.abs(l.delta)));
   // 记录越多，渐入动画步长越小，避免末尾项目等待过久
   let animStep = 60;
@@ -485,26 +510,82 @@ function renderLogs() {
     const item = document.createElement('div');
     item.className = 'log-item';
     item.style.animationDelay = `${idx * animStep}ms`;
+    if (logsBatchMode) {
+      item.classList.add('log-selectable');
+      if (logsBatchSelected.has(log.id)) item.classList.add('selected');
+    }
     const width = Math.max(4, (Math.abs(log.delta) / maxDelta) * 160);
     const sign = log.delta > 0 ? '+' : '';
-    item.innerHTML = `
-      <header>
-        <span class="name">${log.name}</span>
-        <time>${formatDateTime(log.timestamp)}</time>
-      </header>
-      <div class="log-bar-wrap">
-        <div class="log-bar ${log.delta < 0 ? 'negative' : ''}" style="width: ${width}px"></div>
-        <span class="log-delta ${log.delta < 0 ? 'negative' : 'positive'}">${sign}${log.delta}</span>
-      </div>
-      ${log.note ? `<small style="color: var(--theme-text-muted); display: block; margin-top: 6px">${log.note}</small>` : ''}
+    const checkedAttr = logsBatchSelected.has(log.id) ? 'checked' : '';
+    const checkHtml = logsBatchMode
+      ? `<label class="log-check"><input type="checkbox" data-action="toggle-log" data-id="${log.id}" ${checkedAttr}></label>`
+      : '';
+    const actionsHtml = logsBatchMode ? '' : `
       <footer class="log-actions">
         <button class="btn btn-icon btn-sm" data-action="edit-log" data-id="${log.id}">${t('common.edit')}</button>
         <button class="btn btn-danger btn-sm" data-action="delete-log" data-id="${log.id}">${t('common.delete')}</button>
       </footer>
     `;
+    item.innerHTML = `
+      <div class="log-item-top">
+        ${checkHtml}
+        <header>
+          <span class="name">${log.name}</span>
+          <time>${formatDateTime(log.timestamp)}</time>
+        </header>
+      </div>
+      <div class="log-bar-wrap">
+        <div class="log-bar ${log.delta < 0 ? 'negative' : ''}" style="width: ${width}px"></div>
+        <span class="log-delta ${log.delta < 0 ? 'negative' : 'positive'}">${sign}${log.delta}</span>
+      </div>
+      ${log.note ? `<small style="color: var(--theme-text-muted); display: block; margin-top: 6px">${log.note}</small>` : ''}
+      ${actionsHtml}
+    `;
     list.appendChild(item);
   });
+  updateLogsBatchUI();
   renderLogsTagFilter();
+}
+
+// 切换「批量管理」模式
+function setLogsBatchMode(on) {
+  if (logsBatchMode === on) return;
+  logsBatchMode = on;
+  if (!on) logsBatchSelected.clear();
+  updateLogsBatchUI();
+  renderLogs();
+}
+
+// 同步批量模式相关 UI：按钮文案/高亮、操作条显隐、删除按钮可用性、全选态与计数
+function updateLogsBatchUI() {
+  if (logsBatchBtn) {
+    logsBatchBtn.textContent = logsBatchMode
+      ? t('meds.logs.batchExit')
+      : t('meds.logs.batch');
+    logsBatchBtn.classList.toggle('active', logsBatchMode);
+    logsBatchBtn.disabled = store.data.logs.length === 0;
+  }
+  if (logsBatchBar) {
+    logsBatchBar.hidden = !logsBatchMode;
+  }
+  if (logsBatchDelete) {
+    logsBatchDelete.disabled = logsBatchSelected.size === 0;
+  }
+  if (logsBatchSelectAll) {
+    if (logsBatchMode) {
+      const selectedCount = logsRenderedIds.filter(id => logsBatchSelected.has(id)).length;
+      logsBatchSelectAll.checked = logsRenderedIds.length > 0 && selectedCount === logsRenderedIds.length;
+      logsBatchSelectAll.indeterminate = selectedCount > 0 && selectedCount < logsRenderedIds.length;
+      logsBatchSelectAll.disabled = logsRenderedIds.length === 0;
+    } else {
+      logsBatchSelectAll.checked = false;
+      logsBatchSelectAll.indeterminate = false;
+      logsBatchSelectAll.disabled = true;
+    }
+  }
+  if (logsBatchSelectedCount) {
+    logsBatchSelectedCount.textContent = String(logsBatchSelected.size);
+  }
 }
 
 function renderLogsTagFilter() {
@@ -1188,20 +1269,72 @@ function initMeds() {
   });
 
   document.getElementById('logs-list').addEventListener('click', async e => {
-    const btn = e.target.closest('button[data-action]');
+    const target = e.target;
+    // 批量模式下行内复选框：点击时同步勾选状态
+    if (target?.matches('input[data-action="toggle-log"]')) {
+      const id = target.dataset.id;
+      if (!id) return;
+      if (target.checked) logsBatchSelected.add(id);
+      else logsBatchSelected.delete(id);
+      const item = target.closest('.log-item');
+      if (item) item.classList.toggle('selected', target.checked);
+      updateLogsBatchUI();
+      return;
+    }
+    const btn = target.closest('button[data-action]');
+    if (!btn && logsBatchMode) {
+      // 批量模式下点击日志行（空白区域）也可切换选中，checkbox/按钮除外
+      const item = target.closest('.log-item');
+      if (item && !target.closest('input,label')) {
+        const cb = item.querySelector('input[data-action="toggle-log"]');
+        const id = cb?.dataset.id;
+        if (id) {
+          if (logsBatchSelected.has(id)) logsBatchSelected.delete(id);
+          else logsBatchSelected.add(id);
+          cb.checked = logsBatchSelected.has(id);
+          item.classList.toggle('selected', cb.checked);
+          updateLogsBatchUI();
+        }
+      }
+      return;
+    }
     if (!btn) return;
     const id = btn.dataset.id;
     const action = btn.dataset.action;
-    const log = store.data.logs.find(l => l.id === id);
-    if (!log) return;
-
+    // 批量模式下操作按钮不可见，此处仅处理浏览模式的按钮
     if (action === 'edit-log') {
+      const log = store.data.logs.find(l => l.id === id);
+      if (!log) return;
       openLogModal(log);
     } else if (action === 'delete-log') {
+      const log = store.data.logs.find(l => l.id === id);
+      if (!log) return;
       if (await showConfirm(t('meds.log.confirmDelete', { name: log.name }))) {
         store.deleteLog(id);
       }
     }
+  });
+
+  // 变更日志批量管理入口/操作条
+  logsBatchBtn?.addEventListener('click', () => {
+    setLogsBatchMode(!logsBatchMode);
+  });
+  logsBatchSelectAll?.addEventListener('click', () => {
+    if (!logsBatchMode) return;
+    if (logsBatchSelectAll.checked) {
+      logsRenderedIds.forEach(id => logsBatchSelected.add(id));
+    } else {
+      logsRenderedIds.forEach(id => logsBatchSelected.delete(id));
+    }
+    renderLogs();
+  });
+  logsBatchDelete?.addEventListener('click', async () => {
+    const ids = [...logsBatchSelected];
+    if (ids.length === 0) return;
+    const ok = await showConfirm(t('meds.logs.batchDeleteConfirm', { count: ids.length }));
+    if (!ok) return;
+    // deleteLogs 同步通知触发 store.subscribe → renderLogs，内部会清理已选状态并刷新操作条
+    store.deleteLogs(ids);
   });
 
   store.subscribe(() => {

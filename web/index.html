@@ -211,6 +211,7 @@
                   <option value="custom" data-i18n="records.history.period.custom">自选时间段</option>
                 </select>
                 <button class="btn btn-primary btn-sm" id="add-log-btn" data-i18n="meds.logs.add">添加变更日志</button>
+                <button class="btn btn-ghost btn-sm" id="logs-batch-btn">批量管理</button>
               </div>
             </div>
             <div class="meds-filter-bar">
@@ -229,6 +230,18 @@
             </div>
             <p class="records-limit-hint" id="logs-limit-hint" hidden></p>
             <div class="logs-list" id="logs-list"></div>
+            <div class="logs-batch-bar" id="logs-batch-bar" hidden>
+              <label class="logs-batch-select-all">
+                <input type="checkbox" id="logs-batch-select-all" disabled>
+                <span data-i18n="meds.logs.batchSelectAll">全选</span>
+              </label>
+              <span class="logs-batch-count">
+                <span data-i18n="meds.logs.batchSelected">已选</span>
+                <strong id="logs-batch-count">0</strong>
+                <span data-i18n="meds.logs.batchSelectedUnit">条</span>
+              </span>
+              <button class="btn btn-danger btn-sm" id="logs-batch-delete" data-i18n="meds.logs.batchDelete">删除所选</button>
+            </div>
           </div>
         </div>
       </section>

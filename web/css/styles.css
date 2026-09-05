@@ -796,15 +796,53 @@ textarea::placeholder {
   padding: 14px;
   border: 1px solid var(--theme-surface-2);
   animation: fadeIn 0.3s ease backwards;
+  transition: border-color 0.15s, background 0.15s;
 }
-.log-item header {
+.log-item.log-selectable {
+  cursor: pointer;
+}
+.log-item.log-selectable:hover {
+  border-color: var(--theme-accent);
+}
+.log-item.selected {
+  border-color: var(--theme-accent);
+  background: rgba(var(--theme-accent-rgb), 0.06);
+}
+.log-item-top {
+  display: flex;
+  gap: 10px;
+  align-items: flex-start;
+}
+.log-item-top header {
+  flex: 1 1 auto;
+  min-width: 0;
   display: flex;
   justify-content: space-between;
+  align-items: flex-start;
   margin-bottom: 8px;
   font-size: 13px;
 }
-.log-item .name { font-weight: 600; }
-.log-item time { color: var(--theme-text-muted); }
+.log-item-top .name {
+  font-weight: 600;
+  overflow-wrap: anywhere;
+}
+.log-item-top time {
+  color: var(--theme-text-muted);
+  white-space: nowrap;
+  margin-left: 8px;
+}
+.log-check {
+  flex: 0 0 auto;
+  padding-top: 1px;
+  cursor: pointer;
+  line-height: 0;
+}
+.log-check input[type="checkbox"] {
+  width: 16px;
+  height: 16px;
+  cursor: pointer;
+  accent-color: var(--theme-accent);
+}
 .log-bar-wrap {
   display: flex;
   align-items: center;
@@ -832,6 +870,54 @@ textarea::placeholder {
   gap: 8px;
   justify-content: flex-end;
   margin-top: 10px;
+}
+
+.logs-batch-bar {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding: 10px 16px;
+  border-top: 1px solid var(--theme-surface-2);
+  background: var(--theme-surface-alt);
+}
+.logs-batch-bar[hidden] { display: none; }
+.logs-batch-select-all {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  font-size: 13px;
+  cursor: pointer;
+}
+.logs-batch-select-all input[type="checkbox"] {
+  width: 15px;
+  height: 15px;
+  cursor: pointer;
+  accent-color: var(--theme-accent);
+}
+.logs-batch-count {
+  flex: 1;
+  font-size: 13px;
+  color: var(--theme-text-muted);
+}
+.logs-batch-count strong {
+  color: var(--theme-text);
+  font-variant-numeric: tabular-nums;
+}
+.logs-batch-bar .btn-danger {
+  flex: 0 0 auto;
+}
+.logs-batch-bar .btn-danger:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+}
+#logs-batch-btn.active {
+  background: var(--theme-surface-2);
+  color: var(--theme-text);
+  border-color: var(--theme-accent);
+}
+#logs-batch-btn:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
 }
 
 .records-layout {

@@ -822,18 +822,32 @@ export const store = {
   },
 
   deleteLog(id) {
-    const idx = this.data.logs.findIndex(l => l.id === id);
-    if (idx === -1) return;
-    const log = this.data.logs[idx];
-    const med = this.data.meds.find(m => m.id === log.medicationId);
-    if (med) {
-      // 删除日志视为撤销对应库存变动（正 delta 撤销减少，负 delta 撤销增加）
-      applyMedStockChange(med, -log.delta, log.boardId || null);
-    }
-    this.data.logs.splice(idx, 1);
-    if (med) recalcLogRemainingAfter(med.id);
+    this._removeLogs([id], 'DeleteLog');
+  },
+
+  // 批量删除日志：逐条视为撤销对应库存变动（正 delta 撤销减少，负 delta 撤销增加）。
+  // 与 deleteLog 语义一致，但只持久化/通知一次，避免批量操作时重复渲染。
+  deleteLogs(ids) {
+    this._removeLogs(ids, 'DeleteLogs');
+  },
+
+  _removeLogs(ids, reason) {
+    if (!Array.isArray(ids) || ids.length === 0) return;
+    const idSet = new Set(ids);
+    const removed = this.data.logs.filter(l => idSet.has(l.id));
+    if (removed.length === 0) return;
+    const touchedMeds = new Set();
+    removed.forEach(log => {
+      const med = this.data.meds.find(m => m.id === log.medicationId);
+      if (med) {
+        applyMedStockChange(med, -log.delta, log.boardId || null);
+        touchedMeds.add(med.id);
+      }
+    });
+    this.data.logs = this.data.logs.filter(l => !idSet.has(l.id));
+    touchedMeds.forEach(medId => recalcLogRemainingAfter(medId));
     this.persist();
-    this.notify('DeleteLog');
+    this.notify(reason);
   },
 
   // 库存调整。preferredBoardId 用于指定优先操作的板（如服药时选择的来源板）。
