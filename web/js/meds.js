@@ -304,32 +304,44 @@ function getLogsCustomRange() {
   return start !== null && end !== null ? { start, end } : null;
 }
 
+// 预测药品耗尽时间：按剩余片数与「每次服用量」逐次推算（各次消耗 doseAmount，
+// 兼容半片/1.5 片等小数余量与 doseAmount；整数片只是其中特例）。
+// 返回耗尽时间戳；无计划/耗尽已过或不足一次时返回 -1；无计划返回 null。
 export function predictDepletion(med) {
   if (!Array.isArray(med.schedule) || med.schedule.length === 0) return null;
+  const dailyCount = med.schedule.length;
+  if (dailyCount <= 0) return null;
   const remaining = Number(med.remainingPills);
   if (!Number.isFinite(remaining) || remaining <= 0) return -1;
+  const perIntake = Number(med.doseAmount) || 1;
+  if (!(perIntake > 0)) return null;
   const now = Date.now();
   const sortedSchedule = [...med.schedule].sort();
   const today = new Date(now);
   today.setHours(0, 0, 0, 0);
   const todayStart = today.getTime();
   const DAY_MS = 24 * 60 * 60 * 1000;
+  // 还能按计划完整服用的次数（剩余片数 ÷ 每次用量，向下取整）
+  const intakes = Math.floor(remaining / perIntake);
+  if (intakes <= 0) return -1;
   const todayFutureTimes = sortedSchedule
     .map(time => {
       const [h, min] = time.split(':').map(Number);
       return todayStart + h * 3600000 + min * 60000;
     })
     .filter(ts => ts > now);
-  let remainingCount = remaining;
-  for (const ts of todayFutureTimes) {
-    remainingCount--;
-    if (remainingCount <= 0) return ts;
+  // 第 intakes 次服药（1 起）会用完库存。今天剩余时刻够用就耗尽在今天。
+  if (todayFutureTimes.length > 0 && intakes <= todayFutureTimes.length) {
+    return todayFutureTimes[intakes - 1];
   }
-  const dailyCount = sortedSchedule.length;
-  const fullDays = Math.floor((remainingCount - 1) / dailyCount);
-  const remainder = (remainingCount - 1) % dailyCount;
-  const [h, min] = sortedSchedule[remainder].split(':').map(Number);
-  return todayStart + (fullDays + 1) * DAY_MS + h * 3600000 + min * 60000;
+  // 今天用完仍不够：从明天算起还有 k 次可完整服用，耗尽发生在第 k 次。
+  // n = k-1 是未来计划序列里的 0 起下标，换算为“距今天的天数 d+1 + 当天第 i 个时刻”。
+  const k = intakes - todayFutureTimes.length;
+  const n = k - 1;
+  const d = Math.floor(n / dailyCount);
+  const i = n % dailyCount;
+  const [h, min] = sortedSchedule[i].split(':').map(Number);
+  return todayStart + (d + 1) * DAY_MS + h * 3600000 + min * 60000;
 }
 
 function formatDepletion(depletionTs) {

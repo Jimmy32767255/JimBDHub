@@ -1494,112 +1494,93 @@ html.no-animations *::after {
   border-radius: 10px;
   margin-bottom: 8px;
 }
-.dose-head {
+.dose-row:last-child { margin-bottom: 0; }
+.dose-med-head {
   display: flex;
   align-items: center;
+  justify-content: space-between;
   gap: 10px;
-  width: 100%;
 }
-.dose-row:last-child { margin-bottom: 0; }
-.dose-check { width: 18px; height: 18px; accent-color: var(--theme-accent); }
-.dose-name { flex: 1; font-size: 14px; }
+.dose-med-name {
+  flex: 1;
+  font-size: 14px;
+  font-weight: 600;
+  color: var(--theme-text);
+}
+.dose-board-list {
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 2px 0 2px 2px;
+  max-height: 220px;
+  overflow-y: auto;
+}
+.dose-board-group-title {
+  font-size: 11px;
+  font-weight: 600;
+  color: var(--theme-text-muted);
+  padding: 4px 0 2px;
+}
+.dose-board-row {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding: 3px 6px;
+  border-radius: 8px;
+  font-size: 13px;
+}
+.dose-board-row:hover {
+  background: rgba(var(--theme-accent-rgb), 0.06);
+}
+.dose-board-label-wrap {
+  display: inline-flex;
+  align-items: center;
+  gap: 7px;
+  min-width: 0;
+  flex: 0 0 auto;
+  cursor: pointer;
+}
+.dose-board-check {
+  width: 16px;
+  height: 16px;
+  flex: 0 0 auto;
+  accent-color: var(--theme-accent);
+  cursor: pointer;
+}
+.dose-board-label {
+  min-width: 52px;
+  color: var(--theme-text);
+}
+.dose-board-row.is-empty .dose-board-label {
+  color: var(--theme-text-muted);
+}
 .dose-amount {
   width: 70px;
   text-align: center;
   background: var(--theme-surface);
   border: 1px solid var(--theme-surface-2);
   border-radius: 8px;
-  padding: 6px 8px;
+  padding: 5px 6px;
   color: var(--theme-text);
   font-family: inherit;
-  font-size: 14px;
+  font-size: 13px;
 }
 .dose-amount:disabled {
   opacity: 0.4;
   cursor: not-allowed;
 }
-.dose-unit { font-size: 12px; color: var(--theme-text-muted); min-width: 1.5em; }
-.doses-empty { font-size: 13px; color: var(--theme-text-muted); }
-
-/* 服药来源板/瓶选择（树形） */
-.dose-source-wrap {
-  padding-left: 2px;
-}
-.dose-board-pick {
-  position: relative;
-}
-.dose-board-preview {
-  display: inline-flex;
-  align-items: center;
-  gap: 6px;
-  background: var(--theme-surface-alt);
-  border: 1px solid var(--theme-surface-2);
-  color: var(--theme-text);
-  border-radius: 8px;
-  padding: 5px 10px;
+.dose-unit {
   font-size: 12px;
-  font-family: inherit;
-  cursor: pointer;
-  transition: all 0.15s;
-}
-.dose-board-preview:hover {
-  border-color: var(--theme-surface-3);
-}
-.dose-board-preview .dot {
-  width: 8px;
-  height: 8px;
-  border-radius: 50%;
-  background: var(--accent-green);
-  display: inline-block;
-}
-.dose-board-preview.open {
-  border-color: var(--theme-accent);
-}
-.dose-board-tree {
-  margin-top: 6px;
-  border: 1px solid var(--theme-surface-2);
-  border-radius: 8px;
-  background: var(--theme-surface);
-  padding: 6px;
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  max-height: 200px;
-  overflow-y: auto;
-}
-.dose-board-tree[hidden] {
-  display: none;
-}
-.dose-board-group + .dose-board-group {
-  margin-top: 2px;
-}
-.dose-board-group-title {
-  font-size: 11px;
-  font-weight: 600;
   color: var(--theme-text-muted);
-  padding: 2px 0;
+  min-width: 1.5em;
 }
-.dose-board-item {
-  display: flex;
-  align-items: center;
-  gap: 6px;
-  padding: 3px 6px;
-  border-radius: 6px;
-  font-size: 13px;
-  cursor: pointer;
-}
-.dose-board-item:hover {
-  background: rgba(var(--theme-accent-rgb), 0.08);
-}
-.dose-board-item input {
-  width: 14px;
-  height: 14px;
-  accent-color: var(--theme-accent);
-}
-.dose-board-item-label small {
+.dose-board-remain {
+  margin-left: auto;
+  font-size: 12px;
   color: var(--theme-text-muted);
-  margin-left: 4px;
+  white-space: nowrap;
 }
+.doses-empty { font-size: 13px; color: var(--theme-text-muted); }
 
 .quality-badge {
   display: inline-flex;

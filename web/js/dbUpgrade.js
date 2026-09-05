@@ -4,7 +4,7 @@ import { ensureMedBoards } from './medInventory.js';
 // dbUpgrade.js 不直接调用 t()，避免 i18n 初始化前加载失败。
 const LEGACY_MED_NAME = '药物';
 
-const CURRENT_DB_VERSION = 3;
+const CURRENT_DB_VERSION = 4;
 
 function isLegacyMoodWithMedication(r) {
   return r && (r.medication || r.medicationName || r.medicationAmount !== undefined || r.medicationUnit) && !Array.isArray(r.doses);
@@ -105,6 +105,9 @@ function normalizeMed(m) {
   return out;
 }
 
+// 记录剂量归一化：自 v4 起，同一条服药记录允许同一药品出现多条 dose（每条指向
+// 一个板/瓶来源及其数量），用于“一次从多个板/瓶各取若干”。本函数按条逐一归一化，
+// 不去重、不合并同药记录，保证旧版单条结构与新版多条结构都能正确读取。
 function normalizeDose(d, medMap) {
   if (!d) return d;
   const med = d.medicationId ? medMap[d.medicationId] : null;
