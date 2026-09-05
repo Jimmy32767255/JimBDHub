@@ -7,12 +7,11 @@ import { platform } from './platform.js';
 export const UPDATE_CHANNELS = [
   { code: 'R', rank: 0, key: 'update.channel.release' },
   { code: 'RC', rank: 1, key: 'update.channel.rc' },
-  { code: 'A', rank: 2, key: 'update.channel.alpha' },
-  { code: 'B', rank: 3, key: 'update.channel.beta' },
+  { code: 'B', rank: 2, key: 'update.channel.beta' },
+  { code: 'A', rank: 3, key: 'update.channel.alpha' },
   { code: 'D', rank: 4, key: 'update.channel.development' },
   { code: 'C', rank: 5, key: 'update.channel.canary' },
-  { code: 'N', rank: 6, key: 'update.channel.nightly' },
-  { code: 'IP', rank: 7, key: 'update.channel.internalPreview' }
+  { code: 'N', rank: 6, key: 'update.channel.nightly' }
 ];
 
 const CHANNEL_STORAGE_KEY = 'jimbdhub_update_channel';

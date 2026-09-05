@@ -39,7 +39,6 @@
   "update.channel.development": "Development (D)",
   "update.channel.canary": "Canary (C)",
   "update.channel.nightly": "Nightly (N)",
-  "update.channel.internalPreview": "Internal Preview (IP)",
   "update.noRelease": "No releases published yet.",
   "update.upToDate": "You are up to date ({version}).",
   "update.available": "New version available: {name} ({version}), released on {date}.\nDownload and install now?\nRelease page: {url}",

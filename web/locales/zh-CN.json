@@ -39,7 +39,6 @@
   "update.channel.development": "开发版（D）",
   "update.channel.canary": "金丝雀版（C）",
   "update.channel.nightly": "夜间构建版（N）",
-  "update.channel.internalPreview": "内部预览版（IP）",
   "update.noRelease": "暂未发布任何版本。",
   "update.upToDate": "当前已是最新版本（{version}）。",
   "update.available": "发现新版本：{name}（{version}），发布于 {date}。\n是否立即下载更新？\n发布页：{url}",
