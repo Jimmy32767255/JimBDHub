@@ -7,7 +7,8 @@ let listeners = [];
 
 async function loadMessages(lang) {
   try {
-    const res = await fetch(`locales/${lang}.json`);
+    // 加时间戳绕过 WebView/浏览器缓存，防止应用更新后语言文件滞后（缺键时 t() 会原样显示键名）
+    const res = await fetch(`locales/${lang}.json?v=${Date.now()}`);
     if (!res.ok) throw new Error(`Failed to load ${lang}`);
     return await res.json();
   } catch (err) {

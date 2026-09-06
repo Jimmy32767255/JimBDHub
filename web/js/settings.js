@@ -3,7 +3,8 @@ import { platform } from './platform.js';
 import { t, setLanguage, getLanguage, subscribe, updateDOM } from './i18n.js';
 import {
   getTheme, setTheme, resetTheme, applySystemTheme, sanitizeCustomCSS, subscribe as subscribeTheme,
-  extractImageAverageColor, takeAutoColorSnapshot, buildAutoColorTheme, isAutoColorActive
+  extractImageAverageColor, takeAutoColorSnapshot, buildAutoColorTheme, isAutoColorActive,
+  formatTimestamp, DEFAULT_TIME_FORMAT
 } from './theme.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { enable as enableSync, disable as disableSync, subscribeStatus, getStatus } from './sync.js';
@@ -536,6 +537,34 @@ function bindDisplayControls() {
     setTheme({ maxLoadedRecords: value }, 'DisplayChange');
     recordsLoadLimitInput.value = String(value);
   });
+
+  updateUIFromTheme(getTheme());
+  subscribeTheme(updateUIFromTheme);
+}
+
+function bindFormatControls() {
+  const formatInput = document.getElementById('time-format-input');
+  const formatPreview = document.getElementById('time-format-preview');
+  if (!formatInput) return;
+
+  function updatePreview() {
+    if (formatPreview) {
+      formatPreview.textContent = t('settings.format.previewLabel') + formatTimestamp(new Date(), formatInput.value);
+    }
+  }
+
+  function updateUIFromTheme(theme) {
+    formatInput.value = theme.timeFormat || DEFAULT_TIME_FORMAT;
+    updatePreview();
+  }
+
+  formatInput.addEventListener('change', () => {
+    const value = formatInput.value.trim() || DEFAULT_TIME_FORMAT;
+    setTheme({ timeFormat: value }, 'FormatChange');
+    formatInput.value = value;
+    updatePreview();
+  });
+  formatInput.addEventListener('input', updatePreview);
 
   updateUIFromTheme(getTheme());
   subscribeTheme(updateUIFromTheme);
@@ -1590,6 +1619,7 @@ export function initSettings() {
   bindBackgroundControls();
   bindCustomCssControl();
   bindDisplayControls();
+  bindFormatControls();
   bindConnectMoodDotsControl();
   bindSleepOverlayModeControl();
   bindAutoMedLogControl();
