@@ -115,6 +115,7 @@
   "common.edit": "编辑",
   "common.delete": "删除",
   "records.memo.title": "备忘录",
+  "records.memo.insertTime": "一键添加时间",
   "records.memo.placeholder": "在此记录任何想法...",
   "records.sectionTitle": "记录",
   "records.formTabs.mood": "情绪",

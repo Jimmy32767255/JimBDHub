@@ -288,6 +288,12 @@ def start_http_server(root: Path, port: int = 8765) -> HTTPServer:
             # 静默内置 server 的访问日志
             pass
 
+        def end_headers(self):
+            # 本地静态资源禁用启发式缓存：前端文件更新后 WebView 必须重新验证，
+            # 否则可能拿到旧 JS/语言文件（如 i18n 缺键时界面会显示原始键名）
+            self.send_header("Cache-Control", "no-cache")
+            super().end_headers()
+
     server = HTTPServer(("127.0.0.1", port), Handler)
     thread = threading.Thread(target=server.serve_forever, daemon=True)
     thread.start()

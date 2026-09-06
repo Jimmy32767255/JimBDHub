@@ -958,6 +958,22 @@ function initMemo() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => saveMemo(textarea.value), 300);
   });
+  // “一键添加时间”：在光标处插入当前时间（格式 YYYY/MM/DD.HH:MM）
+  const insertBtn = document.getElementById('memo-insert-time');
+  if (insertBtn) {
+    insertBtn.addEventListener('click', () => {
+      const d = new Date();
+      const p = n => String(n).padStart(2, '0');
+      const stamp = `${d.getFullYear()}/${p(d.getMonth() + 1)}/${p(d.getDate())}.${p(d.getHours())}:${p(d.getMinutes())}`;
+      const start = textarea.selectionStart ?? textarea.value.length;
+      const end = textarea.selectionEnd ?? start;
+      textarea.value = textarea.value.slice(0, start) + stamp + textarea.value.slice(end);
+      textarea.focus();
+      textarea.setSelectionRange(start + stamp.length, start + stamp.length);
+      // 触发 input 以复用上方防抖保存逻辑
+      textarea.dispatchEvent(new Event('input'));
+    });
+  }
 }
 
 function refreshCurrentTimes() {
