@@ -557,8 +557,22 @@ export function setTheme(partial, reason = 'ThemeChange') {
   listeners.forEach(fn => fn(currentTheme, reason));
 }
 
+// 设置 → 个性化 卡片内的外观设置键。
+// 「恢复默认」只重置这些键；其他设置分类（显示缩放/边距/动画/记录上限、简化模式、
+// 药物自动记录与体重、加密自动锁定/生物认证等）共用同一主题对象，不得被一并重置。
+const THEME_RESET_KEYS = [
+  'curveLine', 'connectMoodDots', 'sleepDisplayMode',
+  'positiveColor', 'negativeColor', 'neutralColor',
+  'backgroundColor', 'surfaceColor', 'surface2Color', 'surface3Color', 'surfaceAltColor',
+  'textColor', 'textMutedColor', 'fontColorMode', 'accentColor',
+  'backgroundType', 'backgroundImage', 'backgroundImageAutoColor', 'autoColorSnapshot',
+  'backgroundGradient', 'customCSS', 'useSystemTheme'
+];
+
 export function resetTheme() {
-  setTheme({ ...DEFAULT_THEME }, 'ThemeReset');
+  const reset = {};
+  THEME_RESET_KEYS.forEach(key => { reset[key] = DEFAULT_THEME[key]; });
+  setTheme(reset, 'ThemeReset');
 }
 
 export async function applySystemTheme() {
