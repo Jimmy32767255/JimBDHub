@@ -215,6 +215,23 @@ function bindThemeControls() {
   const systemBtn = document.getElementById('theme-system-btn');
   const resetBtn = document.getElementById('theme-reset-btn');
 
+  // 「获取系统主题」依赖原生桥读取系统调色板：纯浏览器不可用，自动隐藏。
+  // 桌面端（如 AppImage）pywebview 可能晚于页面脚本注入，轮询等待能力就绪。
+  if (systemBtn) {
+    const updateSystemThemeVisible = () => {
+      systemBtn.hidden = !platform.isSystemThemeSupported();
+    };
+    updateSystemThemeVisible();
+    let checks = 0;
+    const platformTimer = setInterval(() => {
+      checks++;
+      updateSystemThemeVisible();
+      if (platform.isSystemThemeSupported() || checks >= 30) {
+        clearInterval(platformTimer);
+      }
+    }, 100);
+  }
+
   function updateUIFromTheme(theme) {
     if (positiveInput) positiveInput.value = theme.positiveColor;
     if (negativeInput) negativeInput.value = theme.negativeColor;

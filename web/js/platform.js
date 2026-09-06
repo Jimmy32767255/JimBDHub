@@ -502,6 +502,19 @@ export const platform = {
     return { ok: false, error: t('platform.reminderUnsupported') };
   },
 
+  // 是否具备拉取系统主题（强调色/背景色）的能力：仅 Android / 桌面原生桥提供；
+  // 纯浏览器无法读取系统调色板，返回 false（此时「获取系统主题」按钮自动隐藏）
+  isSystemThemeSupported() {
+    if (this.isAndroid()) {
+      return typeof window.AndroidBridge.getSystemTheme === 'function';
+    }
+    if (this.isDesktop()) {
+      return !!(window.pywebview && window.pywebview.api
+        && typeof window.pywebview.api.getSystemTheme === 'function');
+    }
+    return false;
+  },
+
   async getSystemTheme() {
     if (this.isAndroid() && typeof window.AndroidBridge.getSystemTheme === 'function') {
       window.AndroidBridge.getSystemTheme();
