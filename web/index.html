@@ -719,6 +719,19 @@
             </div>
           </div>
         </div>
+        <div class="card" data-settings-card="format">
+          <div class="card-header settings-card-header">
+            <h3 data-i18n="settings.format.title">格式</h3>
+          </div>
+          <div class="settings-section">
+            <div class="setting-group">
+              <h4 data-i18n="settings.format.timeFormat">时间格式</h4>
+              <label for="time-format-input"></label><input type="text" id="time-format-input" class="form-field" style="max-width: 260px" spellcheck="false" data-i18n-placeholder="settings.format.timeFormatPlaceholder" placeholder="YYYY/MM/DD.HH:mm">
+              <small class="form-hint" id="time-format-preview"></small>
+              <small class="form-hint" data-i18n="settings.format.timeFormatHint">可用占位符：YYYY=年、MM=月、DD=日、HH=时（24 小时制）、mm=分、SS=秒，其余字符原样输出。示例：YYYY/MM/DD.HH:mm 显示为 2026/09/06.15:16；留空后失焦即恢复默认。该格式用于记录页备忘录的“一键添加时间”按钮</small>
+            </div>
+          </div>
+        </div>
         <div class="card" data-settings-card="simpleMode">
           <div class="card-header settings-card-header">
             <h3 data-i18n="settings.simpleMode.title">简化模式</h3>
