@@ -2,7 +2,7 @@ import { store, formatDateTime, formatDuration, nowMinute, getMaxLoadedRecords, 
 import { t, subscribe } from './i18n.js';
 import { showAlert, showConfirm } from './dialog.js';
 import { platform } from './platform.js';
-import { getTheme, subscribe as subscribeTheme } from './theme.js';
+import { getTheme, subscribe as subscribeTheme, formatTimestamp } from './theme.js';
 import { ensureMedBoards, groupBoardsByBox, defaultOpenBoardId } from './medInventory.js';
 
 const formTabs = document.querySelectorAll('.form-tab');
@@ -958,6 +958,20 @@ function initMemo() {
     clearTimeout(saveTimer);
     saveTimer = setTimeout(() => saveMemo(textarea.value), 300);
   });
+  // “一键添加时间”：在光标处插入当前时间（格式来自设置页“格式”）
+  const insertBtn = document.getElementById('memo-insert-time');
+  if (insertBtn) {
+    insertBtn.addEventListener('click', () => {
+      const stamp = formatTimestamp(new Date(), getTheme().timeFormat);
+      const start = textarea.selectionStart ?? textarea.value.length;
+      const end = textarea.selectionEnd ?? start;
+      textarea.value = textarea.value.slice(0, start) + stamp + textarea.value.slice(end);
+      textarea.focus();
+      textarea.setSelectionRange(start + stamp.length, start + stamp.length);
+      // 触发 input 以复用上方防抖保存逻辑
+      textarea.dispatchEvent(new Event('input'));
+    });
+  }
 }
 
 function refreshCurrentTimes() {
