@@ -47,8 +47,23 @@ const DEFAULT_THEME = {
   biometricUnlock: false
 };
 
+// 系统主题预设仅提供深/浅两套配色。应用系统主题（含启动跟随与配色变化时的重绘）
+// 只合并这些颜色键：不包含 uiScale/bodyWeightKg 等功能设置，也不包含曲线样式、
+// 背景类型、睡眠显示方式等非配色外观开关，避免把用户其他设置一并重置。
 const SYSTEM_PRESETS = {
-  dark: { ...DEFAULT_THEME },
+  dark: {
+    positiveColor: '#ef4444',
+    negativeColor: '#3b82f6',
+    neutralColor: '#64748b',
+    backgroundColor: '#0f172a',
+    surfaceColor: '#1e293b',
+    surface2Color: '#334155',
+    surface3Color: '#475569',
+    surfaceAltColor: '#334155',
+    textColor: '#f8fafc',
+    textMutedColor: '#94a3b8',
+    accentColor: '#ef4444'
+  },
   light: {
     backgroundColor: '#f8fafc',
     surfaceColor: '#ffffff',
