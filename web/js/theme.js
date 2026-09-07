@@ -5,6 +5,24 @@ const STORAGE_KEY = 'jimbdhub_theme';
 // 药品未指定颜色时的默认调色板（按药品列表顺序循环分配）
 export const DEFAULT_MED_COLORS = ['#22c55e', '#8b5cf6', '#f59e0b', '#06b6d4', '#ec4899', '#84cc16', '#f97316', '#14b8a6'];
 
+// “一键添加时间”等处使用的时间格式（占位符见设置页“格式”说明）
+export const DEFAULT_TIME_FORMAT = 'YYYY/MM/DD.HH:mm';
+
+// 将时间按用户自定义格式生成字符串；支持 YYYY/MM/DD/HH/mm/SS 占位符，其余字符原样输出
+export function formatTimestamp(date, format) {
+  const fmt = typeof format === 'string' && format.trim() ? format.trim() : DEFAULT_TIME_FORMAT;
+  const pad = n => String(n).padStart(2, '0');
+  const tokens = {
+    YYYY: String(date.getFullYear()),
+    MM: pad(date.getMonth() + 1),
+    DD: pad(date.getDate()),
+    HH: pad(date.getHours()),
+    mm: pad(date.getMinutes()),
+    SS: pad(date.getSeconds())
+  };
+  return fmt.replace(/YYYY|MM|DD|HH|mm|SS/g, m => tokens[m]);
+}
+
 const DEFAULT_THEME = {
   curveLine: 'curve',
   connectMoodDots: false,
@@ -35,6 +53,7 @@ const DEFAULT_THEME = {
   simpleModeMood: true,
   simpleModeMedication: true,
   sleepDisplayMode: 'bar',
+  timeFormat: DEFAULT_TIME_FORMAT,
   depletionReminderDays: 3,
   bodyWeightKg: 70,
   maxLoadedRecords: 100,
