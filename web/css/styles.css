@@ -1251,7 +1251,8 @@ textarea::placeholder {
 }
 
 #depletion-reminder-days,
-#records-load-limit {
+#records-load-limit,
+#time-format-input {
   appearance: none;
   -webkit-appearance: none;
   background: var(--theme-bg);
@@ -1264,7 +1265,8 @@ textarea::placeholder {
   outline: none;
 }
 #depletion-reminder-days:focus,
-#records-load-limit:focus {
+#records-load-limit:focus,
+#time-format-input:focus {
   border-color: var(--theme-accent);
 }
 
