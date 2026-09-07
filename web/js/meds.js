@@ -867,6 +867,13 @@ function openBoardDetail(med) {
     tree.appendChild(grp);
   });
   boardDetailModal.setAttribute('aria-hidden', 'false');
+  // 渐变随轨道宽度裁切而非拉伸（与主进度条一致）：渐变覆盖整条轨道，填充宽度只
+  // 裁切可见部分。因轨道宽 flex:1 不固定，需先让弹窗参与布局（aria-hidden=false
+  // 后再测量，否则 clientWidth 为 0），再按各轨道实际宽度设置渐变尺寸。
+  tree.querySelectorAll('.board-tree-bar-wrap').forEach(wrap => {
+    const bar = wrap.querySelector('.board-tree-bar');
+    if (bar) bar.style.backgroundSize = `${Math.max(1, wrap.clientWidth)}px 100%`;
+  });
 }
 
 function closeBoardDetail() {

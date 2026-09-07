@@ -1202,6 +1202,7 @@ textarea::placeholder {
   height: 100%;
   border-radius: 4px;
   background: linear-gradient(90deg, #ef4444, #eab308 50%, #22c55e);
+  background-repeat: no-repeat; /* 渐变尺寸可能大于元素宽度，禁止平铺以便裁切 */
   transition: width 0.4s ease;
 }
 .board-tree-value {
@@ -1210,7 +1211,7 @@ textarea::placeholder {
   font-variant-numeric: tabular-nums;
   color: var(--theme-text-muted);
 }
-.board-tree-empty .board-tree-bar {
+.board-tree-bar.board-tree-empty {
   background: var(--theme-surface-2);
 }
 .board-tree-empty.board-tree-name,
