@@ -304,6 +304,7 @@
   "meds.validation.requiredReminder": "请填写药品名称并至少添加一个服药时间后再添加闹钟提醒",
   "meds.depletion.daysHours": "{d}天 {h}小时后耗尽",
   "meds.depletion.days": "{d}天后耗尽",
+  "meds.depletion.months": "{m}个月后耗尽",
   "meds.depletion.hours": "{h}小时后耗尽",
   "meds.depletion.minutes": "{m}分钟后耗尽",
   "meds.depletion.exhausted": "已耗尽",

@@ -362,6 +362,11 @@ function formatDepletion(depletionTs) {
   const totalHours = Math.floor(diff / 3600000);
   const days = Math.floor(totalHours / 24);
   const hours = totalHours % 24;
+  // 预计耗尽时间大于 30 天时自动按月显示（每月按 30 天估算）
+  if (totalHours > 30 * 24) {
+    const months = Math.max(1, Math.round(totalHours / (24 * 30)));
+    return t('meds.depletion.months', { m: months });
+  }
   if (days >= 1 && hours > 0) {
     return t('meds.depletion.daysHours', { d: days, h: hours });
   } else if (days >= 1) {

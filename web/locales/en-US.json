@@ -304,6 +304,7 @@
   "meds.validation.requiredReminder": "Please fill in the medication name and add at least one dosing time before adding alarm reminders.",
   "meds.depletion.daysHours": "{d}d {h}h until depleted",
   "meds.depletion.days": "{d}d until depleted",
+  "meds.depletion.months": "{m}mo until depleted",
   "meds.depletion.hours": "{h}h until depleted",
   "meds.depletion.minutes": "{m}m until depleted",
   "meds.depletion.exhausted": "Exhausted",
