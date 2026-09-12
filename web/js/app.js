@@ -72,6 +72,7 @@ const DAY_MS = 24 * 60 * 60 * 1000;
 const HOUR_MS = 60 * 60 * 1000;
 const SHOW_FORWARD_KEY = 'jimbdhub_show_forward';
 const SYNC_SCROLL_KEY = 'jimbdhub_sync_scroll';
+const VIEW_VISIBILITY_KEY = 'jimbdhub_chart_view_visibility';
 const PAGE_KEY = 'jimbdhub_chart_page';
 const PAGE_SIZE_MS = MAX_MOOD_RANGE_MS;
 let currentPage = null;
@@ -193,6 +194,41 @@ function saveSyncScroll(value) {
   try {
     localStorage.setItem(SYNC_SCROLL_KEY, value ? 'true' : 'false');
   } catch {}
+}
+
+// 概览页四个视图显隐开关的默认状态（与 HTML 中默认勾选保持一致）
+const DEFAULT_VIEW_VISIBILITY = { mood: true, effect: true, sleep: true, events: true };
+
+function loadViewVisibility() {
+  try {
+    const raw = localStorage.getItem(VIEW_VISIBILITY_KEY);
+    if (!raw) return { ...DEFAULT_VIEW_VISIBILITY };
+    const parsed = JSON.parse(raw);
+    if (!parsed || typeof parsed !== 'object') return { ...DEFAULT_VIEW_VISIBILITY };
+    return {
+      mood: parsed.mood !== false,
+      effect: parsed.effect !== false,
+      sleep: parsed.sleep !== false,
+      events: parsed.events !== false
+    };
+  } catch {
+    return { ...DEFAULT_VIEW_VISIBILITY };
+  }
+}
+
+function saveViewVisibility(value) {
+  try {
+    localStorage.setItem(VIEW_VISIBILITY_KEY, JSON.stringify(value));
+  } catch {}
+}
+
+function persistViewVisibility() {
+  saveViewVisibility({
+    mood: showMoodCheckbox.checked,
+    effect: showEffectCheckbox.checked,
+    sleep: showSleepCheckbox.checked,
+    events: showEventsCheckbox.checked
+  });
 }
 
 function loadPage() {
@@ -584,11 +620,23 @@ function initNavigation() {
 
   updateZoomDisplay();
 
-  // 复选框控制图表显示
-  showMoodCheckbox.addEventListener('change', drawChart);
-  showEffectCheckbox.addEventListener('change', drawChart);
-  showSleepCheckbox.addEventListener('change', drawChart);
-  showEventsCheckbox.addEventListener('change', drawChart);
+  // 复选框控制图表显示（同时持久化显示状态）
+  showMoodCheckbox.addEventListener('change', () => {
+    persistViewVisibility();
+    drawChart();
+  });
+  showEffectCheckbox.addEventListener('change', () => {
+    persistViewVisibility();
+    drawChart();
+  });
+  showSleepCheckbox.addEventListener('change', () => {
+    persistViewVisibility();
+    drawChart();
+  });
+  showEventsCheckbox.addEventListener('change', () => {
+    persistViewVisibility();
+    drawChart();
+  });
   showForwardCheckbox.addEventListener('change', () => {
     saveShowForward(showForwardCheckbox.checked);
     drawChart();
@@ -774,6 +822,13 @@ function startAutoLock() {
 }
 
 function continueInit() {
+  // 恢复概览页视图显隐状态
+  const viewVisibility = loadViewVisibility();
+  showMoodCheckbox.checked = viewVisibility.mood;
+  showEffectCheckbox.checked = viewVisibility.effect;
+  showSleepCheckbox.checked = viewVisibility.sleep;
+  showEventsCheckbox.checked = viewVisibility.events;
+
   showForwardCheckbox.checked = loadShowForward();
   if (syncScrollCheckbox) {
     syncScrollCheckbox.checked = loadSyncScroll();
