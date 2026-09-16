@@ -13,7 +13,8 @@ const KEYS = {
   logs: 'jimbdhub_med_logs',
   sleeps: 'jimbdhub_sleep_records',
   events: 'jimbdhub_events',
-  medHistory: 'jimbdhub_med_history'
+  medHistory: 'jimbdhub_med_history',
+  medGroups: 'jimbdhub_med_groups'
 };
 
 // 本地数据库版本标记：升级完成后持久化，避免每次启动都误判为旧格式
@@ -176,6 +177,7 @@ function readRawData() {
     logs: load(KEYS.logs, []),
     sleeps: load(KEYS.sleeps, []),
     events: load(KEYS.events, []),
+    medGroups: load(KEYS.medGroups, []),
     version: readVersion(),
     // 旧格式：药物标记颜色存在主题里，按药品列表索引上色
     medColors: getTheme().medColors
@@ -184,13 +186,14 @@ function readRawData() {
 
 // 加密状态下的数据读取：先解密再按结构返回（需已解锁）
 async function readRawDataDecrypted() {
-  const [meds, medHistory, records, logs, sleeps, events] = await Promise.all([
+  const [meds, medHistory, records, logs, sleeps, events, medGroups] = await Promise.all([
     loadEncrypted(KEYS.meds, []),
     loadEncrypted(KEYS.medHistory, []),
     loadEncrypted(KEYS.records, []),
     loadEncrypted(KEYS.logs, []),
     loadEncrypted(KEYS.sleeps, []),
-    loadEncrypted(KEYS.events, [])
+    loadEncrypted(KEYS.events, []),
+    loadEncrypted(KEYS.medGroups, [])
   ]);
   return {
     meds,
@@ -199,6 +202,7 @@ async function readRawDataDecrypted() {
     logs,
     sleeps,
     events,
+    medGroups,
     version: readVersion(),
     medColors: getTheme().medColors
   };
@@ -315,6 +319,27 @@ function migrateMedHistory(h, medMap) {
   };
 }
 
+// 摄入组（用药组合预设）：{ id, name, items: [{ medicationId, boardId, name, unit, amount }] }
+// amount 始终表示「片/粒」数量，与服药记录中的 dose.amount 语义一致；
+// boardId 绑定具体板/瓶来源，便于精细管理（如同一药品分别放在家中/公司）。
+function migrateMedGroup(g) {
+  if (!g || typeof g !== 'object') return null;
+  const items = Array.isArray(g.items) ? g.items : [];
+  return {
+    ...g,
+    name: typeof g.name === 'string' ? g.name : '',
+    items: items
+      .filter(i => i && i.medicationId)
+      .map(i => ({
+        medicationId: i.medicationId,
+        boardId: i.boardId || null,
+        name: i.name || '',
+        unit: i.unit || '',
+        amount: Number(i.amount) > 0 ? Number(i.amount) : 1
+      }))
+  };
+}
+
 function migrateRecord(r, medMap, keepCompat = false) {
   let rec = r;
   // 旧格式：情绪记录中同时包含单条服药信息。
@@ -346,7 +371,8 @@ export const store = {
     logs: [],
     sleeps: [],
     events: [],
-    medHistory: []
+    medHistory: [],
+    medGroups: []
   },
   // 备忘录（用户数据）：未加密时直接读写 localStorage，加密时仅驻留内存 + 异步加密写
   memo: '',
@@ -426,6 +452,7 @@ export const store = {
     this.data.sleeps = raw.sleeps;
     this.data.events = raw.events;
     this.data.medHistory = raw.medHistory;
+    this.data.medGroups = raw.medGroups;
     try {
       this.memo = localStorage.getItem(MEMO_KEY) || '';
     } catch {
@@ -480,6 +507,7 @@ export const store = {
       save(KEYS.sleeps, this.data.sleeps);
       save(KEYS.events, this.data.events);
       save(KEYS.medHistory, this.data.medHistory);
+      save(KEYS.medGroups, this.data.medGroups);
       save(VERSION_KEY, CURRENT_DB_VERSION);
       try {
         localStorage.setItem(MEMO_KEY, this.memo || '');
@@ -551,6 +579,7 @@ export const store = {
       this.data.logs = upgraded.logs;
       this.data.sleeps = upgraded.sleeps;
       this.data.events = upgraded.events;
+      this.data.medGroups = (upgraded.medGroups || []).map(migrateMedGroup).filter(Boolean);
       // 旧调色板已按索引写入对应药品，从主题中移除，避免每次启动都触发升级
       if (Array.isArray(raw.medColors) && raw.medColors.length) {
         setTheme({ medColors: undefined }, 'Internal');
@@ -566,6 +595,7 @@ export const store = {
     this.data.logs = raw.logs;
     this.data.sleeps = raw.sleeps;
     this.data.events = raw.events;
+    this.data.medGroups = (raw.medGroups || []).map(migrateMedGroup).filter(Boolean);
     // 补写版本标记，避免下次启动误判为旧格式
     await this.persist();
   },
@@ -591,7 +621,8 @@ export const store = {
         saveEncrypted(KEYS.logs, this.data.logs),
         saveEncrypted(KEYS.sleeps, this.data.sleeps),
         saveEncrypted(KEYS.events, this.data.events),
-        saveEncrypted(KEYS.medHistory, this.data.medHistory)
+        saveEncrypted(KEYS.medHistory, this.data.medHistory),
+        saveEncrypted(KEYS.medGroups, this.data.medGroups)
       ]);
       save(VERSION_KEY, CURRENT_DB_VERSION);
     } else {
@@ -601,6 +632,7 @@ export const store = {
       save(KEYS.sleeps, this.data.sleeps);
       save(KEYS.events, this.data.events);
       save(KEYS.medHistory, this.data.medHistory);
+      save(KEYS.medGroups, this.data.medGroups);
       save(VERSION_KEY, CURRENT_DB_VERSION);
     }
   },
@@ -795,6 +827,30 @@ export const store = {
     this.notify('DeleteMedHistory');
   },
 
+  // ===== 摄入组（用药组合预设） =====
+  addMedGroup(group) {
+    const g = migrateMedGroup({ ...group, id: generateId() });
+    this.data.medGroups.push(g);
+    this.persist();
+    this.notify('AddMedGroup');
+    return g;
+  },
+
+  updateMedGroup(id, patch) {
+    const idx = this.data.medGroups.findIndex(g => g.id === id);
+    if (idx === -1) return;
+    const next = migrateMedGroup({ ...this.data.medGroups[idx], ...patch });
+    this.data.medGroups[idx] = next;
+    this.persist();
+    this.notify('UpdateMedGroup');
+  },
+
+  deleteMedGroup(id) {
+    this.data.medGroups = this.data.medGroups.filter(g => g.id !== id);
+    this.persist();
+    this.notify('DeleteMedGroup');
+  },
+
   addLog(log, reason = 'AddLog') {
     const l = { ...log, id: generateId(), timestamp: log.timestamp || Date.now() };
     this.data.logs.unshift(l);
@@ -902,6 +958,7 @@ export const store = {
       sleeps: this.data.sleeps,
       events: this.data.events,
       medHistory: this.data.medHistory,
+      medGroups: this.data.medGroups,
       language: getLanguage(),
       theme
     };
@@ -946,6 +1003,7 @@ export const store = {
     this.data.sleeps = [];
     this.data.events = [];
     this.data.medHistory = [];
+    this.data.medGroups = [];
     this.persist();
     this.notify('ClearAll');
   },
@@ -958,6 +1016,7 @@ export const store = {
     if ('sleeps' in data && !Array.isArray(data.sleeps)) return false;
     if ('events' in data && !Array.isArray(data.events)) return false;
     if ('medHistory' in data && !Array.isArray(data.medHistory)) return false;
+    if ('medGroups' in data && !Array.isArray(data.medGroups)) return false;
     if ('language' in data && typeof data.language !== 'string') return false;
     if ('theme' in data && (typeof data.theme !== 'object' || data.theme === null)) return false;
     return true;
@@ -991,6 +1050,7 @@ export const store = {
     this.data.sleeps = data.sleeps || [];
     this.data.events = data.events || [];
     this.data.medHistory = (data.medHistory || []).map(h => migrateMedHistory(h, medMap));
+    this.data.medGroups = (data.medGroups || []).map(migrateMedGroup).filter(Boolean);
     if (data.theme) {
       const theme = { ...data.theme };
       // 旧调色板已写入对应药品，不再写入主题

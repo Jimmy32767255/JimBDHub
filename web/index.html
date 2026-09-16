@@ -344,6 +344,15 @@
               </div>
               <div class="form-row">
                 <div class="form-field">
+                  <div class="form-label-row">
+                    <span class="form-label" data-i18n="records.medicationForm.groups">摄入组</span>
+                    <button type="button" class="btn btn-sm btn-ghost" id="medication-group-save" data-i18n="records.medicationForm.groupSave">保存当前选择</button>
+                  </div>
+                  <div class="doses-groups" id="medication-groups"></div>
+                </div>
+              </div>
+              <div class="form-row">
+                <div class="form-field">
                   <span class="form-label" data-i18n="records.medicationForm.doses">本次服用</span>
                   <div class="doses-filter-tags" id="doses-filter-tags"></div>
                   <div id="medication-doses-list"></div>
@@ -1195,6 +1204,31 @@
       <div class="form-actions">
         <button type="button" class="btn btn-primary" id="board-detail-close" data-i18n="common.close">关闭</button>
       </div>
+    </div>
+  </div>
+
+  <div class="modal" id="med-group-modal" aria-hidden="true">
+    <div class="modal-backdrop"></div>
+    <div class="modal-content">
+      <h3 data-i18n="records.medicationForm.groupNameTitle">保存摄入组</h3>
+      <form id="med-group-form">
+        <div class="form-row">
+          <label class="form-field">
+            <span class="form-label" data-i18n="records.medicationForm.groupName">名称</span>
+            <input type="text" id="med-group-name" data-i18n-placeholder="records.medicationForm.groupNamePlaceholder" placeholder="如：早间组合" required>
+          </label>
+        </div>
+        <div class="form-row">
+          <div class="form-field">
+            <span class="form-label" data-i18n="records.medicationForm.groupItems">包含药品</span>
+            <div class="doses-groups-preview" id="med-group-preview"></div>
+          </div>
+        </div>
+        <div class="form-actions">
+          <button type="button" class="btn btn-ghost" id="med-group-cancel" data-i18n="common.cancel">取消</button>
+          <button type="submit" class="btn btn-primary" data-i18n="common.save">保存</button>
+        </div>
+      </form>
     </div>
   </div>
 

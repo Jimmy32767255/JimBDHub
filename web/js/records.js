@@ -36,6 +36,11 @@ const medicationDate = document.getElementById('medication-date');
 const medicationDatePeriod = document.getElementById('medication-date-period');
 const medicationPeriodGroup = document.getElementById('medication-period-group');
 const medicationDosesList = document.getElementById('medication-doses-list');
+const medicationGroupSaveBtn = document.getElementById('medication-group-save');
+const medGroupModal = document.getElementById('med-group-modal');
+const medGroupForm = document.getElementById('med-group-form');
+const medGroupNameInput = document.getElementById('med-group-name');
+const medGroupPreview = document.getElementById('med-group-preview');
 const medicationNoteInput = document.getElementById('medication-note');
 const medicationCancelBtn = document.getElementById('medication-cancel');
 
@@ -369,6 +374,7 @@ function renderDoses(selectedDoses = []) {
     medicationDosesList.appendChild(block);
   });
   renderDosesTagFilter();
+  renderMedGroups();
 }
 
 function getAllMedTags() {
@@ -415,6 +421,184 @@ function renderDosesTagFilter() {
     hint.textContent = t('meds.form.tagFilterHint');
     dosesFilterTags.appendChild(hint);
   }
+}
+
+// 「摄入组」：把一组固定搭配的药品（含各自数量与板/瓶来源）保存为预设，一键完成整组记录。
+// 组内条目含 boardId 绑定具体板/瓶，便于精细管理（如同一药品分别放在家中/公司）。
+let pendingGroupItems = [];
+
+// 组内条目的板/瓶标签（与记录页渲染保持一致）；单容器/散装或找不到时返回空。
+function groupItemBoardLabel(item) {
+  if (!item || !item.boardId) return '';
+  const med = store.data.meds.find(m => m.id === item.medicationId);
+  const boards = med && Array.isArray(med.boards) ? med.boards : null;
+  if (!boards || boards.length <= 1) return '';
+  const effMed = { ...med, boards: boards.map(b => ({ ...b })) };
+  const boardUnit = med.unit === '片' ? t('unit.board') : t('unit.bottle');
+  const groups = groupBoardsByBox(effMed);
+  for (const g of groups) {
+    const idx = g.boards.findIndex(b => b.id === item.boardId);
+    if (idx < 0) continue;
+    const within = `${boardUnit} ${idx + 1}`;
+    return g.boxIndex != null ? `${t('meds.boardDetail.boxLabel', { n: g.boxIndex + 1 })} ${within}` : within;
+  }
+  return '';
+}
+
+// 组内容摘要（含板/瓶来源）
+function medGroupSummary(group) {
+  return (group.items || [])
+    .map(i => {
+      const src = groupItemBoardLabel(i);
+      return `${i.name || i.medicationId} ${i.amount}${i.unit || ''}${src ? `（${src}）` : ''}`;
+    })
+    .join('、');
+}
+
+// 返回组内已失效的条目描述（药品被删除 / 绑定板、瓶已不存在）；全部有效时返回空数组。
+function medGroupInvalidItems(group) {
+  const invalid = [];
+  (group.items || []).forEach(item => {
+    const med = store.data.meds.find(m => m.id === item.medicationId);
+    if (!med) {
+      invalid.push(`${item.name || item.medicationId}（${t('records.medicationForm.groupMissingMed')}）`);
+      return;
+    }
+    const boards = Array.isArray(med.boards) ? med.boards : [];
+    if (!item.boardId || !boards.some(b => b.id === item.boardId)) {
+      invalid.push(`${item.name || med.name}（${t('records.medicationForm.groupMissingBoard')}）`);
+    }
+  });
+  return invalid;
+}
+
+// 应用摄入组：先校验组内所有药品及其绑定的板/瓶是否存在，
+// 若任一已失效（药品被删/板被重建），不自动回退，而是通知用户手动重建该组，避免误扣到错误容器。
+// 校验通过后清空当前勾选，再按绑定关系勾选对应板/瓶并填入数量。
+// 若当前标签筛选隐藏了部分药品，先重置筛选以保证整组可用。
+function applyMedGroup(group) {
+  const items = group.items || [];
+  if (!items.length) return;
+  const invalid = medGroupInvalidItems(group);
+  if (invalid.length) {
+    showAlert(t('records.medicationForm.groupInvalid', { items: invalid.join('、') }));
+    return;
+  }
+  const allRendered = items.every(i => medicationDosesList.querySelector(`.dose-med[data-med-id="${i.medicationId}"]`));
+  if (!allRendered && dosesSelectedTags.length) {
+    dosesSelectedTags = [];
+    renderDoses();
+  }
+  medicationDosesList.querySelectorAll('.dose-board-check').forEach(check => {
+    check.checked = false;
+    const amount = check.closest('.dose-board-row')?.querySelector('.dose-amount');
+    if (amount) amount.disabled = true;
+  });
+  items.forEach(item => {
+    const block = medicationDosesList.querySelector(`.dose-med[data-med-id="${item.medicationId}"]`);
+    if (!block) return;
+    const row = item.boardId
+      ? Array.from(block.querySelectorAll('.dose-board-row'))
+          .find(r => r.querySelector('.dose-board-check')?.dataset.boardId === item.boardId)
+      : null;
+    if (!row) return;
+    const check = row.querySelector('.dose-board-check');
+    const amount = row.querySelector('.dose-amount');
+    if (!check || !amount) return;
+    check.checked = true;
+    amount.disabled = false;
+    amount.value = String(item.amount);
+  });
+}
+
+async function confirmDeleteMedGroup(group) {
+  if (!(await showConfirm(t('records.medicationForm.groupDeleteConfirm', { name: group.name })))) return;
+  store.deleteMedGroup(group.id);
+}
+
+// 渲染摄入组按钮：点击应用整组，右侧按钮删除。无预设时显示提示。
+function renderMedGroups() {
+  const container = document.getElementById('medication-groups');
+  if (!container) return;
+  container.innerHTML = '';
+  const groups = store.data.medGroups || [];
+  if (!groups.length) {
+    const hint = document.createElement('span');
+    hint.className = 'med-db-tag-hint';
+    hint.textContent = t('records.medicationForm.groupEmptyHint');
+    container.appendChild(hint);
+    return;
+  }
+  groups.forEach(group => {
+    const invalid = medGroupInvalidItems(group);
+    const chip = document.createElement('div');
+    chip.className = 'doses-group';
+    if (invalid.length) chip.classList.add('doses-group-invalid');
+    const applyBtn = document.createElement('button');
+    applyBtn.type = 'button';
+    applyBtn.className = 'doses-group-apply';
+    applyBtn.textContent = group.name;
+    applyBtn.title = invalid.length
+      ? t('records.medicationForm.groupInvalid', { items: invalid.join('、') })
+      : medGroupSummary(group);
+    applyBtn.addEventListener('click', () => applyMedGroup(group));
+    const delBtn = document.createElement('button');
+    delBtn.type = 'button';
+    delBtn.className = 'doses-group-del';
+    delBtn.textContent = '×';
+    delBtn.setAttribute('aria-label', t('common.delete'));
+    delBtn.addEventListener('click', () => confirmDeleteMedGroup(group));
+    chip.appendChild(applyBtn);
+    chip.appendChild(delBtn);
+    container.appendChild(chip);
+  });
+}
+
+// 打开「保存摄入组」弹窗：以当前勾选为内容（每药每板/瓶一条），确认后请用户命名。
+function openSaveGroupModal() {
+  const doses = collectDoses();
+  if (!doses.length) {
+    showAlert(t('records.medicationForm.groupEmpty'));
+    return;
+  }
+  const items = doses
+    .filter(d => d.medicationId)
+    .map(d => ({
+      medicationId: d.medicationId,
+      boardId: d.boardId || null,
+      name: d.name,
+      unit: d.unit,
+      amount: Math.round((Number(d.amount) || 0) * 100) / 100
+    }));
+  if (!items.length) {
+    showAlert(t('records.medicationForm.groupEmpty'));
+    return;
+  }
+  pendingGroupItems = items;
+  medGroupPreview.innerHTML = '';
+  items.forEach(item => {
+    const src = groupItemBoardLabel(item);
+    const chip = document.createElement('span');
+    chip.className = 'doses-group-chip';
+    chip.textContent = `${item.name} ${item.amount}${item.unit}${src ? `（${src}）` : ''}`;
+    medGroupPreview.appendChild(chip);
+  });
+  medGroupNameInput.value = '';
+  medGroupModal.setAttribute('aria-hidden', 'false');
+  medGroupNameInput.focus();
+}
+
+function closeSaveGroupModal() {
+  medGroupModal.setAttribute('aria-hidden', 'true');
+}
+
+function handleSaveGroupSubmit(e) {
+  e.preventDefault();
+  const name = medGroupNameInput.value.trim();
+  if (!name || !pendingGroupItems.length) return;
+  store.addMedGroup({ name, items: pendingGroupItems });
+  pendingGroupItems = [];
+  closeSaveGroupModal();
 }
 
 function collectDoses() {
@@ -1023,6 +1207,10 @@ function initRecords() {
 
   medicationCancelBtn?.addEventListener('click', resetMedicationForm);
   medicationForm?.addEventListener('submit', handleMedicationSubmit);
+  medicationGroupSaveBtn?.addEventListener('click', openSaveGroupModal);
+  document.getElementById('med-group-cancel')?.addEventListener('click', closeSaveGroupModal);
+  medGroupModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeSaveGroupModal);
+  medGroupForm?.addEventListener('submit', handleSaveGroupSubmit);
 
   formTabs.forEach(tab => {
     tab.addEventListener('click', () => switchForm(tab.dataset.form));
@@ -1125,8 +1313,14 @@ function initRecords() {
     }
   });
 
-  store.subscribe(() => renderRecords());
-  subscribe(() => renderRecords());
+  store.subscribe(() => {
+    renderRecords();
+    renderMedGroups();
+  });
+  subscribe(() => {
+    renderRecords();
+    renderMedGroups();
+  });
   subscribeTheme(() => {
     applySimpleModeUI();
     renderRecords();

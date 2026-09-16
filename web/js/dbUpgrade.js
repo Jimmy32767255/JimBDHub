@@ -211,6 +211,25 @@ function splitRecordDoses(r, medMap) {
   return { moodRecord, medicationRecord };
 }
 
+// 摄入组（用药组合预设）归一化：过滤无效条目，amount 回退为 1；保留 boardId 绑定。
+function normalizeMedGroup(g) {
+  if (!g || typeof g !== 'object') return null;
+  const items = Array.isArray(g.items) ? g.items : [];
+  return {
+    ...g,
+    name: typeof g.name === 'string' ? g.name : '',
+    items: items
+      .filter(i => i && i.medicationId)
+      .map(i => ({
+        medicationId: i.medicationId,
+        boardId: i.boardId || null,
+        name: i.name || '',
+        unit: i.unit || '',
+        amount: Number(i.amount) > 0 ? Number(i.amount) : 1
+      }))
+  };
+}
+
 function upgradeData(data) {
   const result = {
     version: CURRENT_DB_VERSION,
@@ -219,7 +238,8 @@ function upgradeData(data) {
     logs: [],
     sleeps: [],
     events: [],
-    medHistory: []
+    medHistory: [],
+    medGroups: []
   };
 
   result.meds = (data.meds || []).map(m => normalizeMed(m));
@@ -269,6 +289,7 @@ function upgradeData(data) {
   result.logs = Array.isArray(data.logs) ? data.logs : [];
   result.sleeps = Array.isArray(data.sleeps) ? data.sleeps : [];
   result.events = Array.isArray(data.events) ? data.events : [];
+  result.medGroups = Array.isArray(data.medGroups) ? data.medGroups.map(normalizeMedGroup).filter(Boolean) : [];
 
   return result;
 }

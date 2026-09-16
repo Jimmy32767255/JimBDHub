@@ -1671,6 +1671,65 @@ html.no-animations *::after {
 }
 .doses-empty { font-size: 13px; color: var(--theme-text-muted); }
 
+.doses-groups {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+  margin-bottom: 10px;
+}
+.doses-group {
+  display: inline-flex;
+  align-items: center;
+  border: 1px solid var(--theme-surface-2);
+  background: var(--theme-surface-alt);
+  border-radius: 20px;
+  overflow: hidden;
+  transition: all 0.15s;
+}
+.doses-group:hover {
+  border-color: var(--theme-accent);
+}
+.doses-group-apply {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: var(--theme-text);
+  padding: 3px 4px 3px 12px;
+  font-size: 12px;
+  font-family: inherit;
+  cursor: pointer;
+}
+.doses-group-apply:hover { color: var(--theme-accent); }
+.doses-group-del {
+  display: inline-flex;
+  align-items: center;
+  background: transparent;
+  border: none;
+  color: var(--theme-text-muted);
+  padding: 3px 10px 3px 4px;
+  font-size: 14px;
+  line-height: 1;
+  font-family: inherit;
+  cursor: pointer;
+}
+.doses-group-del:hover { color: var(--theme-danger, #ef4444); }
+.doses-group-invalid .doses-group-apply { color: var(--theme-danger-text, #ef4444); }
+.doses-groups-preview {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+.doses-group-chip {
+  display: inline-flex;
+  background: var(--theme-surface-alt);
+  border: 1px solid var(--theme-surface-2);
+  border-radius: 20px;
+  padding: 3px 12px;
+  font-size: 12px;
+  color: var(--theme-text);
+}
+
 .quality-badge {
   display: inline-flex;
   align-items: center;
