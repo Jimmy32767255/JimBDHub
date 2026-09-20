@@ -112,6 +112,8 @@
   "common.ok": "确定",
   "common.save": "保存",
   "common.confirm": "确认",
+  "common.boundLower": "下限",
+  "common.boundUpper": "上限",
   "common.edit": "编辑",
   "common.delete": "删除",
   "records.memo.title": "备忘录",

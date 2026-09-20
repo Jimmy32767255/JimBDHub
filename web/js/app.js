@@ -48,7 +48,6 @@ const chartViews = {
     panel: document.getElementById('events-chart-panel')
   }
 };
-const chartDisclaimer = document.getElementById('chart-disclaimer');
 const sidebar = document.getElementById('sidebar');
 const sidebarCloseBtn = document.getElementById('sidebar-close-btn');
 const menuToggle = document.getElementById('menu-toggle');
@@ -383,13 +382,6 @@ function getChartTimeRange(records, sleeps, events) {
 
 let _viewRestored = false;
 
-function updateChartDisclaimer() {
-  if (!chartDisclaimer) return;
-  const { connectMoodDots } = getTheme();
-  const moodKey = connectMoodDots !== false ? 'chart.disclaimer.connected' : 'chart.disclaimer.dotsOnly';
-  chartDisclaimer.textContent = t(moodKey) + ' ' + t('chart.disclaimer.effect');
-}
-
 function computeDepletionData() {
   return store.data.meds
     .map((med, idx) => {
@@ -563,7 +555,6 @@ function drawChart() {
   saveViewPosition();
   savePage(currentPage);
   updatePageControls();
-  updateChartDisclaimer();
 }
 
 function setupLongPress(el, action) {
@@ -891,7 +882,6 @@ function continueInit() {
   });
   subscribe(() => {
     updateDOM();
-    updateChartDisclaimer();
     pageTitle.textContent = t('page.' + (location.hash.slice(1) || 'overview'));
     if (views.overview.classList.contains('view-active')) {
       drawChart();
@@ -904,7 +894,6 @@ function continueInit() {
       lastAutoLockTimeout = timeout;
       if (store.hasPassword() && store.isUnlocked()) startAutoLock();
     }
-    updateChartDisclaimer();
     if (views.overview.classList.contains('view-active')) {
       drawChart();
     }

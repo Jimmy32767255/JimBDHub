@@ -1179,13 +1179,13 @@ function showPasswordDialog(mode) {
     if (newInput) newInput.value = '';
     if (confirmInput) confirmInput.value = '';
     if (err) err.textContent = '';
-    if (encryptDialog) encryptDialog.setAttribute('aria-hidden', 'false');
+    if (encryptDialog) encryptDialog.hidden = false;
     (mode === 'enable' ? newInput : oldInput)?.focus();
   });
 }
 
 function closePasswordDialog(result) {
-  if (encryptDialog) encryptDialog.setAttribute('aria-hidden', 'true');
+  if (encryptDialog) encryptDialog.hidden = true;
   if (encryptDialogResolver) {
     encryptDialogResolver(result);
     encryptDialogResolver = null;

@@ -29,11 +29,11 @@ function showContributorsModal() {
   if (contributorsListEl && !contributorsListEl.children.length) {
     loadContributors();
   }
-  contributorsModal.setAttribute('aria-hidden', 'false');
+  contributorsModal.hidden = false;
 }
 
 function closeContributorsModal() {
-  if (contributorsModal) contributorsModal.setAttribute('aria-hidden', 'true');
+  if (contributorsModal) contributorsModal.hidden = true;
 }
 
 // 用系统浏览器打开项目仓库：优先走平台桥接，纯浏览器环境退回 window.open
@@ -235,7 +235,7 @@ export function initAbout() {
   document.getElementById('contributors-close-btn')?.addEventListener('click', closeContributorsModal);
   contributorsModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeContributorsModal);
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && contributorsModal && contributorsModal.getAttribute('aria-hidden') === 'false') {
+    if (e.key === 'Escape' && contributorsModal && !contributorsModal.hidden) {
       closeContributorsModal();
     }
   });

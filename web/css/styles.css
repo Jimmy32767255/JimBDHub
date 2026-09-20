@@ -627,14 +627,6 @@ textarea::placeholder {
   cursor: pointer;
   flex-shrink: 0;
 }
-.chart-disclaimer {
-  margin: 0;
-  padding: 10px 16px 14px;
-  font-size: 12px;
-  color: var(--theme-text-muted);
-  border-top: 1px solid var(--theme-surface-2);
-  line-height: 1.5;
-}
 
 .meds-layout {
   display: grid;
@@ -2038,7 +2030,10 @@ html.no-animations *::after {
   justify-content: center;
   padding: 16px;
 }
-.modal[aria-hidden="false"] { display: flex; }
+/* 弹窗开合以 hidden 属性为唯一状态来源。
+   不使用 aria-hidden 标记关闭态：display:none 已让内容整体退出无障碍树，
+   再对含可聚焦控件的容器加 aria-hidden="true" 反而违反 WAI-ARIA 规范。 */
+.modal:not([hidden]) { display: flex; }
 .modal-backdrop {
   position: absolute;
   inset: 0;
@@ -2373,3 +2368,12 @@ html.no-animations *::after {
 .contributor-item-commit {
   font-family: monospace;
 }
+
+/* 少量布局微调曾以内联 style 写在 index.html 中，改为工具类以符合内容/样式分离 */
+.u-mt-12 { margin-top: 12px; }
+.u-mt-8 { margin-top: 8px; }
+.u-max-w-100 { max-width: 100px; }
+.u-max-w-120 { max-width: 120px; }
+.u-max-w-220 { max-width: 220px; }
+.u-max-w-260 { max-width: 260px; }
+.u-p-0 { padding: 0; }

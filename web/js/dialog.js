@@ -23,13 +23,13 @@ function processQueue() {
     okBtn.dataset.i18n = 'common.ok';
     okBtn.textContent = t('common.ok');
   }
-  dialog.setAttribute('aria-hidden', 'false');
+  dialog.hidden = false;
   okBtn.focus();
 }
 
 function close(result) {
   if (!currentResolve) return;
-  dialog.setAttribute('aria-hidden', 'true');
+  dialog.hidden = true;
   currentResolve(result);
   currentResolve = null;
   processQueue();
@@ -44,7 +44,7 @@ cancelBtn.addEventListener('click', () => close(false));
 backdrop.addEventListener('click', () => close(isCancelVisible() ? false : true));
 
 document.addEventListener('keydown', (e) => {
-  if (e.key === 'Escape' && dialog.getAttribute('aria-hidden') === 'false') {
+  if (e.key === 'Escape' && !dialog.hidden) {
     close(isCancelVisible() ? false : true);
   }
 });

@@ -112,6 +112,8 @@
   "common.ok": "OK",
   "common.save": "Save",
   "common.confirm": "Confirm",
+  "common.boundLower": "Lower",
+  "common.boundUpper": "Upper",
   "common.edit": "Edit",
   "common.delete": "Delete",
   "records.memo.title": "Memo",

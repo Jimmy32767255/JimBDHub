@@ -155,13 +155,13 @@ function openModal() {
   const total = getTotal(stats);
   countInput.value = total || 1;
   updateHint(stats);
-  modal.setAttribute('aria-hidden', 'false');
+  modal.hidden = false;
   countInput.focus();
   countInput.select();
 }
 
 function closeModal() {
-  if (modal) modal.setAttribute('aria-hidden', 'true');
+  if (modal) modal.hidden = true;
 }
 
 async function onConfirm() {
@@ -189,13 +189,13 @@ export function initMdExport() {
   countInput?.addEventListener('input', () => updateHint(countStats()));
   modal?.querySelector('.modal-backdrop')?.addEventListener('click', closeModal);
   document.addEventListener('keydown', (e) => {
-    if (e.key === 'Escape' && modal && modal.getAttribute('aria-hidden') === 'false') {
+    if (e.key === 'Escape' && modal && !modal.hidden) {
       closeModal();
     }
   });
   // 语言切换时若弹窗已打开，用新语言刷新提示文案
   subscribe(() => {
-    if (modal && modal.getAttribute('aria-hidden') === 'false') {
+    if (modal && !modal.hidden) {
       updateHint(countStats());
     }
   });

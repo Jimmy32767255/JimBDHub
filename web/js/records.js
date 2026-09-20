@@ -584,12 +584,12 @@ function openSaveGroupModal() {
     medGroupPreview.appendChild(chip);
   });
   medGroupNameInput.value = '';
-  medGroupModal.setAttribute('aria-hidden', 'false');
+  medGroupModal.hidden = false;
   medGroupNameInput.focus();
 }
 
 function closeSaveGroupModal() {
-  medGroupModal.setAttribute('aria-hidden', 'true');
+  medGroupModal.hidden = true;
 }
 
 function handleSaveGroupSubmit(e) {

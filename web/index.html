@@ -19,7 +19,7 @@
         <h1 class="unlock-title">JimBDHub</h1>
         <p class="unlock-subtitle" data-i18n="unlock.subtitle">数据已加密，请输入主密码解锁</p>
         <form id="unlock-form" class="unlock-form">
-          <input type="password" id="unlock-password" class="unlock-input" autocomplete="current-password" data-i18n-aria="unlock.passwordPlaceholder" placeholder="主密码">
+          <label for="unlock-password"></label><input type="password" id="unlock-password" class="unlock-input" autocomplete="current-password" data-i18n-aria="unlock.passwordPlaceholder" placeholder="主密码">
           <button type="submit" class="btn btn-primary btn-block" data-i18n="unlock.unlockButton">解锁</button>
           <button type="button" id="unlock-biometric-btn" class="btn btn-ghost btn-block" hidden>
             <span data-i18n="unlock.biometricButton">使用指纹 / 面容解锁</span>
@@ -33,7 +33,7 @@
       <div class="brand">
         <img class="brand-icon" src="JimBDHubIcon256.png" alt="JimBDHub">
         <h1 class="brand-title">JimBDHub</h1>
-        <button class="sidebar-close-btn" id="sidebar-close-btn" aria-label="收起侧边栏" data-i18n-aria="aria.sidebarCollapse">✕</button>
+        <button type="button" class="sidebar-close-btn" id="sidebar-close-btn" aria-label="收起侧边栏" data-i18n-aria="aria.sidebarCollapse">✕</button>
       </div>
       <nav class="nav" aria-label="主导航" data-i18n-aria="aria.mainNav">
         <!--suppress HtmlUnknownAnchorTarget -->
@@ -67,28 +67,28 @@
 
     <main class="main">
       <header class="topbar">
-        <button class="menu-toggle" id="menu-toggle" aria-label="打开菜单" data-i18n-aria="aria.menuToggle">
+        <button type="button" class="menu-toggle" id="menu-toggle" aria-label="打开菜单" data-i18n-aria="aria.menuToggle">
           <svg viewBox="0 0 24 24" width="24" height="24" stroke="currentColor" stroke-width="2" fill="none" stroke-linecap="round" stroke-linejoin="round"><line x1="3" y1="12" x2="21" y2="12"/><line x1="3" y1="6" x2="21" y2="6"/><line x1="3" y1="18" x2="21" y2="18"/></svg>
         </button>
         <h2 class="page-title" id="page-title" data-i18n="page.overview">概览</h2>
       </header>
 
-      <section class="view view-active" id="overview-view" aria-labelledby="page-title">
+      <section class="view view-active" id="overview-view" aria-label="概览" data-i18n-aria="page.overview">
         <div class="card chart-card overview-chart-card">
           <div class="chart-toolbar">
             <div class="page-controls hidden" id="page-controls">
-              <button class="page-btn" id="chart-prev-page" aria-label="上一页" data-i18n-aria="chart.prevPage">‹</button>
+              <button type="button" class="page-btn" id="chart-prev-page" aria-label="上一页" data-i18n-aria="chart.prevPage">‹</button>
               <span class="page-info" id="page-info">1 / 1</span>
-              <button class="page-btn" id="chart-next-page" aria-label="下一页" data-i18n-aria="chart.nextPage">›</button>
+              <button type="button" class="page-btn" id="chart-next-page" aria-label="下一页" data-i18n-aria="chart.nextPage">›</button>
             </div>
             <div class="zoom-controls">
-              <button class="zoom-btn" id="zoom-out" aria-label="Zoom out">−</button>
+              <button type="button" class="zoom-btn" id="zoom-out" aria-label="Zoom out">−</button>
               <span class="zoom-scale" id="zoom-scale">
                 <span class="zoom-ruler"></span>
                 <span class="zoom-info" id="zoom-info">12px/hr</span>
               </span>
-              <button class="zoom-btn" id="zoom-in" aria-label="Zoom in">+</button>
-              <button class="zoom-btn reset" id="zoom-reset" data-i18n="chart.zoomReset">重置</button>
+              <button type="button" class="zoom-btn" id="zoom-in" aria-label="Zoom in">+</button>
+              <button type="button" class="zoom-btn reset" id="zoom-reset" data-i18n="chart.zoomReset">重置</button>
             </div>
             <span class="sampling-rate" id="chart-sampling-rate" hidden></span>
           </div>
@@ -173,12 +173,12 @@
         </div>
       </section>
 
-      <section class="view" id="meds-view" aria-labelledby="page-title">
+      <section class="view" id="meds-view" aria-label="药品库" data-i18n-aria="page.meds">
         <div class="meds-layout">
           <div class="card meds-table-card">
             <div class="card-header">
               <h3 data-i18n="meds.header.title">药品库存</h3>
-              <button class="btn btn-primary btn-sm" id="add-med-btn" data-i18n="meds.header.add">新增药品</button>
+              <button type="button" class="btn btn-primary btn-sm" id="add-med-btn" data-i18n="meds.header.add">新增药品</button>
             </div>
             <div class="meds-filter-bar">
               <div class="meds-filter-tags" id="meds-filter-tags"></div>
@@ -187,12 +187,12 @@
               <table class="data-table" id="meds-table">
                 <thead>
                   <tr>
-                    <th data-i18n="meds.table.name">名称</th>
-                    <th data-i18n="meds.table.category">分类</th>
-                    <th data-i18n="meds.table.remaining">剩余</th>
-                    <th data-i18n="meds.table.details">详细数量</th>
-                    <th data-i18n="meds.table.note">备注</th>
-                    <th data-i18n="meds.table.action">操作</th>
+                    <th scope="col" data-i18n="meds.table.name">名称</th>
+                    <th scope="col" data-i18n="meds.table.category">分类</th>
+                    <th scope="col" data-i18n="meds.table.remaining">剩余</th>
+                    <th scope="col" data-i18n="meds.table.details">详细数量</th>
+                    <th scope="col" data-i18n="meds.table.note">备注</th>
+                    <th scope="col" data-i18n="meds.table.action">操作</th>
                   </tr>
                 </thead>
                 <tbody></tbody>
@@ -210,8 +210,8 @@
                   <option value="90" data-i18n="records.history.period.quarter">最近 90 天</option>
                   <option value="custom" data-i18n="records.history.period.custom">自选时间段</option>
                 </select>
-                <button class="btn btn-primary btn-sm" id="add-log-btn" data-i18n="meds.logs.add">添加变更日志</button>
-                <button class="btn btn-ghost btn-sm" id="logs-batch-btn">批量管理</button>
+                <button type="button" class="btn btn-primary btn-sm" id="add-log-btn" data-i18n="meds.logs.add">添加变更日志</button>
+                <button type="button" class="btn btn-ghost btn-sm" id="logs-batch-btn">批量管理</button>
               </div>
             </div>
             <div class="meds-filter-bar">
@@ -240,13 +240,13 @@
                 <strong id="logs-batch-count">0</strong>
                 <span data-i18n="meds.logs.batchSelectedUnit">条</span>
               </span>
-              <button class="btn btn-danger btn-sm" id="logs-batch-delete" data-i18n="meds.logs.batchDelete">删除所选</button>
+              <button type="button" class="btn btn-danger btn-sm" id="logs-batch-delete" data-i18n="meds.logs.batchDelete">删除所选</button>
             </div>
           </div>
         </div>
       </section>
 
-      <section class="view" id="records-view" aria-labelledby="page-title">
+      <section class="view" id="records-view" aria-label="记录" data-i18n-aria="page.records">
         <div class="records-layout">
           <div class="card record-form-card">
             <div class="card-header">
@@ -277,7 +277,7 @@
                   <span class="form-label" data-i18n="records.moodForm.date">日期</span>
                   <input type="date" id="record-date-period" required>
                 </label>
-                <div class="form-field" style="margin-top: 12px;">
+                <div class="form-field u-mt-12">
                   <span class="form-label" data-i18n="records.moodForm.period">时段</span>
                   <div class="segmented-control" id="record-period-group">
                     <button type="button" class="segment-btn active" data-period="morning" data-i18n="settings.simpleMode.morning">早</button>
@@ -287,21 +287,21 @@
                 </div>
               </div>
               <div class="form-row two-col">
-                <label class="form-field">
-                  <span class="form-label"><span data-i18n="records.moodForm.value">情绪值</span> <output id="value-out">0</output></span>
+                <div class="form-field">
+                  <span class="form-label"><label for="record-value" data-i18n="records.moodForm.value">情绪值</label> <output id="value-out">0</output></span>
                   <input type="range" id="record-value" min="-10" max="10" step="1" value="0">
                   <span class="range-hint" data-i18n="records.moodForm.valueHint">负值偏抑郁，正值偏躁狂</span>
-                </label>
+                </div>
                 <label class="form-field checkbox-field">
                   <input type="checkbox" id="record-mixed">
                   <span data-i18n="records.moodForm.mixed">混合期（同时存在相反情绪）</span>
                 </label>
               </div>
               <div class="form-row" id="mixed-value-row" hidden>
-                <label class="form-field">
-                  <span class="form-label"><span data-i18n="records.moodForm.mixedValue">混合情绪值</span> <output id="mixed-value-out">0</output></span>
+                <div class="form-field">
+                  <span class="form-label"><label for="record-mixed-value" data-i18n="records.moodForm.mixedValue">混合情绪值</label> <output id="mixed-value-out">0</output></span>
                   <input type="range" id="record-mixed-value" min="-10" max="10" step="1" value="0">
-                </label>
+                </div>
               </div>
               <div class="form-row">
                 <label class="form-field">
@@ -333,7 +333,7 @@
                   <span class="form-label" data-i18n="records.medicationForm.date">日期</span>
                   <input type="date" id="medication-date-period" required>
                 </label>
-                <div class="form-field" style="margin-top: 12px;">
+                <div class="form-field u-mt-12">
                   <span class="form-label" data-i18n="records.medicationForm.period">时段</span>
                   <div class="segmented-control" id="medication-period-group">
                     <button type="button" class="segment-btn active" data-period="morning" data-i18n="settings.simpleMode.morning">早</button>
@@ -436,11 +436,11 @@
                 </label>
               </div>
               <div class="form-row">
-                <label class="form-field">
-                  <span class="form-label"><span data-i18n="records.sleepForm.quality">睡眠质量</span> <output id="sleep-quality-out">3</output> / 5</span>
+                <div class="form-field">
+                  <span class="form-label"><label for="sleep-quality" data-i18n="records.sleepForm.quality">睡眠质量</label> <output id="sleep-quality-out">3</output> / 5</span>
                   <input type="range" id="sleep-quality" min="0" max="5" step="1" value="3">
                   <span class="range-hint" data-i18n="records.sleepForm.qualityHint">0 最差，5 最好</span>
-                </label>
+                </div>
               </div>
               <div class="form-row">
                 <div class="form-field">
@@ -509,7 +509,7 @@
         </div>
       </section>
 
-      <section class="view" id="settings-view" aria-labelledby="page-title">
+      <section class="view" id="settings-view" aria-label="设置" data-i18n-aria="page.settings">
         <div class="card settings-search-card">
           <div class="card-header">
             <h3 data-i18n="settings.search.title">搜索设置</h3>
@@ -627,7 +627,7 @@
               <div class="background-controls" id="background-image-control" hidden>
                 <input type="file" id="theme-background-image" accept="image/*">
                 <button type="button" class="btn btn-ghost btn-sm" id="theme-clear-background-image" data-i18n="common.clear">清除</button>
-                <label class="checkbox-field" style="margin-top: 0.5rem;">
+                <label class="checkbox-field u-mt-8">
                   <input type="checkbox" id="theme-background-image-auto-color">
                   <span data-i18n="settings.background.autoColor">根据背景图片自动取色</span>
                 </label>
@@ -662,7 +662,7 @@
             </div>
             <div class="setting-group">
               <h4 data-i18n="settings.appearance.customCss">自定义 CSS（高级）</h4>
-              <textarea id="custom-css-input" class="custom-css-input" rows="6" spellcheck="false" data-i18n-placeholder="settings.appearance.customCssPlaceholder"></textarea>
+              <label for="custom-css-input"></label><textarea id="custom-css-input" class="custom-css-input" rows="6" spellcheck="false" data-i18n-placeholder="settings.appearance.customCssPlaceholder"></textarea>
               <div class="settings-actions">
                 <button type="button" class="btn btn-primary" id="custom-css-save-btn" data-i18n="settings.appearance.customCssSave">保存并应用</button>
               </div>
@@ -723,7 +723,7 @@
             </div>
             <div class="setting-group">
               <h4 data-i18n="settings.display.recordLoadLimit">记录加载上限</h4>
-              <label for="records-load-limit"></label><input type="number" id="records-load-limit" min="100" max="1000" step="50" class="form-field" style="max-width: 120px">
+              <label for="records-load-limit"></label><input type="number" id="records-load-limit" min="100" max="1000" step="50" class="form-field u-max-w-120">
               <small class="form-hint" data-i18n="settings.display.recordLoadLimitHint">列表与图表单次最多加载的记录条数（100~1000）。记录较多时调低可避免卡顿，调高可查看更多历史记录</small>
             </div>
           </div>
@@ -735,7 +735,7 @@
           <div class="settings-section">
             <div class="setting-group">
               <h4 data-i18n="settings.format.timeFormat">时间格式</h4>
-              <label for="time-format-input"></label><input type="text" id="time-format-input" class="form-field" style="max-width: 260px" spellcheck="false" data-i18n-placeholder="settings.format.timeFormatPlaceholder" placeholder="YYYY/MM/DD.HH:mm">
+              <label for="time-format-input"></label><input type="text" id="time-format-input" class="form-field u-max-w-260" spellcheck="false" data-i18n-placeholder="settings.format.timeFormatPlaceholder" placeholder="YYYY/MM/DD.HH:mm">
               <small class="form-hint" id="time-format-preview"></small>
               <small class="form-hint" data-i18n="settings.format.timeFormatHint">可用占位符：YYYY=年、MM=月、DD=日、HH=时（24 小时制）、mm=分、SS=秒，其余字符原样输出。示例：YYYY/MM/DD.HH:mm 显示为 2026/09/06.15:16；留空后失焦即恢复默认。该格式用于记录页备忘录的“一键添加时间”按钮</small>
             </div>
@@ -789,12 +789,12 @@
             </div>
             <div class="setting-group">
               <h4 data-i18n="settings.meds.bodyWeight">体重</h4>
-              <label class="form-field" for="body-weight-kg" style="max-width: 100px"><input type="number" id="body-weight-kg" min="20" max="300" step="0.5"></label>
+              <label class="form-field u-max-w-100"><input type="number" id="body-weight-kg" min="20" max="300" step="0.5"></label>
               <small class="form-hint" data-i18n="settings.meds.bodyWeightHint">用于按个体体重换算分布容积，使血药浓度曲线与治疗窗更准确（默认 70 kg）</small>
             </div>
             <div class="setting-group">
               <h4 data-i18n="settings.meds.depletionReminderDays">耗尽提醒提前天数</h4>
-              <label for="depletion-reminder-days"></label><input type="number" id="depletion-reminder-days" min="0" max="30" step="1" class="form-field" style="max-width: 100px">
+              <label for="depletion-reminder-days"></label><input type="number" id="depletion-reminder-days" min="0" max="30" step="1" class="form-field u-max-w-100">
               <small class="form-hint" data-i18n="settings.meds.depletionReminderDaysHint">在聚合视图中，药品耗尽点前多少天开始显示虚线预警提示</small>
             </div>
             <div class="setting-group" id="med-history-group">
@@ -840,7 +840,7 @@
             <div class="setting-group">
               <p id="encryption-status" class="form-hint"></p>
               <p class="form-hint encryption-warning" data-i18n="settings.encryption.riskHint">加密后数据只能通过主密码解密，忘记密码将无法恢复任何数据。</p>
-              <div id="encryption-controls" class="settings-actions" style="padding: 0">
+              <div id="encryption-controls" class="settings-actions u-p-0">
                 <button type="button" class="btn btn-primary" id="encryption-enable-btn" hidden>
                   <span data-i18n="settings.encryption.enable">启用数据加密</span>
                 </button>
@@ -860,7 +860,7 @@
               <small class="form-hint" data-i18n="settings.encryption.biometricHint">使用指纹 / 面容代替输入主密码。生物认证凭据保存在设备安全存储中，切换设备或清除应用数据后需重新录入。</small>
             </div>
             <div class="setting-group" id="encryption-autolock-group">
-              <div class="form-field" style="max-width: 220px">
+              <div class="form-field u-max-w-220">
                 <label class="form-label" for="encryption-autolock-select" data-i18n="settings.encryption.autoLock">自动锁定时间</label>
                 <select id="encryption-autolock-select">
                   <option value="0" data-i18n="settings.encryption.autoLockImmediate">立即</option>
@@ -879,9 +879,9 @@
             <h3 data-i18n="settings.backup.title">数据备份</h3>
           </div>
           <div class="settings-actions">
-            <button class="btn btn-primary" id="export-backup-btn" data-i18n="settings.backup.export">导出备份</button>
-            <button class="btn btn-ghost" id="import-backup-btn" data-i18n="settings.backup.import">导入备份</button>
-            <button class="btn btn-ghost" id="export-md-btn" data-i18n="settings.mdexport.button">导出为 Markdown</button>
+            <button type="button" class="btn btn-primary" id="export-backup-btn" data-i18n="settings.backup.export">导出备份</button>
+            <button type="button" class="btn btn-ghost" id="import-backup-btn" data-i18n="settings.backup.import">导入备份</button>
+            <button type="button" class="btn btn-ghost" id="export-md-btn" data-i18n="settings.mdexport.button">导出为 Markdown</button>
             <input type="file" id="import-backup-input" accept=".json,application/json" hidden>
           </div>
           <div class="settings-section">
@@ -895,11 +895,11 @@
                 <span data-i18n="settings.backup.autoChooseFolder">选择备份文件夹</span>
               </button>
               <p id="autobackup-path" class="form-hint"></p>
-              <div class="form-field" style="max-width: 220px">
+              <div class="form-field u-max-w-220">
                 <label class="form-label" for="autobackup-max-count" data-i18n="settings.backup.autoMaxCount">备份数量上限</label>
                 <input type="number" id="autobackup-max-count" min="1" max="100" step="1">
               </div>
-              <div class="settings-actions" style="padding: 0">
+              <div class="settings-actions u-p-0">
                 <button type="button" class="btn btn-ghost btn-sm" id="autobackup-now-btn">
                   <span data-i18n="settings.backup.autoNow">立即备份</span>
                 </button>
@@ -956,7 +956,7 @@
         </div>
       </section>
 
-      <section class="view" id="about-view" aria-labelledby="page-title">
+      <section class="view" id="about-view" aria-label="关于" data-i18n-aria="page.about">
         <div class="card about-card">
           <div class="about-hero">
             <img class="about-icon" src="JimBDHubIcon256.png" alt="JimBDHub">
@@ -1005,7 +1005,7 @@
     </main>
   </div>
 
-  <div class="modal" id="med-modal" aria-hidden="true">
+  <div class="modal" id="med-modal" hidden>
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <h3 id="med-modal-title">新增药品</h3>
@@ -1056,7 +1056,7 @@
             <div class="form-field">
               <div class="form-label-row">
                 <span class="form-label" data-i18n="meds.form.remaining">当前剩余（总数，由板/瓶明细自动汇总）</span>
-                <input type="number" id="med-remaining" min="0" step="any" readonly tabindex="-1">
+                <label for="med-remaining"></label><input type="number" id="med-remaining" min="0" step="any" readonly tabindex="-1">
               </div>
               <small class="form-hint" data-i18n="meds.form.remainingHint">可直接在下方按板/瓶设置每处剩余，会自动求和。板/瓶数量由「盒数 × 每盒板/瓶数」决定。</small>
             </div>
@@ -1074,20 +1074,40 @@
             </div>
           </div>
           <div class="form-row three-col pk-range-row">
-            <label class="form-field"><span class="form-label" data-i18n="meds.form.onsetHours">起效时间范围（小时）</span>
-              <div class="range-inputs"><input type="number" id="med-onset-min" min="0" step="0.01" required><span>~</span><input type="number" id="med-onset-max" min="0" step="0.01" required></div>
-            </label>
-            <label class="form-field"><span class="form-label" data-i18n="meds.form.peakHours">达峰时间范围（小时）</span>
-              <div class="range-inputs"><input type="number" id="med-peak-min" min="0" step="0.01" required><span>~</span><input type="number" id="med-peak-max" min="0" step="0.01" required></div>
-            </label>
-            <label class="form-field"><span class="form-label" data-i18n="meds.form.halfLifeHours">半衰期范围（小时）</span>
-              <div class="range-inputs"><input type="number" id="med-half-life-min" min="0.1" step="0.01" required><span>~</span><input type="number" id="med-half-life-max" min="0.1" step="0.01" required></div>
-            </label>
+            <div class="form-field">
+              <span class="form-label" id="med-onset-range-label" data-i18n="meds.form.onsetHours">起效时间范围（小时）</span>
+              <div class="range-inputs" role="group" aria-labelledby="med-onset-range-label">
+                <input type="number" id="med-onset-min" min="0" step="0.01" required data-i18n-aria="common.boundLower" aria-label="下限">
+                <span aria-hidden="true">~</span>
+                <input type="number" id="med-onset-max" min="0" step="0.01" required data-i18n-aria="common.boundUpper" aria-label="上限">
+              </div>
+            </div>
+            <div class="form-field">
+              <span class="form-label" id="med-peak-range-label" data-i18n="meds.form.peakHours">达峰时间范围（小时）</span>
+              <div class="range-inputs" role="group" aria-labelledby="med-peak-range-label">
+                <input type="number" id="med-peak-min" min="0" step="0.01" required data-i18n-aria="common.boundLower" aria-label="下限">
+                <span aria-hidden="true">~</span>
+                <input type="number" id="med-peak-max" min="0" step="0.01" required data-i18n-aria="common.boundUpper" aria-label="上限">
+              </div>
+            </div>
+            <div class="form-field">
+              <span class="form-label" id="med-half-life-range-label" data-i18n="meds.form.halfLifeHours">半衰期范围（小时）</span>
+              <div class="range-inputs" role="group" aria-labelledby="med-half-life-range-label">
+                <input type="number" id="med-half-life-min" min="0.1" step="0.01" required data-i18n-aria="common.boundLower" aria-label="下限">
+                <span aria-hidden="true">~</span>
+                <input type="number" id="med-half-life-max" min="0.1" step="0.01" required data-i18n-aria="common.boundUpper" aria-label="上限">
+              </div>
+            </div>
           </div>
           <div class="form-row two-col">
-            <label class="form-field"><span class="form-label" data-i18n="meds.form.therapeuticWindow">治疗窗（血药浓度范围，可留空）</span>
-              <div class="range-inputs"><input type="number" id="med-therapeutic-min" min="0" step="0.01" placeholder="下限"><span>~</span><input type="number" id="med-therapeutic-max" min="0" step="0.01" placeholder="上限"></div>
-            </label>
+            <div class="form-field">
+              <span class="form-label" id="med-therapeutic-range-label" data-i18n="meds.form.therapeuticWindow">治疗窗（血药浓度范围，可留空）</span>
+              <div class="range-inputs" role="group" aria-labelledby="med-therapeutic-range-label">
+                <label for="med-therapeutic-min"></label><input type="number" id="med-therapeutic-min" min="0" step="0.01" data-i18n-placeholder="common.boundLower" placeholder="下限">
+                <span aria-hidden="true">~</span>
+                <label for="med-therapeutic-max"></label><input type="number" id="med-therapeutic-max" min="0" step="0.01" data-i18n-placeholder="common.boundUpper" placeholder="上限">
+              </div>
+            </div>
             <label class="form-field"><span class="form-label" data-i18n="meds.form.therapeuticUnit">血药浓度单位</span>
               <select id="med-therapeutic-unit">
                 <option value="mg/L">mg/L</option>
@@ -1125,7 +1145,7 @@
     </div>
   </div>
 
-  <div class="modal" id="stock-modal" aria-hidden="true">
+  <div class="modal" id="stock-modal" hidden>
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <h3 data-i18n="meds.adjustTitle">调整库存</h3>
@@ -1157,7 +1177,7 @@
     </div>
   </div>
 
-  <div class="modal" id="log-modal" aria-hidden="true">
+  <div class="modal" id="log-modal" hidden>
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <h3 id="log-modal-title" data-i18n="meds.log.modalTitle">编辑变更日志</h3>
@@ -1195,7 +1215,7 @@
     </div>
   </div>
 
-  <div class="modal" id="board-detail-modal" aria-hidden="true">
+  <div class="modal" id="board-detail-modal" hidden>
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <h3 id="board-detail-title" data-i18n="meds.boardDetail.title">板/瓶剩余详情</h3>
@@ -1207,7 +1227,7 @@
     </div>
   </div>
 
-  <div class="modal" id="med-group-modal" aria-hidden="true">
+  <div class="modal" id="med-group-modal" hidden>
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <h3 data-i18n="records.medicationForm.groupNameTitle">保存摄入组</h3>
@@ -1232,7 +1252,7 @@
     </div>
   </div>
 
-  <div class="modal" id="contributors-modal" aria-hidden="true">
+  <div class="modal" id="contributors-modal" hidden>
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <h3 data-i18n="about.contributorsTitle">贡献者鸣谢单</h3>
@@ -1244,7 +1264,7 @@
     </div>
   </div>
 
-  <div class="modal" id="mdexport-modal" aria-hidden="true">
+  <div class="modal" id="mdexport-modal" hidden>
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <h3 data-i18n="settings.mdexport.title">导出为 Markdown</h3>
@@ -1261,7 +1281,7 @@
     </div>
   </div>
 
-  <div class="modal" id="encrypt-dialog" aria-hidden="true">
+  <div class="modal" id="encrypt-dialog" hidden>
     <div class="modal-backdrop"></div>
     <div class="modal-content">
       <h3 id="encrypt-dialog-title">设置主密码</h3>
@@ -1292,7 +1312,7 @@
     </div>
   </div>
 
-  <div class="modal" id="app-dialog" aria-hidden="true">
+  <div class="modal" id="app-dialog" hidden>
     <div class="modal-backdrop"></div>
     <div class="modal-content dialog-content">
       <p class="dialog-message" id="app-dialog-message"></p>

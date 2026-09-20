@@ -871,9 +871,9 @@ function openBoardDetail(med) {
     });
     tree.appendChild(grp);
   });
-  boardDetailModal.setAttribute('aria-hidden', 'false');
+  boardDetailModal.hidden = false;
   // 渐变随轨道宽度裁切而非拉伸（与主进度条一致）：渐变覆盖整条轨道，填充宽度只
-  // 裁切可见部分。因轨道宽 flex:1 不固定，需先让弹窗参与布局（aria-hidden=false
+  // 裁切可见部分。因轨道宽 flex:1 不固定，需先让弹窗参与布局（hidden=false
   // 后再测量，否则 clientWidth 为 0），再按各轨道实际宽度设置渐变尺寸。
   tree.querySelectorAll('.board-tree-bar-wrap').forEach(wrap => {
     const bar = wrap.querySelector('.board-tree-bar');
@@ -882,7 +882,7 @@ function openBoardDetail(med) {
 }
 
 function closeBoardDetail() {
-  if (boardDetailModal) boardDetailModal.setAttribute('aria-hidden', 'true');
+  if (boardDetailModal) boardDetailModal.hidden = true;
 }
 
 function defaultMedColor() {
@@ -987,11 +987,11 @@ function openModal(med = null) {
     renderBoardEditor();
     setManualFieldsVisible(false);
   }
-  medModal.setAttribute('aria-hidden', 'false');
+  medModal.hidden = false;
 }
 
 function closeModal() {
-  medModal.setAttribute('aria-hidden', 'true');
+  medModal.hidden = true;
 }
 
 function openStockModal(med) {
@@ -1019,12 +1019,12 @@ function openStockModal(med) {
       stockBoardRow.hidden = true;
     }
   }
-  stockModal.setAttribute('aria-hidden', 'false');
+  stockModal.hidden = false;
   stockDeltaInput.focus();
 }
 
 function closeStockModal() {
-  stockModal.setAttribute('aria-hidden', 'true');
+  stockModal.hidden = true;
 }
 
 function formatDateTimeLocal(ts) {
@@ -1059,7 +1059,7 @@ function openLogModal(log) {
   logTimeInput.value = formatDateTimeLocal(log.timestamp);
   logDeltaInput.value = log.delta;
   logNoteInput.value = log.note || '';
-  logModal.setAttribute('aria-hidden', 'false');
+  logModal.hidden = false;
   logTimeInput.focus();
 }
 
@@ -1072,12 +1072,12 @@ function openAddLogModal() {
   logTimeInput.value = formatDateTimeLocal(Date.now());
   logDeltaInput.value = '';
   logNoteInput.value = '';
-  logModal.setAttribute('aria-hidden', 'false');
+  logModal.hidden = false;
   logMedSelect.focus();
 }
 
 function closeLogModal() {
-  logModal.setAttribute('aria-hidden', 'true');
+  logModal.hidden = true;
 }
 
 function handleFormSubmit(e) {
@@ -1241,7 +1241,7 @@ function initMeds() {
   boardDetailCloseBtn?.addEventListener('click', closeBoardDetail);
   boardDetailModal?.querySelector('.modal-backdrop')?.addEventListener('click', closeBoardDetail);
   document.addEventListener('keydown', e => {
-    if (e.key === 'Escape' && boardDetailModal && boardDetailModal.getAttribute('aria-hidden') === 'false') {
+    if (e.key === 'Escape' && boardDetailModal && !boardDetailModal.hidden) {
       closeBoardDetail();
     }
   });
