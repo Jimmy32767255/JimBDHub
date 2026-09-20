@@ -984,6 +984,25 @@ export function renderMoodChart(records, container, tooltip, legendContainer, op
       d += ` L ${base.xFor(items[items.length - 1].timestamp)} ${baselineY} Z`;
       return d;
     }
+    // 生成若干条不连续曲线段的路径：includeSegment(i) 决定是否绘制第 i 段（items[i-1] -> items[i]）。
+    // 用于按「是否为混合期段」拆分包络线，避免非混合区上下包络重叠。
+    function makeCurveRunsD(items, getValue, includeSegment) {
+      let d = '';
+      let open = false;
+      for (let i = 1; i < items.length; i++) {
+        if (!includeSegment(i)) {
+          open = false;
+          continue;
+        }
+        const prev = items[i - 1], curr = items[i];
+        if (!open) {
+          d += ` M ${base.xFor(prev.timestamp)} ${yFor(getValue(prev))}`;
+          open = true;
+        }
+        d += curveSegment(base.xFor(prev.timestamp), yFor(getValue(prev)), base.xFor(curr.timestamp), yFor(getValue(curr)));
+      }
+      return d;
+    }
 
     const hasMixed = curveRecords.some(r => r.mixed);
     if (hasMixed) {
@@ -992,6 +1011,13 @@ export function renderMoodChart(records, container, tooltip, legendContainer, op
         upper: r.mixed ? Math.max(r.value, r.mixedValue) : r.value,
         lower: r.mixed ? Math.min(r.value, r.mixedValue) : r.value
       }));
+      // 混合期段的判定：相邻两点中至少有一个是混合期。
+      // 混合期段用红/蓝包络线体现上下两个极值；非混合段两点上下值相等，
+      // 若仍绘制上下包络会完全重叠，后绘制的蓝色会覆盖红色导致整条线变蓝。
+      // 因此非混合段改用主渐变线绘制，颜色按数值（正值偏红、负值偏蓝）渐变。
+      const touchesMixed = i => !!(mixedRecords[i - 1].mixed || mixedRecords[i].mixed);
+      const isPlainSegment = i => !touchesMixed(i);
+      // 混合带面积：非混合段上下重合退化为零高度，不会产生可见填充。
       let areaD = `M ${base.xFor(mixedRecords[0].timestamp)} ${yFor(mixedRecords[0].upper)}`;
       for (let i = 1; i < mixedRecords.length; i++) {
         const prev = mixedRecords[i - 1], curr = mixedRecords[i];
@@ -1009,16 +1035,33 @@ export function renderMoodChart(records, container, tooltip, legendContainer, op
       }
       areaD += ' Z';
       container.appendChild(createSVGElement('path', { d: areaD, fill: `url(#grad-mixed-${uid})`, stroke: 'none', 'clip-path': `url(#${chartClipId})` }));
-      container.appendChild(createSVGElement('path', {
-        d: makeCurveD(mixedRecords, r => r.upper),
-        fill: 'none', stroke: colors.positive, 'stroke-width': 2.5,
-        'clip-path': `url(#${chartClipId})`
-      }));
-      container.appendChild(createSVGElement('path', {
-        d: makeCurveD(mixedRecords, r => r.lower),
-        fill: 'none', stroke: colors.negative, 'stroke-width': 2.5,
-        'clip-path': `url(#${chartClipId})`
-      }));
+      const dUpper = makeCurveRunsD(mixedRecords, r => r.upper, touchesMixed);
+      if (dUpper) {
+        container.appendChild(createSVGElement('path', {
+          d: dUpper,
+          fill: 'none', stroke: colors.positive, 'stroke-width': 2.5,
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+          'clip-path': `url(#${chartClipId})`
+        }));
+      }
+      const dLower = makeCurveRunsD(mixedRecords, r => r.lower, touchesMixed);
+      if (dLower) {
+        container.appendChild(createSVGElement('path', {
+          d: dLower,
+          fill: 'none', stroke: colors.negative, 'stroke-width': 2.5,
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+          'clip-path': `url(#${chartClipId})`
+        }));
+      }
+      const dPlain = makeCurveRunsD(mixedRecords, r => r.value, isPlainSegment);
+      if (dPlain) {
+        container.appendChild(createSVGElement('path', {
+          d: dPlain,
+          fill: 'none', stroke: `url(#grad-main-${uid})`, 'stroke-width': 3,
+          'stroke-linecap': 'round', 'stroke-linejoin': 'round',
+          'clip-path': `url(#${chartClipId})`
+        }));
+      }
     } else {
       container.appendChild(createSVGElement('path', {
         d: makeCurveD(curveRecords, r => r.value),
