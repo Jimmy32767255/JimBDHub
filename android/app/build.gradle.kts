@@ -13,8 +13,8 @@ android {
         applicationId = "org.jimmy.bdhub"
         minSdk = 24
         targetSdk = 36
-        versionCode = 6
-        versionName = "V1.4.0B-Enc"
+        versionCode = 7
+        versionName = "V1.5.0R"
 
         testInstrumentationRunner = "androidx.test.runner.AndroidJUnitRunner"
     }
