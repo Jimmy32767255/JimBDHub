@@ -257,11 +257,16 @@ function filterDataForPage(records, sleeps, events, page, globalRange) {
 
   const pageRecords = records.filter(r => r.timestamp >= pageStart && r.timestamp <= pageEnd);
 
-  // Boundary records from adjacent pages to keep the curve slope continuous
+  // 边界记录（上一页最后一条 / 下一页第一条）用于保持曲线跨页斜率连续。
+  // 只允许情绪记录：服药记录没有 value 字段，混入曲线会产生 NaN 坐标，
+  // 而 SVG 对含 NaN 的路径整条不渲染，导致开启“连接情绪数据点”后曲线完全消失。
+  const isMoodBoundary = r => r.type !== 'medication' && Number.isFinite(r.value);
   const prevRecord = records
+    .filter(isMoodBoundary)
     .filter(r => r.timestamp < pageStart)
     .sort((a, b) => b.timestamp - a.timestamp)[0] || null;
   const nextRecord = records
+    .filter(isMoodBoundary)
     .filter(r => r.timestamp > pageEnd)
     .sort((a, b) => a.timestamp - b.timestamp)[0] || null;
 

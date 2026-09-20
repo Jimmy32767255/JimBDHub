@@ -244,6 +244,15 @@ function renderTherapeuticLabelsOverlay(wrap, labels, height) {
 function isMoodRecord(r) {
   return r.type !== 'medication';
 }
+
+// 情绪记录必须带有有限数值：yFor(undefined) 会得到 NaN，
+// 而 SVG 规范下含 NaN 坐标的 <path> 整条不渲染，表现为曲线完全消失。
+function hasNumericMoodValue(r) {
+  if (!Number.isFinite(r.value)) return false;
+  if (r.mixed && !Number.isFinite(r.mixedValue)) return false;
+  return true;
+}
+
 export function extractDoses(records) {
   const doses = [];
   records.forEach(r => {
@@ -866,7 +875,8 @@ function subscribeCrosshairSync(container, cross, show, hide, base) {
 }
 // ===================== 情绪图 =====================
 export function renderMoodChart(records, container, tooltip, legendContainer, options = {}) {
-  const { pxPerHour = PX_PER_HOUR, displayMinTime, displayMaxTime, boundaryRecords = [] } = options;
+  const { pxPerHour = PX_PER_HOUR, displayMinTime, displayMaxTime } = options;
+  let boundaryRecords = options.boundaryRecords || [];
   const theme = getTheme();
   const colors = chartColors(theme);
   const useCurve = theme.curveLine !== 'line';
@@ -880,7 +890,14 @@ export function renderMoodChart(records, container, tooltip, legendContainer, op
   if (legendContainer) legendContainer.innerHTML = '';
 
   records = records.filter(isMoodRecord)
+    .filter(hasNumericMoodValue)
     .filter(r => r.timestamp >= displayMinTime && r.timestamp <= displayMaxTime);
+
+  // 边界记录用于保持跨页斜率连续，可能落在当前页可视范围之外（由 clipPath 裁掉），
+  // 因此不能按时间范围过滤；但必须过滤掉服药记录等无 value 的条目，
+  // 否则与 records 拼接后会产生 NaN 坐标并导致整条曲线不渲染。
+  boundaryRecords = boundaryRecords.filter(isMoodRecord)
+    .filter(hasNumericMoodValue);
 
   if (records.length === 0) {
     showChartEmpty(container, colors, t('chart.empty'));
