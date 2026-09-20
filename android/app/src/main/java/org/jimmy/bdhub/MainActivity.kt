@@ -736,7 +736,6 @@ class MainActivity : AppCompatActivity() {
 
     // 检查设备是否有可用的生物认证硬件并已录入凭据
     fun isBiometricAvailable(): Boolean {
-        if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return false
         return try {
             val bm = BiometricManager.from(this)
             bm.canAuthenticate(BiometricManager.Authenticators.BIOMETRIC_WEAK) ==
@@ -749,7 +748,6 @@ class MainActivity : AppCompatActivity() {
     // 将主密码加密存入设备安全存储（密钥要求用户认证后可用）
     fun saveMasterPasswordToKeystore(password: String) {
         try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return
             val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
             if (!keyStore.containsAlias(KEY_ALIAS)) {
                 val keyGen = KeyGenerator.getInstance(KeyProperties.KEY_ALGORITHM_AES, KEYSTORE_PROVIDER)
@@ -798,7 +796,6 @@ class MainActivity : AppCompatActivity() {
     // 为解密初始化 Cipher（需在展示 BiometricPrompt 之前完成）
     private fun createDecryptionCipher(): Cipher? {
         return try {
-            if (Build.VERSION.SDK_INT < Build.VERSION_CODES.M) return null
             val keyStore = KeyStore.getInstance(KEYSTORE_PROVIDER).apply { load(null) }
             if (!keyStore.containsAlias(KEY_ALIAS)) return null
             val key = keyStore.getKey(KEY_ALIAS, null) as SecretKey
@@ -869,10 +866,6 @@ class MainActivity : AppCompatActivity() {
                         }
                     }
 
-                    override fun onAuthenticationFailed() {
-                        super.onAuthenticationFailed()
-                        // 指纹不匹配时系统已有提示，此处静默
-                    }
                 }
             )
             val promptInfo = BiometricPrompt.PromptInfo.Builder()
