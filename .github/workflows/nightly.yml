@@ -75,6 +75,11 @@ jobs:
 
       - name: 设置 Android SDK
         uses: android-actions/setup-android@v3
+        with:
+          # 新版 SDK 仓库已下线 `tools` 包，setup-android 默认的 "tools platform-tools"
+          # 会报 "Failed to find package 'tools'" 并返回退出码 1；这里只装 platform-tools，
+          # 其余 platforms / build-tools 由 Gradle 在构建时按需自动下载。
+          packages: platform-tools
 
       # 机密不能在 if 条件中引用，改为脚本内判断；未配齐时自动构建未签名 APK
       - name: 配置签名（机密齐全时）
