@@ -63,7 +63,9 @@ jobs:
       - name: AppImage 冒烟测试
         run: |
           set -e
-          APPIMAGE=dist/GNU-Linux-amd64.AppImage
+          # 必须用绝对路径：下面解压时要先 cd 到临时目录，
+          # 相对路径在切换工作目录后会失效（曾导致 "No such file or directory" / exit 127）。
+          APPIMAGE="$PWD/dist/GNU-Linux-amd64.AppImage"
           chmod +x "$APPIMAGE"
 
           # 解压 AppImage（不依赖 FUSE），校验启动脚本引用的依赖目录真实存在
