@@ -145,8 +145,11 @@ Without a bridge: export uses Blob + `<a download>`, import uses a hidden `<inpu
 
 ## Internationalization
 
-- `i18n.js` provides `t(key, params?)` and language switching; the language is stored under `jimbdhub_language`.
+- `i18n.js` provides `t(key, params?)` and language switching; the language preference is stored under `jimbdhub_language`.
 - Static text uses `data-i18n`; text with dynamic parameters (e.g. "Medication {n}", sync status) uses `data-i18n` + `data-i18n-params` (JSON string). `updateDOM()` handles both so language switches apply immediately.
+- **Follows the system language by default**: the preference value is `system` (written on first launch), and `detectSystemLanguage()` derives the language from `navigator.language` / `navigator.userLanguage` / `navigator.languages` (checked in that order — some Android WebViews hard-code `navigator.languages` to `['en-US', 'en']`, while `navigator.language` still reflects the device locale) — Chinese (`zh*`) maps to `zh-CN`, everything else (including `C` / `POSIX`) falls back to `en-US`. This is required by the AppImage catalog (an English interface by default outside Chinese locales); **do not revert to a hard-coded `zh-CN`**.
+- The "Follow system" entry in the Settings language dropdown stores `system`; picking a concrete language stores that code.
+- `getLanguage()` returns the effective language (used for backup/sync export); `getLanguagePreference()` returns the user preference (`system` or a concrete language, used to reflect the dropdown state).
 - When modifying language files, keep `zh-CN.json` and `en-US.json` in sync.
 
 ## Theme System

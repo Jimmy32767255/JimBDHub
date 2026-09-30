@@ -339,6 +339,8 @@
   "settings.search.title": "Search settings",
   "settings.search.placeholder": "Type keywords to search settings…",
   "settings.search.empty": "No matching settings found",
+  "settings.lang.system": "Follow system",
+  "settings.lang.systemHint": "Follows the system language by default; English is used outside Chinese locales",
   "settings.lang.zh-CN": "中文（简体）",
   "settings.lang.en-US": "English",
   "settings.appearance.title": "Appearance",

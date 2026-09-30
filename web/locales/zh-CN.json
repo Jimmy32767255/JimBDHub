@@ -339,6 +339,8 @@
   "settings.search.title": "搜索设置",
   "settings.search.placeholder": "输入关键词搜索设置项…",
   "settings.search.empty": "未找到匹配的设置项",
+  "settings.lang.system": "跟随系统",
+  "settings.lang.systemHint": "默认跟随系统语言；非中文系统环境下显示 English",
   "settings.lang.zh-CN": "中文（简体）",
   "settings.lang.en-US": "English",
   "settings.appearance.title": "个性化",

@@ -525,9 +525,11 @@
           </div>
           <div class="settings-actions">
               <label for="language-select"></label><select id="language-select" class="form-field">
+              <option value="system" data-i18n="settings.lang.system">跟随系统</option>
               <option value="zh-CN" data-i18n="settings.lang.zh-CN">中文（简体）</option>
               <option value="en-US" data-i18n="settings.lang.en-US">English</option>
             </select>
+            <p class="form-hint" data-i18n="settings.lang.systemHint">默认跟随系统语言；非中文系统环境下显示 English</p>
           </div>
         </div>
         <div class="card" data-settings-card="update">

@@ -145,8 +145,11 @@
 
 ## 国际化机制
 
-- `i18n.js` 提供 `t(key, params?)` 与语言切换，语言存于 `jimbdhub_language`。
+- `i18n.js` 提供 `t(key, params?)` 与语言切换，语言偏好存于 `jimbdhub_language`。
 - 静态文本使用 `data-i18n`；含动态参数（如"药物 {n}"、同步状态）的文本使用 `data-i18n` + `data-i18n-params`（JSON 字符串），`updateDOM()` 会处理两者，保证切换语言即时生效。
+- **默认跟随系统语言**：偏好值为 `system`（首次启动即写入），由 `detectSystemLanguage()` 依据 `navigator.language` / `navigator.userLanguage` / `navigator.languages`（按此顺序，因为部分 Android WebView 会把 `navigator.languages` 硬编码为 `['en-US', 'en']`，只有 `navigator.language` 反映真实设备语言）推断——中文（`zh*`）用 `zh-CN`，其余（含 `C` / `POSIX`）一律回退到 `en-US`。这是 AppImage 目录的收录要求（非中文环境需默认显示英文界面），**请勿改回硬编码 `zh-CN`**。
+- 设置页「语言」下拉框的「跟随系统」写入 `system`；选择具体语言则写入对应代码。
+- `getLanguage()` 返回当前生效语言（用于备份/同步导出），`getLanguagePreference()` 返回用户偏好（`system` 或具体语言，用于设置页回显）。
 - 修改语言文件后请同步更新 `zh-CN.json` 与 `en-US.json`。
 
 ## 主题系统

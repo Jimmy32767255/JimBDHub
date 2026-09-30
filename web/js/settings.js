@@ -1,6 +1,6 @@
 import { store } from './store.js';
 import { platform } from './platform.js';
-import { t, setLanguage, getLanguage, subscribe, updateDOM } from './i18n.js';
+import { t, setLanguage, getLanguage, getLanguagePreference, setLanguagePreference, subscribe, updateDOM } from './i18n.js';
 import {
   getTheme, setTheme, resetTheme, applySystemTheme, sanitizeCustomCSS, subscribe as subscribeTheme,
   extractImageAverageColor, takeAutoColorSnapshot, buildAutoColorTheme, isAutoColorActive,
@@ -1563,9 +1563,11 @@ export function initSettings() {
   const languageSelect = document.getElementById('language-select');
 
   if (languageSelect) {
-    languageSelect.value = getLanguage();
+    // 回显的是「偏好」（可能是 'system'），而非当前生效语言，
+    // 否则选择「跟随系统」后下拉框会被解析成具体语言而丢失该项
+    languageSelect.value = getLanguagePreference();
     languageSelect.addEventListener('change', () => {
-      setLanguage(languageSelect.value);
+      setLanguagePreference(languageSelect.value);
     });
   }
 
@@ -1639,7 +1641,7 @@ export function initSettings() {
   subscribe(() => {
     updateDOM();
     if (languageSelect) {
-      languageSelect.value = getLanguage();
+      languageSelect.value = getLanguagePreference();
     }
   });
 }
