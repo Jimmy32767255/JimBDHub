@@ -242,6 +242,28 @@ chmod +x Build.sh
 
 The desktop version number is changed in `AppImageBuilder.yml`.
 
+**Packaging notes (do not remove)**:
+
+- Install Python dependencies with `pip install --target=...` into a **fixed directory**
+  (currently `AppDir/usr/lib/jimbdhub-python`) instead of
+  `pip install --prefix=$APPDIR/usr`. On Debian/Ubuntu the default install scheme is
+  `posix_local`, so `--prefix` places packages under
+  `usr/local/lib/pythonX.Y/dist-packages`; a launcher that looks in
+  `usr/lib/pythonX.Y/site-packages` then fails immediately with
+  `ModuleNotFoundError: No module named 'webview'`. On Arch and similar distros the
+  scheme is `posix_prefix`, so both paths coincide — which is exactly why it worked
+  locally but crashed in the AppImage test environment.
+- The launchers (`AppRun` and `usr/bin/jimbdhub`) must point at the same dependency
+  directory as above.
+- Both the launchers and `desktop/main.py` disable the Chromium sandbox
+  (`QTWEBENGINE_DISABLE_SANDBOX=1`, `--no-sandbox --disable-gpu`). Under AppImage
+  (FUSE mount), the firejail used by AppImage's official test environment, containers,
+  and root, the Chromium sandbox usually cannot be created, which crashes the app
+  before any window appears.
+- After changing anything here, run the CI “AppImage smoke test” (or reproduce it
+  locally): extract the AppImage and verify `webview` / `qtpy` / `PyQt6` are importable
+  using the `PYTHONPATH` declared by the launcher.
+
 ### Android — APK
 
 Open `android/` with Android Studio, then `Build > Build Bundle(s) / APK(s) > Build APK(s)`. The mobile version number is changed in `android/app/build.gradle.kts`.

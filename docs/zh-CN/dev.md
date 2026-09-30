@@ -242,6 +242,23 @@ chmod +x Build.sh
 
 桌面端版本号在 `AppImageBuilder.yml` 中修改。
 
+**打包注意事项（务必保留）**：
+
+- Python 依赖必须用 `pip install --target=...` 装到 **固定目录**（当前为
+  `AppDir/usr/lib/jimbdhub-python`），不能用 `pip install --prefix=$APPDIR/usr`。
+  Debian/Ubuntu 的 Python 默认安装方案是 `posix_local`，`--prefix` 会把包装进
+  `usr/local/lib/pythonX.Y/dist-packages`，而启动脚本若去
+  `usr/lib/pythonX.Y/site-packages` 找就会找不到，AppImage 启动即崩溃：
+  `ModuleNotFoundError: No module named 'webview'`。Arch 等发行版用的是
+  `posix_prefix`，两条路径恰好重合 —— 这正是“本机能跑、官方测试环境崩溃”的原因。
+- 启动脚本（`AppRun` 与 `usr/bin/jimbdhub`）必须与上面的依赖目录路径保持一致。
+- 启动脚本与 `desktop/main.py` 都会关闭 Chromium 沙箱
+  （`QTWEBENGINE_DISABLE_SANDBOX=1`、`--no-sandbox --disable-gpu`）。
+  AppImage（FUSE 挂载）、AppImage 官方测试环境的 firejail、容器以及 root 用户下
+  Chromium 沙箱通常无法创建，不关闭会在显示窗口前直接崩溃。
+- 修改后请运行 CI 中的 “AppImage 冒烟测试”（或本地复现）：解压 AppImage 后用
+  启动脚本声明的 `PYTHONPATH` 检查 `webview` / `qtpy` / `PyQt6` 能否被导入。
+
 ### Android — APK
 
 Android Studio 打开 `android/`，`Build > Build Bundle(s) / APK(s) > Build APK(s)`。移动端版本号在 `android/app/build.gradle.kts` 中修改。

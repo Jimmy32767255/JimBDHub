@@ -55,6 +55,62 @@ jobs:
       - name: 打包 AppImage
         run: ./Build.sh
 
+      # 冒烟测试：在接近 AppImage 官方测试环境（Ubuntu/Debian）的条件下校验打包结果。
+      # 历史上出现过 `pip --prefix` 在 Debian 系把依赖装到
+      # usr/local/lib/pythonX.Y/dist-packages，而启动脚本却到
+      # usr/lib/pythonX.Y/site-packages 里找，导致运行即崩溃
+      # （ModuleNotFoundError: No module named 'webview'）的回归。
+      - name: AppImage 冒烟测试
+        run: |
+          set -e
+          APPIMAGE=dist/GNU-Linux-amd64.AppImage
+          chmod +x "$APPIMAGE"
+
+          # 解压 AppImage（不依赖 FUSE），校验启动脚本引用的依赖目录真实存在
+          EXTRACT_DIR=$(mktemp -d)
+          ( cd "$EXTRACT_DIR" && "$APPIMAGE" --appimage-extract >/dev/null )
+          ROOT="$EXTRACT_DIR/squashfs-root"
+
+          test -d "$ROOT/usr/lib/jimbdhub-python/webview" || {
+            echo "::error::AppImage 内缺少 usr/lib/jimbdhub-python/webview，启动脚本 PYTHONPATH 与 pip 安装位置不一致"; exit 1;
+          }
+
+          # 用启动脚本声明的同一个 PYTHONPATH 做模块解析检查：直接验证根因是否修复
+          PYTHONPATH="$ROOT/usr/lib/jimbdhub-python" python3 - <<'PY'
+          import importlib.util as u
+          for name in ("webview", "qtpy", "PyQt6.QtCore", "PyQt6.QtWidgets"):
+              if u.find_spec(name) is None:
+                  raise SystemExit(f"::error::启动脚本的 PYTHONPATH 下找不到模块: {name}")
+          print("dependency resolution OK")
+          PY
+
+          if [ ! -x "$ROOT/usr/lib/jimbdhub-python/PyQt6/Qt6/libexec/QtWebEngineProcess" ]; then
+            echo "::error::QtWebEngineProcess 不存在或不可执行"; exit 1;
+          fi
+
+          # 真正启动一次 GUI（xvfb 虚拟显示，模拟 firejail/无沙箱环境），
+          # 确认能持续运行而非启动即崩溃。
+          # 注意：不能只用 `sleep` + `kill` 了事，否则应用秒崩也会被当成通过。
+          sudo apt-get install -y --no-install-recommends xvfb
+          cat > /tmp/gui_smoke.sh <<'SH'
+          set -u
+          APPIMAGE_EXTRACT_AND_RUN=1 "$1" > /tmp/gui_smoke.log 2>&1 &
+          APP_PID=$!
+          sleep 25
+          if kill -0 "$APP_PID" 2>/dev/null; then
+              echo "GUI smoke OK: 应用在 25 秒后仍在运行"
+              kill "$APP_PID" 2>/dev/null || true
+              wait "$APP_PID" 2>/dev/null || true
+              exit 0
+          fi
+          wait "$APP_PID" 2>/dev/null
+          echo "::error::应用启动后崩溃（firejail/无沙箱环境下常见）"
+          echo "---- 应用输出 ----"
+          cat /tmp/gui_smoke.log
+          exit 1
+          SH
+          xvfb-run -a --server-args="-screen 0 1280x800x24" bash /tmp/gui_smoke.sh "$APPIMAGE"
+
       - name: 上传产物
         uses: actions/upload-artifact@v4
         with:

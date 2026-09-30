@@ -42,6 +42,46 @@ def resource_path(relative_path):
 # 强制 qtpy / pywebview 使用 PyQt6，避免系统上残缺的 PyQt5 被优先选中。
 os.environ.setdefault("QT_API", "pyqt6")
 
+
+def _configure_qtwebengine_env() -> None:
+    """在导入 webview 之前配置 QtWebEngine 运行环境。
+
+    调用方（如 AppDir/AppRun、usr/bin/jimbdhub）已根据打包路径设置好
+    QTWEBENGINEPROCESS_PATH 等变量，这里只做兜底，并处理 AppImage/firejail/root
+    等环境下 Chromium 沙箱不可用导致的启动即崩溃问题。
+    """
+    # Chromium 沙箱在 AppImage（FUSE 挂载）、firejail、容器以及 root 用户下常常
+    # 无法正常工作（无法创建 user namespace 或 SUID helper 权限不足），会在启动
+    # 阶段直接崩溃。禁用沙箱并关闭 GPU 走软件渲染，保证在这些环境中也能显示窗口。
+    os.environ["QTWEBENGINE_DISABLE_SANDBOX"] = "1"
+    chromium_flags = os.environ.get("QTWEBENGINE_CHROMIUM_FLAGS", "")
+    for flag in ("--no-sandbox", "--disable-gpu", "--disable-dev-shm-usage"):
+        if flag not in chromium_flags:
+            chromium_flags += f" {flag}"
+    os.environ["QTWEBENGINE_CHROMIUM_FLAGS"] = chromium_flags.strip()
+
+    # 兜底：从已安装的 PyQt6 包中推断 QtWebEngineProcess 与资源目录，
+    # 兼容直接以源码方式运行（未经过 AppRun 包装）的场景。
+    try:
+        import PyQt6  # noqa: F401
+
+        qt6_dir = Path(PyQt6.__file__).resolve().parent / "Qt6"
+        process = qt6_dir / "libexec" / "QtWebEngineProcess"
+        if process.is_file():
+            os.environ.setdefault("QTWEBENGINEPROCESS_PATH", str(process))
+        resources = qt6_dir / "resources"
+        if resources.is_dir():
+            os.environ.setdefault("QTWEBENGINE_RESOURCES_PATH", str(resources))
+        locales = qt6_dir / "translations" / "qtwebengine_locales"
+        if locales.is_dir():
+            os.environ.setdefault("QTWEBENGINE_LOCALES_PATH", str(locales))
+    except Exception:
+        # 缺少 PyQt6 时交给后续导入报错，这里不阻断流程
+        pass
+
+
+_configure_qtwebengine_env()
+
 import argparse
 
 

@@ -17,27 +17,52 @@ script:
   - cp -r $SOURCE_DIR/assets $TARGET_APPDIR/usr/share/jimbdhub/
   - cp -r $SOURCE_DIR/web $TARGET_APPDIR/usr/share/jimbdhub/
 
+  # 清理不应打进 AppImage 的开发用虚拟环境（本地构建时可能存在）
+  - rm -rf $TARGET_APPDIR/usr/share/jimbdhub/desktop/venv $TARGET_APPDIR/usr/share/jimbdhub/desktop/venv-wine $TARGET_APPDIR/usr/share/jimbdhub/desktop/venv-wsl $TARGET_APPDIR/usr/share/jimbdhub/desktop/__pycache__ || true
+
+  # 安装 Python 依赖到固定目录。
+  # 注意：这里不能用 `pip install --prefix=$TARGET_APPDIR/usr`，因为 Debian/Ubuntu
+  # 的默认安装方案是 posix_local，会装到 usr/local/lib/pythonX.Y/dist-packages，
+  # 导致 AppImage 在官方测试环境（Ubuntu/Debian）里找不到 webview 模块。
+  # pip 不受 PEP 668 限制地装到固定目录（仅影响 AppDir，不污染系统 Python）
+  - python3 -m pip install --target=$TARGET_APPDIR/usr/lib/jimbdhub-python --upgrade --ignore-installed --no-warn-script-location -r $SOURCE_DIR/desktop/requirements.txt || python3 -m pip install --target=$TARGET_APPDIR/usr/lib/jimbdhub-python --upgrade --ignore-installed --no-warn-script-location --break-system-packages -r $SOURCE_DIR/desktop/requirements.txt
+  - find $TARGET_APPDIR/usr/lib/jimbdhub-python -name QtWebEngineProcess -exec chmod +x {} \; || true
+
   # 复制图标
   - cp $SOURCE_DIR/assets/JimBDHubIcon256.png $TARGET_APPDIR/usr/share/icons/hicolor/256x256/apps/JimBDHubIcon256.png
   - cp $SOURCE_DIR/assets/JimBDHubIcon256.png $TARGET_APPDIR/usr/share/pixmaps/JimBDHubIcon256.png
 
-  # 创建启动脚本
+  # 创建启动脚本（位于 usr/bin，向上两级才是 AppDir 根目录）
   - |
     cat > $TARGET_APPDIR/usr/bin/jimbdhub << 'EOF'
     #!/bin/bash
     # JimBDHub AppImage 启动脚本
 
-    # 获取 AppDir 路径
-    APP_DIR="$(dirname "$(dirname "$(readlink -f "$0")")")"
+    HERE="$(dirname "$(readlink -f "${0}")")"
+    APPDIR="$(dirname "$(dirname "$HERE")")"
 
     # 强制使用 PyQt6
     export QT_API=pyqt6
 
-    # 设置 Python 路径
-    export PYTHONPATH="$APP_DIR/usr/share/jimbdhub:$PYTHONPATH"
+    # 打包依赖目录（固定路径，与宿主 Python 版本 / 发行版安装方案无关）
+    SITE_PACKAGES="$APPDIR/usr/lib/jimbdhub-python"
+    export PYTHONPATH="$SITE_PACKAGES:$APPDIR/usr/share/jimbdhub:$PYTHONPATH"
+
+    # QtWebEngineProcess / 资源 / 翻译 / 插件路径
+    if [ -x "$SITE_PACKAGES/PyQt6/Qt6/libexec/QtWebEngineProcess" ]; then
+        export QTWEBENGINEPROCESS_PATH="$SITE_PACKAGES/PyQt6/Qt6/libexec/QtWebEngineProcess"
+    fi
+    export QTWEBENGINE_RESOURCES_PATH="$SITE_PACKAGES/PyQt6/Qt6/resources"
+    export QTWEBENGINE_LOCALES_PATH="$SITE_PACKAGES/PyQt6/Qt6/translations/qtwebengine_locales"
+    export QT_PLUGIN_PATH="$SITE_PACKAGES/PyQt6/Qt6/plugins:$QT_PLUGIN_PATH"
+    export QML2_IMPORT_PATH="$SITE_PACKAGES/PyQt6/Qt6/qml:$QML2_IMPORT_PATH"
+
+    # AppImage / firejail / root 环境下 Chromium 沙箱通常不可用，关闭沙箱并走软件渲染
+    export QTWEBENGINE_DISABLE_SANDBOX=1
+    export QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS:-} --no-sandbox --disable-gpu --disable-dev-shm-usage"
 
     # 启动程序
-    exec python3 "$APP_DIR/usr/share/jimbdhub/desktop/main.py" "$@"
+    exec python3 "$APPDIR/usr/share/jimbdhub/desktop/main.py" "$@"
     EOF
   - chmod +x $TARGET_APPDIR/usr/bin/jimbdhub
 
@@ -68,9 +93,25 @@ script:
     # 强制使用 PyQt6
     export QT_API=pyqt6
 
-    # 设置环境变量
+    #设置环境变量
     export PATH="$HERE/usr/bin:$PATH"
-    export PYTHONPATH="$HERE/usr/share/jimbdhub:$PYTHONPATH"
+
+    # 打包依赖目录（固定路径，与宿主 Python 版本 / 发行版安装方案无关）
+    SITE_PACKAGES="$HERE/usr/lib/jimbdhub-python"
+    export PYTHONPATH="$SITE_PACKAGES:$HERE/usr/share/jimbdhub:$PYTHONPATH"
+
+    # QtWebEngineProcess / 资源 / 翻译 / 插件路径
+    if [ -x "$SITE_PACKAGES/PyQt6/Qt6/libexec/QtWebEngineProcess" ]; then
+        export QTWEBENGINEPROCESS_PATH="$SITE_PACKAGES/PyQt6/Qt6/libexec/QtWebEngineProcess"
+    fi
+    export QTWEBENGINE_RESOURCES_PATH="$SITE_PACKAGES/PyQt6/Qt6/resources"
+    export QTWEBENGINE_LOCALES_PATH="$SITE_PACKAGES/PyQt6/Qt6/translations/qtwebengine_locales"
+    export QT_PLUGIN_PATH="$SITE_PACKAGES/PyQt6/Qt6/plugins:$QT_PLUGIN_PATH"
+    export QML2_IMPORT_PATH="$SITE_PACKAGES/PyQt6/Qt6/qml:$QML2_IMPORT_PATH"
+
+    # AppImage / firejail / root 环境下 Chromium 沙箱通常不可用，关闭沙箱并走软件渲染
+    export QTWEBENGINE_DISABLE_SANDBOX=1
+    export QTWEBENGINE_CHROMIUM_FLAGS="${QTWEBENGINE_CHROMIUM_FLAGS:-} --no-sandbox --disable-gpu --disable-dev-shm-usage"
 
     # 启动程序
     exec python3 "$HERE/usr/share/jimbdhub/desktop/main.py" "$@"
