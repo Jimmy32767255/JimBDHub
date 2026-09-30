@@ -256,8 +256,28 @@ chmod +x Build.sh
   （`QTWEBENGINE_DISABLE_SANDBOX=1`、`--no-sandbox --disable-gpu`）。
   AppImage（FUSE 挂载）、AppImage 官方测试环境的 firejail、容器以及 root 用户下
   Chromium 沙箱通常无法创建，不关闭会在显示窗口前直接崩溃。
+- **必须随包分发 Qt 的 xcb 平台插件所需 X11 运行库**（当前为 `AppDir/usr/lib/qt-x11`，
+  由 `Build.sh` 自动从 `libqxcb.so` 的 `ldd` 依赖中收集），并由启动脚本
+  `LD_LIBRARY_PATH` 优先加载。Qt 6.5+ 的 xcb 插件另外依赖 `libxcb-cursor0`，
+  而 `libxkbcommon-x11` / `libxcb-*` 在精简环境里经常缺失，缺任何一个都会导致
+  `qt.qpa.plugin: Could not load the Qt platform plugin "xcb"` 并启动即退出。
+- 启动脚本应显式设置 `PYWEBVIEW_GUI=qt`：AppImage 内只打包了 PyQt6、没有 GTK，
+  不指定时 pywebview 会先尝试 GTK 并打印 `GTK cannot be loaded` 噪音。
+- **必须在 Ubuntu 22.04（jammy）上构建**（CI 已固定 `runs-on: ubuntu-22.04`）。
+  AppImage 不携带 glibc / Python 运行时，而是直接使用宿主机的；而 Qt 的 xcb 插件又必须
+  依赖宿主提供的 X11 库。官方测试环境就是 `ubuntu-22.04`，因此只能在同版本基线上构建。
+  例如 Arch 上的 `libxkbcommon` 要求 `GLIBC_2.38`，24.04 上的库也高于 2.35，
+  这些库一旦随包分发，在 22.04 上就会因 `version \`GLIBC_2.38' not found` 而启动失败。
+  CI 的冒烟测试会用 `objdump -T` 检查 `usr/lib/qt-x11` 中的库，超过 GLIBC 2.35 就直接失败。
+- 构建机需先安装这些库（CI 的“安装系统依赖”已包含）：
+  `libxkbcommon-x11-0 libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1
+  libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-sync1 libxcb-xfixes0
+  libxcb-xinerama0 libxcb-xkb1 libxcb-util1 libxcb-shm0 libxcb-render0
+  libxcb-glx0 libx11-xcb1`。
 - 修改后请运行 CI 中的 “AppImage 冒烟测试”（或本地复现）：解压 AppImage 后用
-  启动脚本声明的 `PYTHONPATH` 检查 `webview` / `qtpy` / `PyQt6` 能否被导入。
+  启动脚本声明的 `PYTHONPATH` 检查 `webview` / `qtpy` / `PyQt6` 能否被导入，
+  并在 `xvfb` 下真实启动一次，确认不是启动即崩溃（失败时会打印
+  `/tmp/gui_smoke.log`）。
 
 ### Android — APK
 

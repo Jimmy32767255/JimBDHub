@@ -260,9 +260,32 @@ The desktop version number is changed in `AppImageBuilder.yml`.
   (FUSE mount), the firejail used by AppImage's official test environment, containers,
   and root, the Chromium sandbox usually cannot be created, which crashes the app
   before any window appears.
+- **The X11 runtime libraries required by Qt's xcb platform plugin must be bundled**
+  (currently `AppDir/usr/lib/qt-x11`, collected by `Build.sh` from the `ldd`
+  dependencies of `libqxcb.so`) and loaded first via the launcher's `LD_LIBRARY_PATH`.
+  Qt 6.5+ additionally needs `libxcb-cursor0`, and `libxkbcommon-x11` / `libxcb-*`
+  are often missing in minimal environments; missing any one of them yields
+  `qt.qpa.plugin: Could not load the Qt platform plugin "xcb"` and an immediate exit.
+- Launchers should explicitly set `PYWEBVIEW_GUI=qt`: the AppImage only bundles PyQt6
+  and no GTK, so without it pywebview first tries GTK and prints `GTK cannot be loaded`.
+- **The build must run on Ubuntu 22.04 (jammy)** (CI pins `runs-on: ubuntu-22.04`).
+  An AppImage does not ship glibc or a Python runtime; it uses the host's. Qt's xcb plugin
+  in turn must link against host-provided X11 libraries. AppImage's official test
+  environment is `ubuntu-22.04`, so the build must use the same baseline. For example,
+  `libxkbcommon` on Arch requires `GLIBC_2.38`, and libraries on 24.04 also exceed 2.35;
+  bundling those makes startup fail on 22.04 with `version \`GLIBC_2.38' not found`.
+  The CI smoke test inspects the libraries in `usr/lib/qt-x11` with `objdump -T` and fails
+  as soon as anything requires more than GLIBC 2.35.
+- The build machine needs these packages first (already included in the CI
+  "install system dependencies" step): `libxkbcommon-x11-0 libxcb-cursor0
+  libxcb-icccm4 libxcb-image0 libxcb-keysyms1 libxcb-randr0 libxcb-render-util0
+  libxcb-shape0 libxcb-sync1 libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1
+  libxcb-util1 libxcb-shm0 libxcb-render0 libxcb-glx0 libx11-xcb1`.
 - After changing anything here, run the CI “AppImage smoke test” (or reproduce it
   locally): extract the AppImage and verify `webview` / `qtpy` / `PyQt6` are importable
-  using the `PYTHONPATH` declared by the launcher.
+  using the `PYTHONPATH` declared by the launcher, then actually launch it under
+  `xvfb` and confirm it does not die on startup (on failure `/tmp/gui_smoke.log`
+  is printed).
 
 ### Android — APK
 

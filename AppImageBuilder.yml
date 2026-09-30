@@ -28,6 +28,36 @@ script:
   - python3 -m pip install --target=$TARGET_APPDIR/usr/lib/jimbdhub-python --upgrade --ignore-installed --no-warn-script-location -r $SOURCE_DIR/desktop/requirements.txt || python3 -m pip install --target=$TARGET_APPDIR/usr/lib/jimbdhub-python --upgrade --ignore-installed --no-warn-script-location --break-system-packages -r $SOURCE_DIR/desktop/requirements.txt
   - find $TARGET_APPDIR/usr/lib/jimbdhub-python -name QtWebEngineProcess -exec chmod +x {} \; || true
 
+  # 打包 Qt xcb 平台插件所需的 X11 运行库（原因详见 Build.sh 中的同名段落）。
+  # 不随包会报 "Could not load the Qt platform plugin \"xcb\"" 并启动即退出。
+  # 注意：本构建器基于 Ubuntu jammy，可能没有 libxcb-cursor0（Qt 6.5+ 需要），
+  # 若需完整的 xcb 支持，请优先使用 Build.sh 构建。
+  - |
+    set -e
+    QT_X11_LIBS=$TARGET_APPDIR/usr/lib/qt-x11
+    rm -rf "$QT_X11_LIBS"
+    mkdir -p "$QT_X11_LIBS"
+    for lib in libxkbcommon-x11.so.0 libxkbcommon.so.0 libxcb-cursor.so.0 \
+               libxcb-icccm.so.4 libxcb-image.so.0 libxcb-keysyms.so.1 \
+               libxcb-randr.so.0 libxcb-render-util.so.0 libxcb-shape.so.0 \
+               libxcb-sync.so.1 libxcb-xfixes.so.0 libxcb-xinerama.so.0 \
+               libxcb-xkb.so.1 libxcb-util.so.1 libxcb-shm.so.0 \
+               libxcb-render.so.0 libxcb-glx.so.0 libxcb.so.1 \
+               libX11-xcb.so.1 libX11.so.6 libXau.so.6 libXdmcp.so.6 \
+               libxshmfence.so.1; do
+      src=$(ldconfig -p 2>/dev/null | awk -v n="$lib" '$1 == n { print $NF; exit }')
+      if [ -n "$src" ] && [ -f "$src" ]; then cp -Lf "$src" "$QT_X11_LIBS/" || true; fi
+    done
+    QXCB_PLUGIN=$TARGET_APPDIR/usr/lib/jimbdhub-python/PyQt6/Qt6/plugins/platforms/libqxcb.so
+    if [ -f "$QXCB_PLUGIN" ]; then
+      ldd "$QXCB_PLUGIN" 2>/dev/null | sed -n 's/.*=> \(.*\.so[^ ]*\).*/\1/p' | while read -r p; do
+        case "$(basename "$p")" in
+          libX11*|libxcb*|libXau*|libXdmcp*|libxkbcommon*|libxshmfence*)
+            if [ -f "$p" ]; then cp -Lf "$p" "$QT_X11_LIBS/" || true; fi ;;
+        esac
+      done
+    fi
+
   # 复制图标
   - cp $SOURCE_DIR/assets/JimBDHubIcon256.png $TARGET_APPDIR/usr/share/icons/hicolor/256x256/apps/JimBDHubIcon256.png
   - cp $SOURCE_DIR/assets/JimBDHubIcon256.png $TARGET_APPDIR/usr/share/pixmaps/JimBDHubIcon256.png
@@ -47,6 +77,12 @@ script:
     # 打包依赖目录（固定路径，与宿主 Python 版本 / 发行版安装方案无关）
     SITE_PACKAGES="$APPDIR/usr/lib/jimbdhub-python"
     export PYTHONPATH="$SITE_PACKAGES:$APPDIR/usr/share/jimbdhub:$PYTHONPATH"
+
+    # xcb 平台插件所需的 X11 运行库（随包分发，保证在精简环境 / firejail 里也能加载）
+    export LD_LIBRARY_PATH="$APPDIR/usr/lib/qt-x11:$LD_LIBRARY_PATH"
+
+    # AppImage 内只打包了 PyQt6（没有 GTK），明确指定 pywebview 使用 Qt 后端
+    export PYWEBVIEW_GUI=qt
 
     # QtWebEngineProcess / 资源 / 翻译 / 插件路径
     if [ -x "$SITE_PACKAGES/PyQt6/Qt6/libexec/QtWebEngineProcess" ]; then
@@ -99,6 +135,12 @@ script:
     # 打包依赖目录（固定路径，与宿主 Python 版本 / 发行版安装方案无关）
     SITE_PACKAGES="$HERE/usr/lib/jimbdhub-python"
     export PYTHONPATH="$SITE_PACKAGES:$HERE/usr/share/jimbdhub:$PYTHONPATH"
+
+    # xcb 平台插件所需的 X11 运行库（随包分发，保证在精简环境 / firejail 里也能加载）
+    export LD_LIBRARY_PATH="$HERE/usr/lib/qt-x11:$LD_LIBRARY_PATH"
+
+    # AppImage 内只打包了 PyQt6（没有 GTK），明确指定 pywebview 使用 Qt 后端
+    export PYWEBVIEW_GUI=qt
 
     # QtWebEngineProcess / 资源 / 翻译 / 插件路径
     if [ -x "$SITE_PACKAGES/PyQt6/Qt6/libexec/QtWebEngineProcess" ]; then

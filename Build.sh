@@ -97,6 +97,67 @@ fi
 echo "[确保 QtWebEngineProcess 可执行...]"
 find "$SITE_PACKAGES" -name "QtWebEngineProcess" -exec chmod +x {} \; 2>/dev/null || true
 
+# ---------- 打包 Qt xcb 平台插件所需的 X11 运行库 ----------
+#
+# Qt 6 的 xcb 平台插件依赖一批 X11 / xcb / xkbcommon 库。AppImage 官方测试环境
+# （firejail）以及精简的测试容器里往往缺少这些库，启动时会直接报
+#   qt.qpa.plugin: Could not load the Qt platform plugin "xcb"
+# 然后立刻退出（连窗口都来不及显示），这也是 AppleImage 目录里报
+# "not self-contained" 的同一根因。把库一并打包并通过 LD_LIBRARY_PATH 优先加载，
+# 才能真正做到自包含。
+echo "[收集 xcb 平台插件所需的 X11 运行库...]"
+QT_X11_LIBS="$APPDIR/usr/lib/qt-x11"
+rm -rf "$QT_X11_LIBS"
+mkdir -p "$QT_X11_LIBS"
+
+# 只收 X11 相关库：不打包 glibc / 编译器运行时（不可随包分发），也不打包
+# PyQt6 自带的 Qt 库（它们已带 RPATH，重复打包反而有风险）。
+X11_LIB_PATTERN='^lib(X11|Xau|Xdmcp|Xext|Xrender|Xfixes|Xi|Xtst|Xcursor|Xrandr|Xshmfence|xcb|X11-xcb|xkbcommon)[.-]'
+copy_x11_libs_of() {
+    local target="$1"
+    [[ -f "$target" ]] || return 0
+    ldd "$target" 2>/dev/null \
+        | sed -n 's/.*=> \(.*\.so[^ ]*\).*/\1/p' \
+        | while read -r lib; do
+            [[ -f "$lib" ]] || continue
+            local base
+            base="$(basename "$lib")"
+            [[ "$base" =~ $X11_LIB_PATTERN ]] || continue
+            cp -Lf "$lib" "$QT_X11_LIBS/" 2>/dev/null || true
+        done
+}
+
+# 1) 从 xcb 平台插件的直接依赖开始收集
+QXCB_PLUGIN="$SITE_PACKAGES/PyQt6/Qt6/plugins/platforms/libqxcb.so"
+copy_x11_libs_of "$QXCB_PLUGIN"
+
+# 2) 迭代补齐间接依赖（如 libqxcb.so -> libxcb-xkb -> libxkbcommon-x11）
+for _ in 1 2 3; do
+    before="$(ls -1 "$QT_X11_LIBS" | wc -l)"
+    while read -r f; do
+        copy_x11_libs_of "$f"
+    done < <(find "$QT_X11_LIBS" -name '*.so*' -type f)
+    after="$(ls -1 "$QT_X11_LIBS" | wc -l)"
+    [[ "$before" == "$after" ]] && break
+done
+
+# 3) 兜底：部分库由 Qt/Chromium 通过 dlopen 加载，不一定出现在 ldd 结果里
+for name in libxkbcommon-x11.so.0 libxkbcommon.so.0 \
+            libxcb-cursor.so.0 libxcb-icccm.so.4 libxcb-image.so.0 \
+            libxcb-keysyms.so.1 libxcb-randr.so.0 libxcb-render-util.so.0 \
+            libxcb-shape.so.0 libxcb-sync.so.1 libxcb-xfixes.so.0 \
+            libxcb-xinerama.so.0 libxcb-xkb.so.1 libxcb-util.so.1 \
+            libxcb-shm.so.0 libxcb-render.so.0 libxcb-glx.so.0 libxcb.so.1 \
+            libX11-xcb.so.1 libX11.so.6 libXau.so.6 libXdmcp.so.6 \
+            libxshmfence.so.1; do
+    lib_path="$(ldconfig -p 2>/dev/null | awk -v n="$name" '$1 == n { print $NF; exit }')"
+    if [[ -n "$lib_path" && -f "$lib_path" ]]; then
+        cp -Lf "$lib_path" "$QT_X11_LIBS/" 2>/dev/null || true
+    fi
+done
+
+echo "[已打包 X11 运行库: $(ls -1 "$QT_X11_LIBS" | wc -l) 个]"
+
 # 复制图标
 cp "$SCRIPT_DIR/assets/JimBDHubIcon256.png" "$APPDIR/usr/share/icons/hicolor/256x256/apps/JimBDHubIcon256.png"
 cp "$SCRIPT_DIR/assets/JimBDHubIcon256.png" "$APPDIR/usr/share/pixmaps/JimBDHubIcon256.png"
@@ -115,6 +176,13 @@ export QT_API=pyqt6
 # 打包的依赖目录（固定路径，不依赖宿主 Python 版本与发行版安装方案）
 SITE_PACKAGES="\$$root/usr/lib/jimbdhub-python"
 export PYTHONPATH="\$SITE_PACKAGES:\$$root/usr/share/jimbdhub:\$PYTHONPATH"
+
+# xcb 平台插件所需的 X11 运行库（随包分发，保证在 firejail / 精简环境里也能加载）
+export LD_LIBRARY_PATH="\$$root/usr/lib/qt-x11:\$LD_LIBRARY_PATH"
+
+# AppImage 内只打包了 PyQt6（没有 GTK），明确指定 pywebview 使用 Qt 后端，
+# 避免它先去尝试导入系统上残缺的 GTK 并打印 "GTK cannot be loaded" 噪音
+export PYWEBVIEW_GUI=qt
 
 # QtWebEngineProcess / 资源 / 翻译 / 插件路径
 WEBENGINE_PROCESS="\$SITE_PACKAGES/PyQt6/Qt6/libexec/QtWebEngineProcess"

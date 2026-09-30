@@ -36,11 +36,16 @@ jobs:
 
   linux:
     name: GNU/Linux AppImage
-    runs-on: ubuntu-latest
+    # 必须用 ubuntu-22.04（jammy）构建：AppImage 官方测试环境就是 ubuntu-22.04，
+    # 而 AppImage 不打包 glibc/Python，运行时直接使用宿主机。如果在 24.04 上构建，
+    # 随包分发的 X11 库（usr/lib/qt-x11）会依赖更高的 glibc，
+    # 在测试机上会因 "version `GLIBC_2.3x' not found" 而无法启动，
+    # 也会被判为 not self-contained。用与测试环境一致的基线可最大限度兼容。
+    runs-on: ubuntu-22.04
     env:
       # 让 appimagetool 以自解压方式运行，避免 CI 上无 FUSE 的问题
       APPIMAGE_EXTRACT_AND_RUN: "1"
-      # ubuntu-24.04 的 pip 受 PEP 668 外部管理环境限制
+      # Ubuntu 24.04 的 pip 受 PEP 668 外部管理环境限制（22.04 无此限制，保留无害）
       PIP_BREAK_SYSTEM_PACKAGES: "1"
     steps:
       - uses: actions/checkout@v4
@@ -48,9 +53,22 @@ jobs:
       - name: 安装系统依赖
         run: |
           sudo apt-get update
+          # Ubuntu 24.04 起 libasound2 改名为 libasound2t64，而 22.04 没有 t64 版本；
+          # 这里自动探测，保证在不同 runner 上都能安装成功。
+          ASOUND=libasound2t64
+          if ! apt-cache show libasound2t64 >/dev/null 2>&1; then ASOUND=libasound2; fi
+          # Qt6 的 xcb 平台插件依赖 libxkbcommon-x11 与一组 libxcb-* 库；
+          # 缺任何一个都会导致 "Could not load the Qt platform plugin \"xcb\"" 并启动即退出。
+          # 这里装上，Build.sh 会把它们连同其它 X11 库一起打包进 AppImage。
           sudo apt-get install -y --no-install-recommends \
-            libegl1 libgl1 libxkbcommon0 libxcb-cursor0 \
-            libnss3 libasound2t64 libxcomposite1 libxdamage1 libxrandr2
+            python3 python3-pip \
+            libegl1 libgl1 libxkbcommon0 libxkbcommon-x11-0 \
+            libxcb-cursor0 libxcb-icccm4 libxcb-image0 libxcb-keysyms1 \
+            libxcb-randr0 libxcb-render-util0 libxcb-shape0 libxcb-sync1 \
+            libxcb-xfixes0 libxcb-xinerama0 libxcb-xkb1 libxcb-util1 \
+            libxcb-shm0 libxcb-render0 libxcb-glx0 libx11-xcb1 \
+            libnss3 "$ASOUND" libxcomposite1 libxdamage1 libxrandr2 \
+            xvfb
 
       - name: 打包 AppImage
         run: ./Build.sh
@@ -77,6 +95,23 @@ jobs:
             echo "::error::AppImage 内缺少 usr/lib/jimbdhub-python/webview，启动脚本 PYTHONPATH 与 pip 安装位置不一致"; exit 1;
           }
 
+          # Qt 的 xcb 平台插件所需的 X11 运行库必须随包分发，否则在精简环境里
+          # 会报 "Could not load the Qt platform plugin xcb" 并启动即崩溃。
+          if [ ! -e "$ROOT/usr/lib/qt-x11/libxkbcommon-x11.so.0" ]; then
+            echo "::error::AppImage 内缺少 usr/lib/qt-x11/libxkbcommon-x11.so.0，Qt6 的 xcb 平台插件无法加载"; exit 1;
+          fi
+
+          # glibc 护栏：AppImage 不携带 glibc，随包分发的 .so 不能要求比官方测试环境
+          # （ubuntu-22.04，glibc 2.35）更高的 GLIBC 符号版本。
+          # 若在更新的构建机上打包，这里会直接暴露 "GLIBC_2.3x" 依赖。
+          MAX_GLIBC=$(for f in "$ROOT"/usr/lib/qt-x11/*.so*; do
+                        objdump -T "$f" 2>/dev/null | grep -o 'GLIBC_[0-9.]*'
+                      done | sed 's/GLIBC_//' | sort -V | tail -1)
+          echo "随包分发的 X11 库所需最高 GLIBC 版本: ${MAX_GLIBC:-未检测到}"
+          if [ -n "$MAX_GLIBC" ] && [ "$(printf '%s\n2.35\n' "$MAX_GLIBC" | sort -V | tail -1)" != "2.35" ]; then
+            echo "::error::随包的 X11 库要求 GLIBC_$MAX_GLIBC，高于官方测试环境(ubuntu-22.04/glibc 2.35)；请在 ubuntu-22.04 上构建"; exit 1;
+          fi
+
           # 用启动脚本声明的同一个 PYTHONPATH 做模块解析检查：直接验证根因是否修复
           PYTHONPATH="$ROOT/usr/lib/jimbdhub-python" python3 - <<'PY'
           import importlib.util as u
@@ -93,10 +128,11 @@ jobs:
           # 真正启动一次 GUI（xvfb 虚拟显示，模拟 firejail/无沙箱环境），
           # 确认能持续运行而非启动即崩溃。
           # 注意：不能只用 `sleep` + `kill` 了事，否则应用秒崩也会被当成通过。
-          sudo apt-get install -y --no-install-recommends xvfb
+          # （xvfb 已在"安装系统依赖"步骤装好，这里不再重复安装）
           cat > /tmp/gui_smoke.sh <<'SH'
           set -u
-          APPIMAGE_EXTRACT_AND_RUN=1 "$1" > /tmp/gui_smoke.log 2>&1 &
+          # QT_DEBUG_PLUGINS=1：若插件加载失败，日志里会直接列出缺失的 .so，便于定位
+          QT_DEBUG_PLUGINS=1 APPIMAGE_EXTRACT_AND_RUN=1 "$1" > /tmp/gui_smoke.log 2>&1 &
           APP_PID=$!
           sleep 25
           if kill -0 "$APP_PID" 2>/dev/null; then
